@@ -1,16 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
-
-export type Dog = {
-  id: string;
-  name: string;
-  breed: string;
-  birth_date: string;
-  weight_kg: number;
-  sex: 'male' | 'female';
-  is_neutered: boolean;
-  avatar_emoji: string;
-};
+import { Dog } from '../../types';
 
 export function useDogs() {
   const [dogs, setDogs] = useState<Dog[]>([]);
@@ -21,26 +11,41 @@ export function useDogs() {
   }, []);
 
   async function fetchDogs() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setDogs([]);
+      setLoading(false);
+      return;
+    }
     const { data, error } = await supabase
       .from('dogs')
       .select('*')
+      .eq('user_id', user.id)
       .order('created_at');
     if (!error && data) setDogs(data);
     setLoading(false);
   }
 
-  async function addDog(dog: Omit<Dog, 'id'>) {
+  async function addDog(dog: Omit<Dog, 'id' | 'user_id' | 'created_at'>) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: new Error('Not authenticated') };
     const { data, error } = await supabase
       .from('dogs')
-      .insert(dog)
+      .insert({ ...dog, user_id: user.id })
       .select()
       .single();
     if (!error && data) setDogs(prev => [...prev, data]);
     return { data, error };
   }
 
-  async function updateDog(id: string, updates: Partial<Dog>) {
-    const { error } = await supabase.from('dogs').update(updates).eq('id', id);
+  async function updateDog(id: string, updates: Partial<Omit<Dog, 'id' | 'user_id' | 'created_at'>>) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: new Error('Not authenticated') };
+    const { error } = await supabase
+      .from('dogs')
+      .update(updates)
+      .eq('id', id)
+      .eq('user_id', user.id);
     if (!error) setDogs(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
     return { error };
   }
