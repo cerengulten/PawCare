@@ -1,18 +1,77 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, StyleSheet } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { useDogs } from '../lib/hooks/useDogs';
+import { Dog } from '../types';
+import DogCard from '../components/DogCard';
+import PetFormScreen from './PetFormScreen';
 
 type Props = {
   session: Session;
 };
 
 export default function HomeScreen({ session }: Props) {
+  const { dogs, loading, addDog, updateDog } = useDogs();
+  const [mode, setMode] = useState<'list' | 'form'>('list');
+  const [editingDog, setEditingDog] = useState<Dog | null>(null);
+
+  if (mode === 'form') {
+    return (
+      <PetFormScreen
+        dog={editingDog}
+        addDog={addDog}
+        updateDog={updateDog}
+        onDone={() => {
+          setMode('list');
+          setEditingDog(null);
+        }}
+        onCancel={() => {
+          setMode('list');
+          setEditingDog(null);
+        }}
+      />
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>🐾 PawCare</Text>
       <Text style={styles.subtitle}>Logged in as {session.user.email}</Text>
-      <TouchableOpacity style={styles.button} onPress={() => supabase.auth.signOut()}>
-        <Text style={styles.buttonText}>Sign out</Text>
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => {
+          setEditingDog(null);
+          setMode('form');
+        }}
+      >
+        <Text style={styles.buttonText}>+ Add dog</Text>
+      </TouchableOpacity>
+
+      {loading ? (
+        <ActivityIndicator color="#5C3D22" style={styles.loading} />
+      ) : (
+        <FlatList
+          data={dogs}
+          keyExtractor={(d) => d.id}
+          renderItem={({ item }) => (
+            <DogCard
+              dog={item}
+              onPress={() => {
+                setEditingDog(item);
+                setMode('form');
+              }}
+            />
+          )}
+          ListEmptyComponent={<Text style={styles.subtitle}>No dogs yet. Add one!</Text>}
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+        />
+      )}
+
+      <TouchableOpacity style={styles.signOutButton} onPress={() => supabase.auth.signOut()}>
+        <Text style={styles.signOutText}>Sign out</Text>
       </TouchableOpacity>
     </View>
   );
@@ -22,9 +81,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFF8F0',
-    alignItems: 'center',
-    justifyContent: 'center',
     padding: 24,
+    paddingTop: 60,
   },
   title: {
     fontSize: 32,
@@ -35,17 +93,35 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     color: '#8B6343',
-    marginBottom: 32,
+    marginBottom: 16,
   },
   button: {
     backgroundColor: '#5C3D22',
     borderRadius: 14,
-    padding: 16,
-    paddingHorizontal: 32,
+    padding: 14,
+    alignItems: 'center',
+    marginBottom: 16,
   },
   buttonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  loading: {
+    marginTop: 24,
+  },
+  list: {
+    flex: 1,
+  },
+  listContent: {
+    paddingBottom: 16,
+  },
+  signOutButton: {
+    alignItems: 'center',
+    padding: 12,
+  },
+  signOutText: {
+    color: '#8B6343',
+    fontSize: 14,
   },
 });

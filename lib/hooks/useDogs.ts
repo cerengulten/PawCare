@@ -20,32 +20,32 @@ export function useDogs() {
     const { data, error } = await supabase
       .from('dogs')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('owner_id', user.id)
       .order('created_at');
     if (!error && data) setDogs(data);
     setLoading(false);
   }
 
-  async function addDog(dog: Omit<Dog, 'id' | 'user_id' | 'created_at'>) {
+  async function addDog(dog: Omit<Dog, 'id' | 'owner_id' | 'created_at' | 'updated_at'>) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { data: null, error: new Error('Not authenticated') };
     const { data, error } = await supabase
       .from('dogs')
-      .insert({ ...dog, user_id: user.id })
+      .insert({ ...dog, owner_id: user.id })
       .select()
       .single();
     if (!error && data) setDogs(prev => [...prev, data]);
     return { data, error };
   }
 
-  async function updateDog(id: string, updates: Partial<Omit<Dog, 'id' | 'user_id' | 'created_at'>>) {
+  async function updateDog(id: string, updates: Partial<Omit<Dog, 'id' | 'owner_id' | 'created_at' | 'updated_at'>>) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: new Error('Not authenticated') };
     const { error } = await supabase
       .from('dogs')
       .update(updates)
       .eq('id', id)
-      .eq('user_id', user.id);
+      .eq('owner_id', user.id);
     if (!error) setDogs(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
     return { error };
   }
