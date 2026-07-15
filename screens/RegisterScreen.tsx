@@ -10,6 +10,8 @@ import {
   Platform,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { PASSWORD_REQUIREMENTS, isPasswordValid } from '../lib/passwordPolicy';
+import SocialSignInButtons from '../components/SocialSignInButtons';
 
 type Props = {
   onSwitch: () => void;
@@ -27,8 +29,8 @@ export default function RegisterScreen({ onSwitch }: Props) {
       setError('Please fill in all fields.');
       return;
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (!isPasswordValid(password)) {
+      setError('Password does not meet the requirements below.');
       return;
     }
     setLoading(true);
@@ -79,12 +81,23 @@ export default function RegisterScreen({ onSwitch }: Props) {
       />
       <TextInput
         style={styles.input}
-        placeholder="Password (min 6 characters)"
+        placeholder="Password"
         placeholderTextColor="#B8926A"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
       />
+
+      <View style={styles.checklist}>
+        {PASSWORD_REQUIREMENTS.map((req) => {
+          const met = req.test(password);
+          return (
+            <Text key={req.label} style={[styles.checklistItem, met && styles.checklistItemMet]}>
+              {met ? '✓' : '○'} {req.label}
+            </Text>
+          );
+        })}
+      </View>
 
       <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={loading}>
         {loading ? (
@@ -93,6 +106,8 @@ export default function RegisterScreen({ onSwitch }: Props) {
           <Text style={styles.buttonText}>Create account</Text>
         )}
       </TouchableOpacity>
+
+      <SocialSignInButtons />
 
       <TouchableOpacity onPress={onSwitch} style={styles.switchRow}>
         <Text style={styles.switchText}>Already have an account? </Text>
@@ -142,6 +157,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#DEC9AF',
+  },
+  checklist: {
+    width: '100%',
+    marginBottom: 4,
+  },
+  checklistItem: {
+    fontSize: 12,
+    color: '#B8926A',
+    marginBottom: 2,
+  },
+  checklistItemMet: {
+    color: '#4A7C4E',
   },
   button: {
     width: '100%',

@@ -1,3 +1,12 @@
+export type Profile = {
+  id: string;
+  full_name: string | null;
+  username: string | null;
+  avatar_url: string | null;
+  push_token: string | null;
+  created_at: string;
+};
+
 export type Dog = {
   id: string;
   owner_id: string;

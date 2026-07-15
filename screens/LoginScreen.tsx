@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
+import SocialSignInButtons from '../components/SocialSignInButtons';
 
 type Props = {
   onSwitch: () => void;
@@ -69,6 +70,8 @@ export default function LoginScreen({ onSwitch }: Props) {
           <Text style={styles.buttonText}>Sign in</Text>
         )}
       </TouchableOpacity>
+
+      <SocialSignInButtons />
 
       <TouchableOpacity onPress={onSwitch} style={styles.switchRow}>
         <Text style={styles.switchText}>Don't have an account? </Text>

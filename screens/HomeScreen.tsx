@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, StyleSheet }
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useDogs } from '../lib/hooks/useDogs';
+import { useProfile } from '../lib/hooks/useProfile';
 import { Dog } from '../types';
 import DogCard from '../components/DogCard';
 import PetFormScreen from './PetFormScreen';
@@ -13,6 +14,7 @@ type Props = {
 
 export default function HomeScreen({ session }: Props) {
   const { dogs, loading, addDog, updateDog } = useDogs();
+  const { profile } = useProfile();
   const [mode, setMode] = useState<'list' | 'form'>('list');
   const [editingDog, setEditingDog] = useState<Dog | null>(null);
 
@@ -37,7 +39,7 @@ export default function HomeScreen({ session }: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>🐾 PawCare</Text>
-      <Text style={styles.subtitle}>Logged in as {session.user.email}</Text>
+      <Text style={styles.subtitle}>Hi {profile?.full_name ?? 'there'}, welcome back!</Text>
 
       <TouchableOpacity
         style={styles.button}
