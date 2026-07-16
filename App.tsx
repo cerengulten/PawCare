@@ -4,7 +4,7 @@ import { supabase } from './lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
-import HomeScreen from './screens/HomeScreen';
+import AppTabs from './screens/AppTabs';
 import OnboardingScreen from './screens/OnboardingScreen';
 import { useProfile } from './lib/hooks/useProfile';
 
@@ -43,7 +43,7 @@ function AuthedApp({ session }: { session: Session }) {
     );
   }
 
-  return <HomeScreen session={session} />;
+  return <AppTabs session={session} />;
 }
 
 export default function App() {

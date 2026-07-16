@@ -7,6 +7,7 @@ import { useProfile } from '../lib/hooks/useProfile';
 import { Dog } from '../types';
 import DogCard from '../components/DogCard';
 import PetFormScreen from './PetFormScreen';
+import DogDetailScreen from './DogDetailScreen';
 
 type Props = {
   session: Session;
@@ -15,8 +16,26 @@ type Props = {
 export default function HomeScreen({ session }: Props) {
   const { dogs, loading, addDog, updateDog } = useDogs();
   const { profile } = useProfile();
-  const [mode, setMode] = useState<'list' | 'form'>('list');
+  const [mode, setMode] = useState<'list' | 'form' | 'detail'>('list');
   const [editingDog, setEditingDog] = useState<Dog | null>(null);
+  const [selectedDogId, setSelectedDogId] = useState<string | null>(null);
+  const selectedDog = selectedDogId ? dogs.find((d) => d.id === selectedDogId) ?? null : null;
+
+  if (mode === 'detail' && selectedDog) {
+    return (
+      <DogDetailScreen
+        dog={selectedDog}
+        onEdit={() => {
+          setEditingDog(selectedDog);
+          setMode('form');
+        }}
+        onBack={() => {
+          setSelectedDogId(null);
+          setMode('list');
+        }}
+      />
+    );
+  }
 
   if (mode === 'form') {
     return (
@@ -25,11 +44,11 @@ export default function HomeScreen({ session }: Props) {
         addDog={addDog}
         updateDog={updateDog}
         onDone={() => {
-          setMode('list');
+          setMode(selectedDog ? 'detail' : 'list');
           setEditingDog(null);
         }}
         onCancel={() => {
-          setMode('list');
+          setMode(selectedDog ? 'detail' : 'list');
           setEditingDog(null);
         }}
       />
@@ -61,8 +80,8 @@ export default function HomeScreen({ session }: Props) {
             <DogCard
               dog={item}
               onPress={() => {
-                setEditingDog(item);
-                setMode('form');
+                setSelectedDogId(item.id);
+                setMode('detail');
               }}
             />
           )}

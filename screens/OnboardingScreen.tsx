@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { Session, PostgrestError } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 import { useProfile } from '../lib/hooks/useProfile';
 import { useDogs } from '../lib/hooks/useDogs';
 import { useDebounce } from '../lib/hooks/useDebounce';
@@ -172,6 +173,10 @@ export default function OnboardingScreen({ onComplete }: Props) {
       <Text style={styles.subtitle}>We'll use these to set up your account</Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      <TouchableOpacity onPress={() => supabase.auth.signOut()} style={styles.signOutRow}>
+        <Text style={styles.signOutText}>Not you? Sign out</Text>
+      </TouchableOpacity>
 
       <TextInput
         style={styles.input}
@@ -358,5 +363,12 @@ const styles = StyleSheet.create({
     color: '#8B6343',
     fontSize: 14,
     fontWeight: '600',
+  },
+  signOutRow: {
+    marginBottom: 16,
+  },
+  signOutText: {
+    color: '#8B6343',
+    fontSize: 13,
   },
 });

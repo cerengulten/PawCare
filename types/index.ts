@@ -24,17 +24,30 @@ export type Dog = {
 export type Habit = {
   id: string;
   dog_id: string;
-  name: string;
+  owner_id: string;
+  title: string;
   category: 'feeding' | 'health' | 'grooming' | 'exercise' | 'other';
   frequency: 'daily' | 'weekly' | 'custom';
-  scheduled_time: string | null;
-  notes: string | null;
+  reminder_time: string | null;
   is_active: boolean;
+  created_at: string;
 };
 
 export type HabitCompletion = {
   id: string;
   habit_id: string;
+  owner_id: string;
   completed_at: string;
-  date: string;
+  completed_date: string;
+};
+
+export type VaccineRecord = {
+  id: string;
+  dog_id: string;
+  owner_id: string;
+  vaccine_name: string;
+  date_given: string | null;
+  next_due_date: string;
+  notes: string | null;
+  created_at: string;
 };

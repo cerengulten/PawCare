@@ -9,107 +9,58 @@ background) using Claude Code.
 
 ## Tech stack (target)
 - Mobile: React Native + Expo SDK 54 (TypeScript, strict mode)
-- Backend: FastAPI (Python) — not yet scaffolded, see "Current state" below
+- Backend: FastAPI (Python) — not yet scaffolded
 - DB: PostgreSQL (via Supabase for now)
 - Auth: Supabase Auth
-- AI chatbot: Claude API + Chroma vector DB (RAG over canine nutrition knowledge base) — not yet built
+- AI chatbot: Claude API + Chroma vector DB (RAG over canine nutrition corpus) — not yet built
 - Maps: Google Places API — not yet built
 
-**Expo has changed significantly across versions.** Before writing any Expo-related code
-(config, APIs, routing), check the versioned docs at
-https://docs.expo.dev/versions/v54.0.0/ rather than relying on training data.
+**Expo changes fast across versions.** Check versioned docs at
+https://docs.expo.dev/versions/v54.0.0/ before writing Expo-related code — don't rely on training data.
 
-## Current state (as of this writing)
-Auth, the pet profile slice, and a post-signup onboarding flow are done: users can sign
-up/sign in, and on first login `screens/OnboardingScreen.tsx` collects a display name, unique user name
-and at least one pet (looping to add more, via "add another pet?") before ever showing
-`HomeScreen`. From `HomeScreen`, users can create/edit a dog (name, breed, date of
-birth, weight, local-device photo) and see all their dogs listed. Care tracker (meals,
-walks, vet visits, meds) and reminders — the rest of Phase 1 — are not built yet, so
-Phase 1 is not fully complete. There is no FastAPI backend, no RAG chatbot, and no vet
-finder — the app talks directly to Supabase from the client. `lib/notifications.ts` is
-still an empty placeholder file staged for upcoming work; `components/DogCard.tsx` is no
-longer a placeholder (renders a dog in the list, local photo/emoji fallback).
+## Current state
 
-Signup password strength is enforced client-side (`lib/passwordPolicy.ts`, shown as a
-live checklist in `RegisterScreen.tsx`), and Google sign-in is wired end-to-end via
-`components/SocialSignInButtons.tsx` on both `LoginScreen`/`RegisterScreen`. Google sign-in there is some sign-in problem but it will be looking in future Apple
-sign-in is fully implemented (`lib/hooks/useAppleSignIn.ts`) but **intentionally
-disabled** — see the `APPLE_SIGN_IN_ENABLED` flag in `SocialSignInButtons.tsx` — pending
-a decision on the paid Apple Developer Program membership it requires. Email
-confirmation and Supabase's leaked-password protection are dashboard-only toggles, not
-yet turned on.
+**Done:**
+- Auth (sign up/sign in), Google sign-in (web-redirect flow), Apple sign-in (native, built but disabled)
+- Post-signup onboarding (`OnboardingScreen.tsx`): collects display name, unique username, and >=1 pet before `HomeScreen`
+- Pet CRUD from `HomeScreen`: create/edit dog (name, breed, DOB, weight, local photo), list view
+- Password strength policy, client-side (`lib/passwordPolicy.ts`)
+- Bottom tab navigator (`screens/AppTabs.tsx`): **Pets** / **Habits** / **More** tabs via
+  `@react-navigation/native` + `@react-navigation/bottom-tabs`, replacing the old
+  "post-auth always renders `HomeScreen`" behavior. Chosen over expo-router's file-based
+  routing specifically to avoid restructuring the working auth-gating entry point in
+  `App.tsx` — expo-router stays installed but unused (`app/` dir still dead scaffolding).
+  No native-stack was introduced: the **Pets** tab reuses `HomeScreen`'s own existing
+  internal `mode: 'list' | 'form' | 'detail'` state machine unmodified, so the tab bar
+  just stays visible around it. **Habits** is a new top-level screen
+  (`screens/HabitsScreen.tsx`) built by reusing `useHabits`/`HabitCard`/`HabitFormScreen`
+  the same way `DogDetailScreen` already does; it adds a chip-style dog picker when the
+  user has 2+ dogs (no picker shown for 0 or 1 dog). **More** is a static
+  `screens/ComingSoonScreen.tsx` stub for Chat/Vet Finder. Tab bar icons are plain emoji
+  via `<Text>`, not `@expo/vector-icons` (see Dependencies).
 
-The app entry point is `index.ts` → `App.tsx`, not `expo-router` file-based routing —
-`expo-router` is a dependency but unused; the `app/` directory is empty. `App.tsx` owns
-top-level auth state (via `supabase.auth.getSession()` / `onAuthStateChange`) and
-switches between `LoginScreen`, `RegisterScreen`, and `HomeScreen` based on session
-presence, with local state (not a router) toggling login vs. register. `HomeScreen`
-follows the same pattern one level down, using local state to switch between the dog
-list and `screens/PetFormScreen.tsx` (create/edit) — there is still no navigation
-library in this app.
+**Not built yet:** meals/walks/vet-visits/meds tracking, reminders, FastAPI backend, RAG chatbot, vet finder. `lib/notifications.ts` is an empty placeholder. Phase 1 is *not* complete.
 
-`types/index.ts` is the single source of truth for the `Dog` type and is now reconciled
-against the actual Supabase `dogs` table schema: the table uses `owner_id` (not
-`user_id`), and has no `avatar_emoji`/`is_neutered` columns (those were removed from the
-type; `notes`/`updated_at` were added to match reality). `lib/hooks/useDogs.ts` was
-fixed to match — it previously filtered/inserted on a `user_id` column that doesn't
-exist, which silently broke every fetch (errors are swallowed, so the dog list just
-looked empty rather than erroring visibly).
+**Known issues:**
+- Google sign-in: has a sign-in problem, not yet diagnosed — revisit before shipping.
+- `useHabits.ts`: local `Habit` type diverges from `types/index.ts` (missing `is_active`); queries scope by `dog_id` only, no owner check. Fix when building care tracker — verify against live Supabase schema first, don't infer from code (see `useDogs` bug below).
 
-A `profiles` table was discovered to already exist in the live Supabase project — not
-documented anywhere in this repo — while building the onboarding flow above, the same
-way the `dogs`/`owner_id` mismatch was discovered while building the pet profile slice.
-It was evidently provisioned ahead of not-yet-built work (avatar upload, push
-notifications): `id uuid primary key references auth.users(id)`, `full_name text`
-(nullable — not `name`), `avatar_url text`, `push_token text`, `created_at timestamptz`
-(no `updated_at`). RLS is enabled with `select`/`insert`/`update` policies scoped
-`auth.uid() = id`. A DB trigger, `on_auth_user_created` → `handle_new_user()`, inserts a
-bare `profiles` row for every new signup (`full_name` taken from
-`raw_user_meta_data->>'full_name'`, currently always null since `RegisterScreen` doesn't
-pass it — the name is collected one step later, in `OnboardingScreen`). This has two
-consequences for `lib/hooks/useProfile.ts` and any future code touching this table:
-always `.upsert()`, never `.insert()` (the row usually already exists by the time client
-code runs, so a plain insert hits a primary-key conflict), and "does this user need
-onboarding" must check `profile.full_name` being unset, not row existence, since a row
-exists almost immediately after every signup regardless (see the gating logic in
-`App.tsx`'s `AuthedApp` component). Verify assumptions about `avatar_url`/`push_token`
-against the live schema the same way, rather than inferring from code, before building
-the avatar or notifications features.
+**Architecture:**
+- Entry: `index.ts` -> `App.tsx`. `expo-router` is installed but unused (`app/` dir empty) — navigation is `@react-navigation` (bottom tabs), not file-based routing.
+- `App.tsx`: owns auth state (`getSession()`/`onAuthStateChange`), local-state switches Login/Register/`AuthedApp`. Post-auth (and post-onboarding), `AuthedApp` renders `screens/AppTabs.tsx` (the bottom tab navigator) instead of `HomeScreen` directly.
+- `HomeScreen.tsx`: unchanged, now embedded as the **Pets** tab's content — same internal local-state pattern (list vs `screens/PetFormScreen.tsx` vs `screens/DogDetailScreen.tsx`).
+- Auth gating checks `profile.full_name` being unset (not row existence) — see `useProfile.ts` / `AuthedApp` in `App.tsx`. A `profiles` row exists almost immediately after signup regardless (DB trigger, see below).
 
-`lib/supabase.ts` never sets `flowType` on the Supabase client, so it defaults to
-`'implicit'`, not `'pkce'` — confirmed by reading the installed `@supabase/auth-js`
-source directly rather than assuming. This matters for anyone touching OAuth:
-`signInWithOAuth`'s redirect URL comes back with `access_token`/`refresh_token` in the
-URL **fragment**, not a `?code=` param, so `lib/hooks/useGoogleSignIn.ts` completes the
-sign-in with `supabase.auth.setSession()`, not `exchangeCodeForSession()`. Don't
-"correct" this to PKCE without also changing the client config and the fragment-parsing
-logic together.
+**Supabase schema gotchas** (always verify live schema before coding against a table — inferring from code has caused bugs twice):
+- `dogs` table: `owner_id` (not `user_id`). No `avatar_emoji`/`is_neutered` cols; has `notes`/`updated_at`. `useDogs.ts` previously queried a nonexistent `user_id` col — errors were swallowed, so the dog list just looked empty. Fixed.
+- `profiles` table (pre-existing, undocumented until discovered): `id uuid PK -> auth.users(id)`, `full_name text` (nullable, not `name`), `avatar_url text`, `push_token text`, `created_at` (no `updated_at`). RLS: `auth.uid() = id` on select/insert/update. Trigger `on_auth_user_created` -> `handle_new_user()` auto-inserts a bare row on every signup (`full_name` from `raw_user_meta_data`, null until `OnboardingScreen` sets it). **Always `.upsert()`, never `.insert()`** — row usually already exists. Verify `avatar_url`/`push_token` against live schema before building avatar/notifications features.
+- Email confirmation + leaked-password protection: Supabase dashboard toggles, not yet enabled.
 
-Google and Apple use deliberately different implementation strategies, because the
-project stays on Expo Go (no custom dev client/EAS build) for now: Google uses a generic
-web-redirect flow (`expo-web-browser` + `expo-auth-session`'s `makeRedirectUri()`), which
-works in Expo Go. Apple uses the *native* `expo-apple-authentication` module instead of
-a web redirect, because Expo's own docs confirm it (unusually) works directly in Expo Go
-on iOS — this is the exception, not the rule; most third-party native modules
-(e.g. `@react-native-google-signin/google-signin`, Supabase's own recommended Google
-approach for RN) do **not** work in Expo Go and need a dev client, which is why Google
-did *not* get the native treatment here. Don't swap Google to a native SDK without first
-confirming the project has moved off Expo Go.
-
-Installing new native-module dependencies in this repo currently requires
-`npm install --legacy-peer-deps` (or the equivalent flag on whatever `expo install` ends
-up shelling out to) — there's a pre-existing peer-dependency conflict between this
-project's pinned `react@19.1.0` and a transitively-pulled `react-dom@19.2.7` (via Expo's
-own CLI/web tooling, not app code), unrelated to whatever package is being added. Plain
-`npm install` fails on this today; it's not something a given dependency addition broke.
-
-Known remaining issue: `lib/hooks/useHabits.ts` still defines its own local `Habit` type
-that diverges from `types/index.ts` (missing `is_active`), and scopes its queries by
-`dog_id` only rather than an explicit owner check. This needs the same kind of
-reconciliation `useDogs`/`Dog` just went through — fix it when building the care tracker
-phase, and verify its assumptions against the real Supabase schema first rather than
-inferring column names from the code, since that's what caused the `useDogs` bug above.
+**Auth implementation details:**
+- `lib/supabase.ts` doesn't set `flowType` -> defaults to `'implicit'`, not `'pkce'` (confirmed from `@supabase/auth-js` source). OAuth redirect returns tokens in the URL **fragment**, not `?code=` — `useGoogleSignIn.ts` uses `setSession()`, not `exchangeCodeForSession()`. Don't switch to PKCE without changing both together.
+- Google: web-redirect flow (`expo-web-browser` + `expo-auth-session`) — works in Expo Go.
+- Apple: native `expo-apple-authentication` (exception — Expo docs confirm it works in Expo Go on iOS, unlike most native modules). **Disabled** via `APPLE_SIGN_IN_ENABLED` flag in `SocialSignInButtons.tsx` pending Apple Developer Program decision + Supabase provider config.
+- Don't move Google to a native SDK without first confirming the project has moved off Expo Go (most native auth modules need a dev client).
 
 ## V1 scope — build in this order
 1. Auth + pet profile + care tracker (meals, walks, vet visits, meds) + reminders
@@ -117,60 +68,34 @@ inferring column names from the code, since that's what caused the `useDogs` bug
 3. AI chatbot (RAG, grounded in pet's own profile + nutrition corpus)
 4. Vet finder map (Google Places)
 
-Do not start Phase N+1 work until Phase N has a working, testable slice.
+Don't start Phase N+1 until Phase N has a working, testable slice.
 
 ## Conventions
-- TypeScript strict mode on the RN side; type hints on all FastAPI endpoints (once it exists)
-- Feature-based folder structure, not type-based (e.g. `/features/tracker`, not `/screens` +
-  `/components` split arbitrarily) — the current `screens/` + `components/` + `lib/` split
-  predates this convention; migrate incrementally rather than leaving new code inconsistent
-- All API routes documented with FastAPI's automatic OpenAPI — no separate API docs to maintain
-- Commit small, working increments; don't let Claude Code make sweeping multi-feature changes
-  in one pass
+- TypeScript strict mode (RN); type hints on all FastAPI endpoints (once it exists)
+- Feature-based folders eventually (`/features/tracker`, not type-based `/screens`+`/components`) — current split predates this; migrate incrementally, don't leave new code inconsistent
+- FastAPI routes: rely on automatic OpenAPI docs, no separate API docs
+- Commit small, working increments — no sweeping multi-feature diffs
 
 ## Commands
-- `npm run start` — start Expo dev server (Metro bundler, QR code for device/simulator)
-- `npm run android` — start dev server and open on Android
-- `npm run ios` — start dev server and open on iOS
-- `npm run web` — start dev server and open in browser
+- `npm run start` / `android` / `ios` / `web` — Expo dev server
+- No lint/test scripts configured. `npx tsc --noEmit` for ad hoc type check (strict mode, extends `expo/tsconfig.base`)
 
-No lint, typecheck, or test scripts are configured yet. Use `npx tsc --noEmit` for an
-ad hoc type check against `tsconfig.json` (extends `expo/tsconfig.base`, strict mode on).
+## Environment
+- `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` in `.env` (gitignored), read in `lib/supabase.ts`
+- New client-exposed env vars must be prefixed `EXPO_PUBLIC_` or they won't inline into the RN bundle
 
-### Environment
-Requires `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` (see `.env`,
-gitignored) — read in `lib/supabase.ts`. Any new client-exposed env var must be prefixed
-`EXPO_PUBLIC_` to be inlined by Expo; anything without that prefix is server-only and
-won't be available in the RN bundle.
-
-### Dependencies added for the pet profile feature
-- `@react-native-community/datetimepicker` — date-of-birth picker in `PetFormScreen.tsx`.
-  Expo SDK 54 / Expo Go compatible, no prebuild or dev-client rebuild needed. Install/update
-  with `npx expo install @react-native-community/datetimepicker` (not raw `npm install`) so
-  Expo pins an SDK-compatible version.
-- `expo-image-picker` — was already installed but unused; now actively used in
-  `PetFormScreen.tsx` to pick a local pet photo (stored as a local URI in `Dog.photo_url`,
-  no Supabase Storage upload yet).
-
-### Dependencies added for Google/Apple sign-in + password hardening
-- `expo-web-browser`, `expo-auth-session` — Google's web-redirect OAuth flow
-  (`lib/hooks/useGoogleSignIn.ts`). Both are bundled in Expo Go; no dev client needed.
-- `expo-apple-authentication` — native Apple sign-in (`lib/hooks/useAppleSignIn.ts`).
-  Works in Expo Go on iOS per Expo's docs, but currently gated off via
-  `APPLE_SIGN_IN_ENABLED = false` in `components/SocialSignInButtons.tsx` pending the
-  Apple Developer Program membership decision — Supabase's Apple provider isn't
-  configured, so enabling the flag before that's done would ship a button that fails on
-  tap.
-- `expo-crypto` — SHA-256 nonce hashing required by Apple's native sign-in flow (see the
-  nonce-hash/raw-nonce split in `useAppleSignIn.ts`).
-- All four installed via `npx expo install <pkg>` per this project's existing
-  convention, then required `npm install --legacy-peer-deps` to actually resolve — see
-  the peer-dependency note above.
-- `app.json` gained `"scheme": "pawcare"` for a future dev-client/standalone build. It
-  has no effect on Expo Go's own redirect URI (`exp://127.0.0.1:PORT/--/...`), which
-  `makeRedirectUri()` generates automatically regardless of `scheme` while running
-  inside Expo Go.
+## Dependencies
+- `@react-native-community/datetimepicker` — DOB picker in `PetFormScreen.tsx`. Install via `npx expo install`, not raw `npm install`.
+- `expo-image-picker` — pet photo picker (local URI, no Storage upload yet)
+- `expo-web-browser`, `expo-auth-session` — Google OAuth (bundled in Expo Go)
+- `expo-apple-authentication` — native Apple sign-in
+- `expo-crypto` — SHA-256 nonce hashing for Apple sign-in
+- `@react-navigation/native`, `@react-navigation/bottom-tabs` — bottom tab navigator (`screens/AppTabs.tsx`). Were already present transitively (via `expo-router`'s own deps); `npx expo install` promoted them to direct deps pinned to SDK-54-compatible versions.
+- `react-native-screens`, `react-native-safe-area-context` — required peer deps of `@react-navigation/bottom-tabs` (weren't installed at all before). Deliberately **did not** add `react-native-gesture-handler` — it's only a peer dep for stack/drawer gesture interactions, not needed since no native-stack is used.
+- `@expo/vector-icons` is **not** installed/used for the tab bar — it's only resolvable nested inside `node_modules/expo/node_modules/@expo/vector-icons`, not from app source, so tab icons use plain emoji via `<Text>` instead. Install it explicitly as a follow-up if real icons are wanted later.
+- All installed via `npx expo install <pkg>`, then `npm install --legacy-peer-deps` to resolve — pre-existing peer conflict between pinned `react@19.1.0` and transitive `react-dom@19.2.7` (Expo CLI/web tooling, not app code). Plain `npm install` fails on this regardless of what's being added.
+- `app.json` has `"scheme": "pawcare"` for a future dev-client/standalone build — no effect on Expo Go's own redirect URI, which `makeRedirectUri()` generates automatically.
 
 ## Things to remember
-- Sensitivity/allergy logic is the core differentiator — treat it as first-class, not a side feature
+- Sensitivity/allergy logic is the core differentiator — treat as first-class, not a side feature
 - Chatbot answers should use the pet's stored profile as context, not just generic Q&A
