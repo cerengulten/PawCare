@@ -49,5 +49,7 @@ export type VaccineRecord = {
   date_given: string | null;
   next_due_date: string;
   notes: string | null;
+  reminder_enabled: boolean;
+  notification_id: string | null;
   created_at: string;
 };
