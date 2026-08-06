@@ -50,8 +50,8 @@ https://docs.expo.dev/versions/v54.0.0/ before writing Expo-related code — don
     card (5-option emoji picker, `useDogMood`, plus a 🕒 icon opening mood history — see
     below); a "Today's habits" list now built from `components/HabitRow.tsx` (SVG ring +
     swipe-to-reveal Edit/Delete/**History** — History is a new third swipe action added to
-    `HabitRow.tsx` during this redesign) instead of the old `HabitCard.tsx` (deleted); the
-    existing allergen ("food sensitivities") inline-add flow, unchanged functionally; and a
+    `HabitRow.tsx` during this redesign) instead of the old `HabitCard.tsx` (deleted); a
+    "Food sensitivities" section (superseded by full CRUD in Phase 2 item 5, see below); and a
     compact "Vaccines" link row that opens a `vaccine-list` mode (not straight to the add
     form — see follow-up fixes below) — the full cross-dog vaccine list still also lives on
     the More tab.
@@ -110,6 +110,30 @@ https://docs.expo.dev/versions/v54.0.0/ before writing Expo-related code — don
   `decrement_habit_completion` Postgres RPCs (not plain client upserts) — supabase-js has no
   relative `column = column + 1` update primitive, so client-computed "+1" writes would be
   racy under rapid double-taps.
+- **Phase 2 item 5 — Allergy profile per dog, full CRUD (2026-08-06):** food sensitivities
+  were normalized out of the flat `dogs.allergens text[]` column into their own
+  `dog_allergens` table (`id`/`dog_id`/`owner_id`/`allergen`/`created_at`, owner-scoped RLS,
+  case-insensitive unique index on `(dog_id, lower(allergen))`), schema in
+  `supabase/sql/2026-08-06_dog_allergens_table.sql` (includes a one-time backfill from the
+  old array column). `dogs.allergens` is left in place but unused — drop it in a future
+  cleanup migration once confirmed unused in prod. New `lib/hooks/useAllergens.ts`
+  (`addAllergen`/`updateAllergen`/`deleteAllergen`, modeled on `useDogs.ts`) is the only
+  thing that reads/writes this table. `Dog.allergens` was removed from the `Dog` type; new
+  `Allergen` type added.
+  - UI: add/edit/delete go through a new dedicated `screens/AllergenFormScreen.tsx` (modeled
+    on `VaccineFormScreen.tsx` — `KeyboardAvoidingView`+`ScrollView`, Save/Cancel, and a
+    "Delete sensitivity" link in edit mode), opened from `DogDetailScreen.tsx` via a new
+    `'allergen-form'` `Mode` — tapping "＋ Add" opens it in create mode, tapping a chip opens
+    it pre-filled in edit mode. The first version of this UI used an inline add row + a
+    long-press `Alert.alert` edit/delete menu; both were replaced after real usage showed the
+    inline row's keyboard covered the input with no way to scroll, and the native Alert
+    couldn't be themed. **This is now the standard pattern for per-item CRUD in this app** —
+    default to a dedicated `<Thing>FormScreen.tsx` styled like `VaccineFormScreen.tsx`, not
+    inline-editable rows or Alert-based menus, for any future list-item CRUD (e.g. Phase 2
+    items 9–11's poop/vomit tracker).
+  - `PetFormScreen.tsx`'s separate pre-creation allergen add/remove UI (local state only,
+    never persisted independently) was removed — sensitivities are now managed in exactly
+    one place, `DogDetailScreen.tsx`, post pet-creation.
 
 **Not built yet:** vet-visits tracking, FastAPI backend, RAG chatbot, vet finder.
 
@@ -166,24 +190,26 @@ caused bugs twice.
 3. Full Phase 1 end-to-end manual test (signup → onboarding → add pet → add habit → log completion → set mood → check More tab upcoming)
 4. Commit current working tree + tag `v1.0`
 
+**Done:**
+- ~~Allergy profile per dog — full CRUD for food sensitivities~~ (2026-08-06, see "Done" above)
+
 **New Phase 2 items:**
-5. Allergy profile per dog — full CRUD for food sensitivities (verify live schema first; give SQL if a new table is needed; `owner_id` pattern)
-6. Ingredient scanner — user inputs a food/ingredient, app flags conflicts against the dog's sensitivity profile, using Open Food Facts API as the data source plus a "dangerous for dogs" filter layer on top
-7. Ingredient scan history per dog, stored in Supabase
-8. Visual conflict result screen — safe / warning / danger states
-9. Poop tracker — log consistency, color, frequency per dog (new `health_logs` table: `dog_id`, `owner_id`, `type`, `details`, `logged_at` — verify live schema first, give SQL)
-10. Vomit tracker — log occurrence, description, possible cause (reuse `health_logs`)
-11. Symptom history view per dog — timeline of poop + vomit logs
-12. Mood history view per dog — calendar or timeline (`MoodHistoryScreen.tsx`/`useMoodHistory.ts` already exist from Phase 1 — check before rebuilding)
-13. Food/meal log history view
-14. Export mood history as CSV/Excel (`expo-sharing` + CSV generation; start with CSV, upgrade to `.xlsx` only if needed)
-15. Export food + health log as CSV/Excel
-16. Export vet/vaccine history as PDF
-17. "Download report" button — add to pet profile and/or More tab
-18. Conflict warning badge on food sensitivity card when the scanner finds a match
-19. Full Phase 2 end-to-end test: add allergy → scan ingredient → log poop/vomit → view history → export report
-20. Update CLAUDE.md with Phase 2 schema decisions and new tables
-21. Commit and tag `v2.0`
+5. Ingredient scanner — user inputs a food/ingredient, app flags conflicts against the dog's sensitivity profile, using Open Food Facts API as the data source plus a "dangerous for dogs" filter layer on top
+6. Ingredient scan history per dog, stored in Supabase
+7. Visual conflict result screen — safe / warning / danger states
+8. Poop tracker — log consistency, color, frequency per dog (new `health_logs` table: `dog_id`, `owner_id`, `type`, `details`, `logged_at` — verify live schema first, give SQL)
+9. Vomit tracker — log occurrence, description, possible cause (reuse `health_logs`)
+10. Symptom history view per dog — timeline of poop + vomit logs
+11. Mood history view per dog — calendar or timeline (`MoodHistoryScreen.tsx`/`useMoodHistory.ts` already exist from Phase 1 — check before rebuilding)
+12. Food/meal log history view
+13. Export mood history as CSV/Excel (`expo-sharing` + CSV generation; start with CSV, upgrade to `.xlsx` only if needed)
+14. Export food + health log as CSV/Excel
+15. Export vet/vaccine history as PDF
+16. "Download report" button — add to pet profile and/or More tab
+17. Conflict warning badge on food sensitivity card when the scanner finds a match
+18. Full Phase 2 end-to-end test: add allergy → scan ingredient → log poop/vomit → view history → export report
+19. Update CLAUDE.md with Phase 2 schema decisions and new tables
+20. Commit and tag `v2.0`
 
 ## Conventions
 - TypeScript strict mode (RN); type hints on all FastAPI endpoints (once it exists)

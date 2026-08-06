@@ -17,9 +17,16 @@ export type Dog = {
   sex: 'male' | 'female' | null;
   photo_url: string | null;
   notes: string | null;
-  allergens: string[] | null;
   created_at: string;
   updated_at: string;
+};
+
+export type Allergen = {
+  id: string;
+  dog_id: string;
+  owner_id: string;
+  allergen: string;
+  created_at: string;
 };
 
 export type DogMood = {

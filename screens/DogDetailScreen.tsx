@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Alert, StyleSheet } from 'react-native';
-import { Dog, Habit, HabitType, DogMood, VaccineRecord } from '../types';
+import { View, Text, TouchableOpacity, Image, ScrollView, Alert, StyleSheet } from 'react-native';
+import { Dog, Habit, HabitType, DogMood, VaccineRecord, Allergen } from '../types';
 import { useHabits, getHabitTarget } from '../lib/hooks/useHabits';
 import { useVaccines } from '../lib/hooks/useVaccines';
 import { useDogMood } from '../lib/hooks/useDogMood';
+import { useAllergens } from '../lib/hooks/useAllergens';
 import { usePetStreak } from '../lib/hooks/usePetStreak';
 import { useDogs } from '../lib/hooks/useDogs';
 import HabitRow from '../components/HabitRow';
@@ -13,6 +14,7 @@ import HabitFormScreen from './HabitFormScreen';
 import HabitQuickAddScreen from './HabitQuickAddScreen';
 import HabitHistoryScreen from './HabitHistoryScreen';
 import VaccineFormScreen from './VaccineFormScreen';
+import AllergenFormScreen from './AllergenFormScreen';
 import MoodHistoryScreen from './MoodHistoryScreen';
 import { colors, radii } from '../lib/theme';
 
@@ -23,7 +25,7 @@ type Props = {
   onDelete: () => void;
 };
 
-type Mode = 'detail' | 'habit-quick-add' | 'habit-form' | 'vaccine-list' | 'vaccine-form' | 'history' | 'mood-history';
+type Mode = 'detail' | 'habit-quick-add' | 'habit-form' | 'vaccine-list' | 'vaccine-form' | 'history' | 'mood-history' | 'allergen-form';
 
 const MOOD_OPTIONS: { value: DogMood['mood']; emoji: string; label: string }[] = [
   { value: 'sleepy', emoji: '😴', label: 'Sleepy' },
@@ -59,9 +61,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
   const [presetType, setPresetType] = useState<HabitType | undefined>(undefined);
   const [editingVaccine, setEditingVaccine] = useState<VaccineRecord | null>(null);
   const [historyTarget, setHistoryTarget] = useState<Habit | null>(null);
-  const [addingAllergen, setAddingAllergen] = useState(false);
-  const [newAllergen, setNewAllergen] = useState('');
-  const [allergenError, setAllergenError] = useState('');
+  const [editingAllergen, setEditingAllergen] = useState<Allergen | null>(null);
 
   const {
     habits,
@@ -76,6 +76,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
     deleteHabit,
   } = useHabits(dog.id);
   const { upcoming, overdue, addVaccine, updateVaccine, deleteVaccine } = useVaccines(dog.id);
+  const { allergens, addAllergen, updateAllergen, deleteAllergen } = useAllergens(dog.id);
   const { mood, setTodayMood } = useDogMood(dog.id);
   const { streak } = usePetStreak(dog.id, habits.map(h => h.id));
 
@@ -171,21 +172,17 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
     );
   }
 
-  async function submitAllergen() {
-    const trimmed = newAllergen.trim();
-    if (!trimmed) return;
-    const existing = dog.allergens ?? [];
-    if (existing.some(a => a.toLowerCase() === trimmed.toLowerCase())) {
-      setNewAllergen('');
-      return;
-    }
-    setAllergenError('');
-    const { error } = await updateDog(dog.id, { allergens: [...existing, trimmed] });
-    if (error) {
-      setAllergenError(error.message);
-      return;
-    }
-    setNewAllergen('');
+  if (mode === 'allergen-form') {
+    return (
+      <AllergenFormScreen
+        allergen={editingAllergen}
+        addAllergen={addAllergen}
+        updateAllergen={updateAllergen}
+        deleteAllergen={deleteAllergen}
+        onDone={() => { setMode('detail'); setEditingAllergen(null); }}
+        onCancel={() => { setMode('detail'); setEditingAllergen(null); }}
+      />
+    );
   }
 
   const sexLabel = dog.sex === 'male' ? 'Male' : dog.sex === 'female' ? 'Female' : null;
@@ -340,44 +337,26 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
           <Text style={styles.sectionTitle}>Food sensitivities</Text>
           <TouchableOpacity
             style={styles.addChip}
-            onPress={() => {
-              setAddingAllergen(v => !v);
-              setNewAllergen('');
-              setAllergenError('');
-            }}
+            onPress={() => { setEditingAllergen(null); setMode('allergen-form'); }}
           >
-            <Text style={styles.addChipText}>{addingAllergen ? '× Close' : '＋ Add'}</Text>
+            <Text style={styles.addChipText}>＋ Add</Text>
           </TouchableOpacity>
         </View>
-        {dog.allergens && dog.allergens.length > 0 ? (
+        {allergens.length > 0 ? (
           <View style={styles.allergenRow}>
-            {dog.allergens.map(a => (
-              <View key={a} style={styles.allergenChip}>
-                <Text style={styles.allergenChipText}>🚫 {a}</Text>
-              </View>
+            {allergens.map(a => (
+              <TouchableOpacity
+                key={a.id}
+                style={styles.allergenChip}
+                onPress={() => { setEditingAllergen(a); setMode('allergen-form'); }}
+              >
+                <Text style={styles.allergenChipText}>🚫 {a.allergen}</Text>
+              </TouchableOpacity>
             ))}
           </View>
-        ) : !addingAllergen ? (
+        ) : (
           <Text style={styles.emptyText}>No known sensitivities.</Text>
-        ) : null}
-        {addingAllergen ? (
-          <View style={styles.allergenInputRow}>
-            <TextInput
-              style={styles.allergenInput}
-              placeholder="e.g. Chicken"
-              placeholderTextColor={colors.textMuted}
-              value={newAllergen}
-              onChangeText={setNewAllergen}
-              onSubmitEditing={submitAllergen}
-              returnKeyType="done"
-              autoFocus
-            />
-            <TouchableOpacity style={styles.allergenAddButton} onPress={submitAllergen}>
-              <Text style={styles.allergenAddButtonText}>Add</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-        {allergenError ? <Text style={styles.allergenErrorText}>{allergenError}</Text> : null}
+        )}
       </View>
 
       <TouchableOpacity
@@ -616,39 +595,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
-  },
-  allergenInputRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 10,
-  },
-  allergenInput: {
-    flex: 1,
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    fontSize: 14,
-    color: colors.textDark,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-  },
-  allergenAddButton: {
-    backgroundColor: colors.moodSelectedBg,
-    borderRadius: radii.card,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  allergenAddButtonText: {
-    color: colors.primaryGreen,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  allergenErrorText: {
-    fontSize: 12,
-    color: colors.allergenText,
-    marginTop: 6,
   },
   allergenChip: {
     backgroundColor: colors.allergenBg,
