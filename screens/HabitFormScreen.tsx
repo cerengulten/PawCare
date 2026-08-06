@@ -14,13 +14,15 @@ import DateTimePicker, {
   DateTimePickerAndroid,
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
-import { Habit } from '../types';
+import { Habit, HabitType } from '../types';
 import { useHabits } from '../lib/hooks/useHabits';
+import { colors, radii } from '../lib/theme';
 
 type UseHabitsReturn = ReturnType<typeof useHabits>;
 
 type Props = {
   habit: Habit | null;
+  presetType?: HabitType;
   addHabit: UseHabitsReturn['addHabit'];
   updateHabit: UseHabitsReturn['updateHabit'];
   deleteHabit: UseHabitsReturn['deleteHabit'];
@@ -28,8 +30,55 @@ type Props = {
   onCancel: () => void;
 };
 
-const CATEGORIES: Habit['category'][] = ['feeding', 'health', 'grooming', 'exercise', 'other'];
 const FREQUENCIES: Habit['frequency'][] = ['daily', 'weekly', 'custom'];
+const TIMES_PER_DAY_OPTIONS = [1, 2, 3, 4];
+const TIMES_PER_DAY_LABEL: Partial<Record<HabitType, string>> = {
+  feeding: 'Meals per day',
+  walking: 'Walks per day',
+  medication: 'Doses per day',
+  vitamin: 'Doses per day',
+  dental: 'Brushings per day',
+  custom: 'Times per day',
+};
+const REMINDER_NOUN: Partial<Record<HabitType, string>> = {
+  feeding: 'Meal',
+  walking: 'Walk',
+  medication: 'Dose',
+  vitamin: 'Dose',
+  dental: 'Brushing',
+};
+const WET_DRY_OPTIONS = [0, 25, 50, 75, 100];
+const WALK_DURATION_PRESETS = [15, 30, 45, 60];
+const DOSAGE_UNITS = ['mg', 'ml', 'tablet', 'drop', 'other'];
+const WEEKDAYS: { value: number; label: string }[] = [
+  { value: 1, label: 'Sun' },
+  { value: 2, label: 'Mon' },
+  { value: 3, label: 'Tue' },
+  { value: 4, label: 'Wed' },
+  { value: 5, label: 'Thu' },
+  { value: 6, label: 'Fri' },
+  { value: 7, label: 'Sat' },
+];
+
+const HABIT_TYPE_CATEGORY: Record<HabitType, Habit['category']> = {
+  feeding: 'feeding',
+  water: 'other',
+  walking: 'walk',
+  medication: 'medication',
+  vitamin: 'medication',
+  dental: 'grooming',
+  custom: 'other',
+};
+
+const HABIT_TYPE_DEFAULT_TITLE: Record<HabitType, string> = {
+  feeding: 'Feeding',
+  water: 'Water',
+  walking: 'Walk',
+  medication: 'Medication',
+  vitamin: 'Vitamins',
+  dental: 'Tooth Brushing',
+  custom: '',
+};
 
 function toTimeString(d: Date): string {
   const h = String(d.getHours()).padStart(2, '0');
@@ -44,26 +93,95 @@ function parseTimeString(s: string): Date {
   return d;
 }
 
-export default function HabitFormScreen({ habit, addHabit, updateHabit, deleteHabit, onDone, onCancel }: Props) {
-  const [title, setTitle] = useState(habit?.title ?? '');
-  const [category, setCategory] = useState<Habit['category']>(habit?.category ?? 'feeding');
+function parseNumber(s: string): number | null {
+  const n = Number(s);
+  return s.trim() !== '' && !Number.isNaN(n) ? n : null;
+}
+
+export default function HabitFormScreen({
+  habit,
+  presetType,
+  addHabit,
+  updateHabit,
+  deleteHabit,
+  onDone,
+  onCancel,
+}: Props) {
+  const habitType: HabitType = habit?.habit_type ?? presetType ?? 'custom';
+  const knownDosageUnits = ['mg', 'ml', 'tablet', 'drop'];
+
+  const [title, setTitle] = useState(habit?.title ?? HABIT_TYPE_DEFAULT_TITLE[habitType]);
   const [frequency, setFrequency] = useState<Habit['frequency']>(habit?.frequency ?? 'daily');
-  const [reminderTime, setReminderTime] = useState<string | null>(habit?.reminder_time ?? null);
-  const [showIosPicker, setShowIosPicker] = useState(false);
+  const [reminderTimes, setReminderTimes] = useState<(string | null)[]>(habit?.reminder_times ?? []);
+  const [iosPickerIndex, setIosPickerIndex] = useState<number | null>(null);
+  const [reminderWeekday, setReminderWeekday] = useState<number | null>(habit?.reminder_weekday ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  function openTimePicker() {
+  const [customUsesTimesPerDay, setCustomUsesTimesPerDay] = useState(
+    habitType === 'custom' && habit?.times_per_day != null
+  );
+  const [customUsesAmount, setCustomUsesAmount] = useState(
+    habitType === 'custom' && (habit?.dosage_amount != null || !!habit?.dosage_unit)
+  );
+  const usesTimesPerDay =
+    habitType === 'feeding' ||
+    habitType === 'walking' ||
+    habitType === 'medication' ||
+    habitType === 'vitamin' ||
+    habitType === 'dental' ||
+    (habitType === 'custom' && customUsesTimesPerDay);
+  const usesAmount = habitType === 'medication' || habitType === 'vitamin' || (habitType === 'custom' && customUsesAmount);
+  const amountLabel = habitType === 'medication' || habitType === 'vitamin' ? 'Dosage amount' : 'Amount';
+  const unitLabel = habitType === 'medication' || habitType === 'vitamin' ? 'Dosage unit' : 'Unit';
+  const [timesPerDay, setTimesPerDay] = useState<number | null>(habit?.times_per_day ?? null);
+  const reminderSlotCount = usesTimesPerDay && timesPerDay ? timesPerDay : 1;
+  const reminderNoun = REMINDER_NOUN[habitType] ?? 'Reminder';
+  const [portionGrams, setPortionGrams] = useState(
+    habit?.portion_grams != null ? String(habit.portion_grams) : ''
+  );
+  const [foodBrand, setFoodBrand] = useState(habit?.food_brand ?? '');
+  const [wetDryRatio, setWetDryRatio] = useState<number | null>(habit?.wet_dry_ratio ?? null);
+  const [waterGoalMl, setWaterGoalMl] = useState(
+    habit?.water_goal_ml != null ? String(habit.water_goal_ml) : ''
+  );
+  const [walkDuration, setWalkDuration] = useState(
+    habit?.walk_duration_minutes != null ? String(habit.walk_duration_minutes) : ''
+  );
+  const [dosageAmount, setDosageAmount] = useState(
+    habit?.dosage_amount != null ? String(habit.dosage_amount) : ''
+  );
+  const [dosageUnit, setDosageUnit] = useState<string | null>(
+    habit?.dosage_unit && knownDosageUnits.includes(habit.dosage_unit) ? habit.dosage_unit : null
+  );
+  const [showCustomUnit, setShowCustomUnit] = useState(
+    !!habit?.dosage_unit && !knownDosageUnits.includes(habit.dosage_unit)
+  );
+  const [customDosageUnit, setCustomDosageUnit] = useState(
+    habit?.dosage_unit && !knownDosageUnits.includes(habit.dosage_unit) ? habit.dosage_unit : ''
+  );
+
+  function setReminderTimeAt(index: number, value: string) {
+    setReminderTimes(prev => {
+      const next = [...prev];
+      while (next.length <= index) next.push(null);
+      next[index] = value;
+      return next;
+    });
+  }
+
+  function openTimePicker(index: number) {
+    const current = reminderTimes[index] ?? null;
     if (Platform.OS === 'android') {
       DateTimePickerAndroid.open({
-        value: reminderTime ? parseTimeString(reminderTime) : new Date(),
+        value: current ? parseTimeString(current) : new Date(),
         mode: 'time',
         onChange: (_event: DateTimePickerEvent, selected?: Date) => {
-          if (selected) setReminderTime(toTimeString(selected));
+          if (selected) setReminderTimeAt(index, toTimeString(selected));
         },
       });
     } else {
-      setShowIosPicker(true);
+      setIosPickerIndex(index);
     }
   }
 
@@ -77,12 +195,25 @@ export default function HabitFormScreen({ habit, addHabit, updateHabit, deleteHa
     setLoading(true);
     setError('');
 
+    const resolvedDosageUnit = showCustomUnit ? customDosageUnit.trim() || null : dosageUnit;
+    const activeReminderTimes = reminderTimes.slice(0, reminderSlotCount).filter((t): t is string => !!t);
+
     const payload = {
       title: trimmedTitle,
-      category,
+      category: HABIT_TYPE_CATEGORY[habitType],
+      habit_type: habitType,
       frequency,
-      reminder_time: reminderTime,
+      reminder_times: activeReminderTimes.length > 0 ? activeReminderTimes : null,
+      reminder_weekday: frequency === 'weekly' ? reminderWeekday : null,
       is_active: true,
+      times_per_day: usesTimesPerDay ? timesPerDay : null,
+      portion_grams: habitType === 'feeding' ? parseNumber(portionGrams) : null,
+      food_brand: habitType === 'feeding' ? foodBrand.trim() || null : null,
+      wet_dry_ratio: habitType === 'feeding' ? wetDryRatio : null,
+      water_goal_ml: habitType === 'water' ? parseNumber(waterGoalMl) : null,
+      walk_duration_minutes: habitType === 'walking' ? parseNumber(walkDuration) : null,
+      dosage_amount: usesAmount ? parseNumber(dosageAmount) : null,
+      dosage_unit: usesAmount ? resolvedDosageUnit : null,
     };
 
     const { error } = habit
@@ -122,23 +253,174 @@ export default function HabitFormScreen({ habit, addHabit, updateHabit, deleteHa
         <TextInput
           style={styles.input}
           placeholder="Title"
-          placeholderTextColor="#B8926A"
+          placeholderTextColor={colors.textMuted}
           value={title}
           onChangeText={setTitle}
         />
 
-        <Text style={styles.sectionLabel}>Category</Text>
-        <View style={styles.chipRow}>
-          {CATEGORIES.map((c) => (
-            <TouchableOpacity
-              key={c}
-              style={[styles.chip, category === c && styles.chipSelected]}
-              onPress={() => setCategory(c)}
-            >
-              <Text style={[styles.chipText, category === c && styles.chipTextSelected]}>{c}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {habitType === 'custom' && (
+          <>
+            <Text style={styles.sectionLabel}>Add details (optional)</Text>
+            <Text style={styles.helperText}>
+              We don't know what this habit needs — turn on any extra fields you want to track.
+            </Text>
+            <View style={styles.chipRow}>
+              <TouchableOpacity
+                style={[styles.chip, customUsesTimesPerDay && styles.chipSelected]}
+                onPress={() => setCustomUsesTimesPerDay(v => !v)}
+              >
+                <Text style={[styles.chipText, customUsesTimesPerDay && styles.chipTextSelected]}>
+                  Times per day
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.chip, customUsesAmount && styles.chipSelected]}
+                onPress={() => setCustomUsesAmount(v => !v)}
+              >
+                <Text style={[styles.chipText, customUsesAmount && styles.chipTextSelected]}>
+                  Amount
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+
+        {usesTimesPerDay && (
+          <>
+            <Text style={styles.sectionLabel}>{TIMES_PER_DAY_LABEL[habitType]}</Text>
+            <View style={styles.chipRow}>
+              {TIMES_PER_DAY_OPTIONS.map((n) => (
+                <TouchableOpacity
+                  key={n}
+                  style={[styles.chip, timesPerDay === n && styles.chipSelected]}
+                  onPress={() => setTimesPerDay(n)}
+                >
+                  <Text style={[styles.chipText, timesPerDay === n && styles.chipTextSelected]}>
+                    {n}x/day
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
+
+        {habitType === 'feeding' && (
+          <>
+            <Text style={styles.sectionLabel}>Portion (grams)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. 200"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="numeric"
+              value={portionGrams}
+              onChangeText={setPortionGrams}
+            />
+
+            <Text style={styles.sectionLabel}>Food brand (optional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. Purina"
+              placeholderTextColor={colors.textMuted}
+              value={foodBrand}
+              onChangeText={setFoodBrand}
+            />
+
+            <Text style={styles.sectionLabel}>Wet / dry ratio</Text>
+            <View style={styles.chipRow}>
+              {WET_DRY_OPTIONS.map((pct) => (
+                <TouchableOpacity
+                  key={pct}
+                  style={[styles.chip, wetDryRatio === pct && styles.chipSelected]}
+                  onPress={() => setWetDryRatio(pct)}
+                >
+                  <Text style={[styles.chipText, wetDryRatio === pct && styles.chipTextSelected]}>
+                    {pct}% wet
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
+
+        {habitType === 'water' && (
+          <>
+            <Text style={styles.sectionLabel}>Daily goal (ml)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. 500"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="numeric"
+              value={waterGoalMl}
+              onChangeText={setWaterGoalMl}
+            />
+          </>
+        )}
+
+        {habitType === 'walking' && (
+          <>
+            <Text style={styles.sectionLabel}>Duration (minutes)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. 30"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="numeric"
+              value={walkDuration}
+              onChangeText={setWalkDuration}
+            />
+            <View style={styles.chipRow}>
+              {WALK_DURATION_PRESETS.map((min) => (
+                <TouchableOpacity
+                  key={min}
+                  style={[styles.chip, walkDuration === String(min) && styles.chipSelected]}
+                  onPress={() => setWalkDuration(String(min))}
+                >
+                  <Text style={[styles.chipText, walkDuration === String(min) && styles.chipTextSelected]}>
+                    {min} min
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
+
+        {usesAmount && (
+          <>
+            <Text style={styles.sectionLabel}>{amountLabel}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. 5"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="numeric"
+              value={dosageAmount}
+              onChangeText={setDosageAmount}
+            />
+
+            <Text style={styles.sectionLabel}>{unitLabel}</Text>
+            <View style={styles.chipRow}>
+              {DOSAGE_UNITS.map((unit) => (
+                <TouchableOpacity
+                  key={unit}
+                  style={[styles.chip, dosageUnit === unit && styles.chipSelected]}
+                  onPress={() => {
+                    setDosageUnit(unit);
+                    setShowCustomUnit(unit === 'other');
+                  }}
+                >
+                  <Text style={[styles.chipText, dosageUnit === unit && styles.chipTextSelected]}>{unit}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {showCustomUnit && (
+              <TextInput
+                style={styles.input}
+                placeholder="Custom unit"
+                placeholderTextColor={colors.textMuted}
+                value={customDosageUnit}
+                onChangeText={setCustomDosageUnit}
+              />
+            )}
+          </>
+        )}
 
         <Text style={styles.sectionLabel}>Frequency</Text>
         <View style={styles.chipRow}>
@@ -153,28 +435,59 @@ export default function HabitFormScreen({ habit, addHabit, updateHabit, deleteHa
           ))}
         </View>
 
-        <Text style={styles.sectionLabel}>Reminder time (optional)</Text>
-        <TouchableOpacity style={styles.input} onPress={openTimePicker}>
-          <Text style={reminderTime ? styles.inputText : styles.placeholderText}>
-            {reminderTime ?? 'No reminder time set'}
-          </Text>
-        </TouchableOpacity>
-
-        {Platform.OS === 'ios' && showIosPicker && (
-          <View>
-            <DateTimePicker
-              value={reminderTime ? parseTimeString(reminderTime) : new Date()}
-              mode="time"
-              display="spinner"
-              onChange={(_e: DateTimePickerEvent, selected?: Date) => {
-                if (selected) setReminderTime(toTimeString(selected));
-              }}
-            />
-            <TouchableOpacity onPress={() => setShowIosPicker(false)}>
-              <Text style={styles.switchLink}>Done</Text>
-            </TouchableOpacity>
-          </View>
+        {frequency === 'weekly' && (
+          <>
+            <Text style={styles.sectionLabel}>Day of week</Text>
+            <View style={styles.chipRow}>
+              {WEEKDAYS.map((d) => (
+                <TouchableOpacity
+                  key={d.value}
+                  style={[styles.chip, reminderWeekday === d.value && styles.chipSelected]}
+                  onPress={() => setReminderWeekday(d.value)}
+                >
+                  <Text style={[styles.chipText, reminderWeekday === d.value && styles.chipTextSelected]}>
+                    {d.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
         )}
+
+        <Text style={styles.sectionLabel}>
+          {reminderSlotCount > 1 ? `${reminderNoun} reminders (optional)` : 'Reminder time (optional)'}
+        </Text>
+        {Array.from({ length: reminderSlotCount }).map((_, index) => {
+          const value = reminderTimes[index] ?? null;
+          return (
+            <View key={index} style={styles.reminderRow}>
+              {reminderSlotCount > 1 ? (
+                <Text style={styles.reminderRowLabel}>{reminderNoun} {index + 1}</Text>
+              ) : null}
+              <TouchableOpacity style={styles.input} onPress={() => openTimePicker(index)}>
+                <Text style={value ? styles.inputText : styles.placeholderText}>
+                  {value ?? 'No reminder time set'}
+                </Text>
+              </TouchableOpacity>
+
+              {Platform.OS === 'ios' && iosPickerIndex === index && (
+                <View>
+                  <DateTimePicker
+                    value={value ? parseTimeString(value) : new Date()}
+                    mode="time"
+                    display="spinner"
+                    onChange={(_e: DateTimePickerEvent, selected?: Date) => {
+                      if (selected) setReminderTimeAt(index, toTimeString(selected));
+                    }}
+                  />
+                  <TouchableOpacity onPress={() => setIosPickerIndex(null)}>
+                    <Text style={styles.switchLink}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          );
+        })}
 
         <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading}>
           {loading ? (
@@ -201,7 +514,7 @@ export default function HabitFormScreen({ habit, addHabit, updateHabit, deleteHa
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF8F0',
+    backgroundColor: colors.background,
   },
   scrollContent: {
     padding: 24,
@@ -210,40 +523,56 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#5C3D22',
+    color: colors.textDark,
     marginBottom: 20,
   },
   error: {
-    color: '#B04838',
+    color: colors.allergenText,
     fontSize: 13,
     marginBottom: 12,
     textAlign: 'center',
   },
   input: {
     width: '100%',
-    backgroundColor: 'white',
-    borderRadius: 14,
+    backgroundColor: colors.card,
+    borderRadius: radii.card,
     padding: 16,
     fontSize: 15,
-    color: '#5C3D22',
+    color: colors.textDark,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#DEC9AF',
+    borderColor: colors.cardBorder,
   },
   inputText: {
     fontSize: 15,
-    color: '#5C3D22',
+    color: colors.textDark,
   },
   placeholderText: {
     fontSize: 15,
-    color: '#B8926A',
+    color: colors.textMuted,
   },
   sectionLabel: {
     width: '100%',
     fontSize: 13,
     fontWeight: '600',
-    color: '#8B6343',
+    color: colors.textMuted,
     marginBottom: 8,
+  },
+  helperText: {
+    width: '100%',
+    fontSize: 12,
+    color: colors.textMuted,
+    marginBottom: 8,
+    marginTop: -4,
+  },
+  reminderRow: {
+    width: '100%',
+  },
+  reminderRowLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textMuted,
+    marginBottom: 4,
   },
   chipRow: {
     width: '100%',
@@ -252,22 +581,22 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   chip: {
-    borderRadius: 14,
+    borderRadius: radii.card,
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: '#DEC9AF',
-    backgroundColor: 'white',
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.card,
     marginRight: 8,
     marginBottom: 8,
   },
   chipSelected: {
-    backgroundColor: '#5C3D22',
-    borderColor: '#5C3D22',
+    backgroundColor: colors.primaryGreen,
+    borderColor: colors.primaryGreen,
   },
   chipText: {
     fontSize: 13,
-    color: '#5C3D22',
+    color: colors.textDark,
     textTransform: 'capitalize',
   },
   chipTextSelected: {
@@ -275,8 +604,8 @@ const styles = StyleSheet.create({
   },
   button: {
     width: '100%',
-    backgroundColor: '#5C3D22',
-    borderRadius: 14,
+    backgroundColor: colors.primaryGreen,
+    borderRadius: radii.card,
     padding: 16,
     alignItems: 'center',
     marginTop: 8,
@@ -291,12 +620,12 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   switchLink: {
-    color: '#5C3D22',
+    color: colors.primaryGreen,
     fontSize: 14,
     fontWeight: '600',
   },
   deleteLink: {
-    color: '#B04838',
+    color: colors.allergenText,
     fontSize: 14,
     fontWeight: '600',
   },

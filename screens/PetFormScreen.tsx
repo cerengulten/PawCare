@@ -18,6 +18,7 @@ import DateTimePicker, {
 import * as ImagePicker from 'expo-image-picker';
 import { Dog } from '../types';
 import { useDogs } from '../lib/hooks/useDogs';
+import { colors, radii } from '../lib/theme';
 
 type UseDogsReturn = ReturnType<typeof useDogs>;
 
@@ -50,8 +51,23 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
   );
   const [showIosPicker, setShowIosPicker] = useState(false);
   const [photoUri, setPhotoUri] = useState<string | null>(dog?.photo_url ?? null);
+  const [allergens, setAllergens] = useState<string[]>(dog?.allergens ?? []);
+  const [allergenInput, setAllergenInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  function addAllergen() {
+    const trimmed = allergenInput.trim();
+    if (!trimmed) return;
+    if (!allergens.some(a => a.toLowerCase() === trimmed.toLowerCase())) {
+      setAllergens(prev => [...prev, trimmed]);
+    }
+    setAllergenInput('');
+  }
+
+  function removeAllergen(allergen: string) {
+    setAllergens(prev => prev.filter(a => a !== allergen));
+  }
 
   function openDatePicker() {
     if (Platform.OS === 'android') {
@@ -111,6 +127,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
       birth_date: birthDate ? toDateOnlyString(birthDate) : null,
       weight_kg: weightValue,
       photo_url: photoUri,
+      allergens: allergens.length > 0 ? allergens : null,
     };
 
     const { error } = dog
@@ -146,21 +163,21 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
         <TextInput
           style={styles.input}
           placeholder="Name"
-          placeholderTextColor="#B8926A"
+          placeholderTextColor={colors.textMuted}
           value={name}
           onChangeText={setName}
         />
         <TextInput
           style={styles.input}
           placeholder="Breed (optional)"
-          placeholderTextColor="#B8926A"
+          placeholderTextColor={colors.textMuted}
           value={breed}
           onChangeText={setBreed}
         />
         <TextInput
           style={styles.input}
           placeholder="Weight in kg (optional)"
-          placeholderTextColor="#B8926A"
+          placeholderTextColor={colors.textMuted}
           value={weightText}
           onChangeText={setWeightText}
           keyboardType="decimal-pad"
@@ -189,6 +206,31 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
           </View>
         )}
 
+        <Text style={styles.sectionLabel}>Food sensitivities (optional)</Text>
+        <View style={styles.allergenInputRow}>
+          <TextInput
+            style={styles.allergenInput}
+            placeholder="e.g. Chicken"
+            placeholderTextColor="#A8C89A"
+            value={allergenInput}
+            onChangeText={setAllergenInput}
+            onSubmitEditing={addAllergen}
+            returnKeyType="done"
+          />
+          <TouchableOpacity style={styles.allergenAddButton} onPress={addAllergen}>
+            <Text style={styles.allergenAddButtonText}>Add</Text>
+          </TouchableOpacity>
+        </View>
+        {allergens.length > 0 ? (
+          <View style={styles.allergenChipRow}>
+            {allergens.map(a => (
+              <TouchableOpacity key={a} style={styles.allergenChip} onPress={() => removeAllergen(a)}>
+                <Text style={styles.allergenChipText}>🚫 {a} ×</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
+
         <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading}>
           {loading ? (
             <ActivityIndicator color="white" />
@@ -208,7 +250,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF8F0',
+    backgroundColor: colors.background,
   },
   scrollContent: {
     padding: 24,
@@ -217,11 +259,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#5C3D22',
+    color: '#1A3A10',
     marginBottom: 20,
   },
   error: {
-    color: '#B04838',
+    color: colors.allergenText,
     fontSize: 13,
     marginBottom: 12,
     textAlign: 'center',
@@ -230,9 +272,9 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#DEC9AF',
+    backgroundColor: colors.card,
+    borderWidth: 0.5,
+    borderColor: colors.cardBorder,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
@@ -243,33 +285,89 @@ const styles = StyleSheet.create({
     height: 96,
   },
   photoPickerText: {
-    color: '#8B6343',
+    color: colors.textMuted,
     fontSize: 13,
     textAlign: 'center',
   },
   input: {
     width: '100%',
-    backgroundColor: 'white',
-    borderRadius: 14,
+    backgroundColor: colors.card,
+    borderRadius: radii.card,
     padding: 16,
     fontSize: 15,
-    color: '#5C3D22',
+    color: '#1A3A10',
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#DEC9AF',
+    borderWidth: 0.5,
+    borderColor: colors.cardBorder,
   },
   inputText: {
     fontSize: 15,
-    color: '#5C3D22',
+    color: '#1A3A10',
   },
   placeholderText: {
     fontSize: 15,
-    color: '#B8926A',
+    color: colors.textMuted,
+  },
+  sectionLabel: {
+    width: '100%',
+    fontSize: 9,
+    fontWeight: '600',
+    color: colors.textMuted,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  allergenInputRow: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+  },
+  allergenInput: {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderRadius: radii.card,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    fontSize: 14,
+    color: '#1A3A10',
+    borderWidth: 0.5,
+    borderColor: colors.cardBorder,
+  },
+  allergenAddButton: {
+    backgroundColor: colors.moodSelectedBg,
+    borderRadius: radii.card,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  allergenAddButtonText: {
+    color: colors.primaryGreen,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  allergenChipRow: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  allergenChip: {
+    backgroundColor: colors.allergenBg,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  allergenChipText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: colors.allergenText,
   },
   button: {
     width: '100%',
-    backgroundColor: '#5C3D22',
-    borderRadius: 14,
+    backgroundColor: colors.primaryGreen,
+    borderRadius: radii.card,
     padding: 16,
     alignItems: 'center',
     marginTop: 8,
@@ -284,7 +382,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   switchLink: {
-    color: '#5C3D22',
+    color: colors.primaryGreen,
     fontSize: 14,
     fontWeight: '600',
   },

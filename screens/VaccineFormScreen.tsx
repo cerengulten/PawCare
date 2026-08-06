@@ -18,6 +18,7 @@ import DateTimePicker, {
 import { VaccineRecord } from '../types';
 import { useVaccines } from '../lib/hooks/useVaccines';
 import { requestNotificationPermissions } from '../lib/notifications';
+import { colors, radii } from '../lib/theme';
 
 type UseVaccinesReturn = ReturnType<typeof useVaccines>;
 
@@ -214,7 +215,7 @@ export default function VaccineFormScreen({
         <TextInput
           style={styles.input}
           placeholder="Vaccine name"
-          placeholderTextColor="#B8926A"
+          placeholderTextColor={colors.textMuted}
           value={vaccineName}
           onChangeText={setVaccineName}
         />
@@ -223,7 +224,7 @@ export default function VaccineFormScreen({
           <TextInput
             style={[styles.input, styles.dateInput]}
             placeholder="Date given (optional), YYYY-MM-DD"
-            placeholderTextColor="#B8926A"
+            placeholderTextColor={colors.textMuted}
             value={dateGivenText}
             onChangeText={setDateGivenText}
             autoCapitalize="none"
@@ -267,7 +268,7 @@ export default function VaccineFormScreen({
           <TextInput
             style={[styles.input, styles.dateInput]}
             placeholder="Next due date, YYYY-MM-DD"
-            placeholderTextColor="#B8926A"
+            placeholderTextColor={colors.textMuted}
             value={nextDueDateText}
             onChangeText={setNextDueDateText}
             autoCapitalize="none"
@@ -300,7 +301,7 @@ export default function VaccineFormScreen({
           <Switch
             value={reminderEnabled}
             onValueChange={handleToggleReminder}
-            trackColor={{ false: '#DEC9AF', true: '#5C3D22' }}
+            trackColor={{ false: colors.cardBorder, true: colors.primaryGreen }}
             thumbColor="white"
           />
         </View>
@@ -308,7 +309,7 @@ export default function VaccineFormScreen({
         <TextInput
           style={[styles.input, styles.notesInput]}
           placeholder="Notes (optional)"
-          placeholderTextColor="#B8926A"
+          placeholderTextColor={colors.textMuted}
           value={notes}
           onChangeText={setNotes}
           multiline
@@ -339,7 +340,7 @@ export default function VaccineFormScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF8F0',
+    backgroundColor: colors.background,
   },
   scrollContent: {
     padding: 24,
@@ -348,25 +349,25 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#5C3D22',
+    color: colors.textDark,
     marginBottom: 20,
   },
   error: {
-    color: '#B04838',
+    color: colors.allergenText,
     fontSize: 13,
     marginBottom: 12,
     textAlign: 'center',
   },
   input: {
     width: '100%',
-    backgroundColor: 'white',
-    borderRadius: 14,
+    backgroundColor: colors.card,
+    borderRadius: radii.card,
     padding: 16,
     fontSize: 15,
-    color: '#5C3D22',
+    color: colors.textDark,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#DEC9AF',
+    borderColor: colors.cardBorder,
   },
   notesInput: {
     minHeight: 80,
@@ -384,10 +385,10 @@ const styles = StyleSheet.create({
   calendarButton: {
     width: 48,
     height: 48,
-    borderRadius: 14,
-    backgroundColor: 'white',
+    borderRadius: radii.card,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#DEC9AF',
+    borderColor: colors.cardBorder,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -404,39 +405,39 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 12,
-    backgroundColor: 'white',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#DEC9AF',
+    borderColor: colors.cardBorder,
     marginRight: 8,
     marginBottom: 8,
   },
   quickChipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#5C3D22',
+    color: colors.textDark,
   },
   reminderRow: {
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'white',
-    borderRadius: 14,
+    backgroundColor: colors.card,
+    borderRadius: radii.card,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#DEC9AF',
+    borderColor: colors.cardBorder,
   },
   reminderLabel: {
     fontSize: 15,
-    color: '#5C3D22',
+    color: colors.textDark,
     flexShrink: 1,
     marginRight: 12,
   },
   button: {
     width: '100%',
-    backgroundColor: '#5C3D22',
-    borderRadius: 14,
+    backgroundColor: colors.primaryGreen,
+    borderRadius: radii.card,
     padding: 16,
     alignItems: 'center',
     marginTop: 8,
@@ -451,12 +452,12 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   switchLink: {
-    color: '#5C3D22',
+    color: colors.primaryGreen,
     fontSize: 14,
     fontWeight: '600',
   },
   deleteLink: {
-    color: '#B04838',
+    color: colors.allergenText,
     fontSize: 14,
     fontWeight: '600',
   },

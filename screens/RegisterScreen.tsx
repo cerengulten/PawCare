@@ -12,6 +12,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { PASSWORD_REQUIREMENTS, isPasswordValid } from '../lib/passwordPolicy';
 import SocialSignInButtons from '../components/SocialSignInButtons';
+import { colors, radii } from '../lib/theme';
 
 type Props = {
   onSwitch: () => void;
@@ -73,7 +74,7 @@ export default function RegisterScreen({ onSwitch }: Props) {
       <TextInput
         style={styles.input}
         placeholder="Email"
-        placeholderTextColor="#B8926A"
+        placeholderTextColor={colors.textMuted}
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
@@ -82,7 +83,7 @@ export default function RegisterScreen({ onSwitch }: Props) {
       <TextInput
         style={styles.input}
         placeholder="Password"
-        placeholderTextColor="#B8926A"
+        placeholderTextColor={colors.textMuted}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -120,7 +121,7 @@ export default function RegisterScreen({ onSwitch }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF8F0',
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
@@ -132,31 +133,31 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#5C3D22',
+    color: colors.textDark,
     marginBottom: 6,
   },
   subtitle: {
     fontSize: 14,
-    color: '#8B6343',
+    color: colors.textMuted,
     marginBottom: 32,
     textAlign: 'center',
   },
   error: {
-    color: '#B04838',
+    color: colors.allergenText,
     fontSize: 13,
     marginBottom: 12,
     textAlign: 'center',
   },
   input: {
     width: '100%',
-    backgroundColor: 'white',
-    borderRadius: 14,
+    backgroundColor: colors.card,
+    borderRadius: radii.card,
     padding: 16,
     fontSize: 15,
-    color: '#5C3D22',
+    color: colors.textDark,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#DEC9AF',
+    borderColor: colors.cardBorder,
   },
   checklist: {
     width: '100%',
@@ -164,16 +165,16 @@ const styles = StyleSheet.create({
   },
   checklistItem: {
     fontSize: 12,
-    color: '#B8926A',
+    color: colors.textMuted,
     marginBottom: 2,
   },
   checklistItemMet: {
-    color: '#4A7C4E',
+    color: colors.doneGreen,
   },
   button: {
     width: '100%',
-    backgroundColor: '#5C3D22',
-    borderRadius: 14,
+    backgroundColor: colors.primaryGreen,
+    borderRadius: radii.card,
     padding: 16,
     alignItems: 'center',
     marginTop: 8,
@@ -188,11 +189,11 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   switchText: {
-    color: '#8B6343',
+    color: colors.textMuted,
     fontSize: 14,
   },
   switchLink: {
-    color: '#5C3D22',
+    color: colors.primaryGreen,
     fontSize: 14,
     fontWeight: '600',
   },

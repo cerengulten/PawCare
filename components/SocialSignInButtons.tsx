@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Platform }
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useGoogleSignIn } from '../lib/hooks/useGoogleSignIn';
 import { useAppleSignIn } from '../lib/hooks/useAppleSignIn';
+import { colors, radii } from '../lib/theme';
 
 // Apple sign-in isn't configured in Supabase yet (pending the Apple Developer
 // Program membership decision). Flip this once that's done and the provider
@@ -50,7 +51,7 @@ export default function SocialSignInButtons() {
 
       <TouchableOpacity style={styles.button} onPress={handleGoogle} disabled={loadingProvider !== null}>
         {loadingProvider === 'google' ? (
-          <ActivityIndicator color="#5C3D22" />
+          <ActivityIndicator color={colors.primaryGreen} />
         ) : (
           <Text style={styles.buttonText}>Continue with Google</Text>
         )}
@@ -59,7 +60,7 @@ export default function SocialSignInButtons() {
       {APPLE_SIGN_IN_ENABLED && Platform.OS === 'ios' && appleAvailable ? (
         <TouchableOpacity style={styles.button} onPress={handleApple} disabled={loadingProvider !== null}>
           {loadingProvider === 'apple' ? (
-            <ActivityIndicator color="#5C3D22" />
+            <ActivityIndicator color={colors.primaryGreen} />
           ) : (
             <Text style={styles.buttonText}>Continue with Apple</Text>
           )}
@@ -82,31 +83,31 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#DEC9AF',
+    backgroundColor: colors.cardBorder,
   },
   dividerText: {
-    color: '#8B6343',
+    color: colors.textMuted,
     fontSize: 13,
     marginHorizontal: 8,
   },
   error: {
-    color: '#B04838',
+    color: colors.allergenText,
     fontSize: 13,
     marginBottom: 12,
     textAlign: 'center',
   },
   button: {
     width: '100%',
-    backgroundColor: 'white',
-    borderRadius: 14,
+    backgroundColor: colors.card,
+    borderRadius: radii.card,
     padding: 16,
     alignItems: 'center',
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#DEC9AF',
+    borderColor: colors.cardBorder,
   },
   buttonText: {
-    color: '#5C3D22',
+    color: colors.textDark,
     fontSize: 16,
     fontWeight: '600',
   },

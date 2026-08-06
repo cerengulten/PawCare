@@ -50,5 +50,17 @@ export function useDogs() {
     return { error };
   }
 
-  return { dogs, loading, addDog, updateDog, refetch: fetchDogs };
+  async function deleteDog(id: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: new Error('Not authenticated') };
+    const { error } = await supabase
+      .from('dogs')
+      .delete()
+      .eq('id', id)
+      .eq('owner_id', user.id);
+    if (!error) setDogs(prev => prev.filter(d => d.id !== id));
+    return { error };
+  }
+
+  return { dogs, loading, addDog, updateDog, deleteDog, refetch: fetchDogs };
 }

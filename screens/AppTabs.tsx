@@ -4,12 +4,13 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Text } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import HomeScreen from './HomeScreen';
-import HabitsScreen from './HabitsScreen';
-import ComingSoonScreen from './ComingSoonScreen';
+import PetsScreen from './PetsScreen';
+import MoreScreen from './MoreScreen';
+import { colors } from '../lib/theme';
 
 export type RootTabParamList = {
-  Pets: undefined;
-  Habits: undefined;
+  Home: undefined;
+  Pets: { dogId?: string } | undefined;
   More: undefined;
 };
 
@@ -24,33 +25,34 @@ export default function AppTabs({ session }: Props) {
     <SafeAreaProvider>
       <NavigationContainer>
         <Tab.Navigator
+          initialRouteName="Home"
           screenOptions={{
             headerShown: false,
-            tabBarActiveTintColor: '#5C3D22',
-            tabBarInactiveTintColor: '#B8926A',
-            tabBarStyle: { backgroundColor: '#FFF8F0', borderTopColor: '#DEC9AF' },
+            tabBarActiveTintColor: colors.primaryGreen,
+            tabBarInactiveTintColor: colors.notStartedText,
+            tabBarStyle: { backgroundColor: colors.background, borderTopColor: colors.cardBorder },
           }}
         >
+          <Tab.Screen
+            name="Home"
+            component={HomeScreen}
+            options={{
+              tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>🏠</Text>,
+            }}
+          />
+
           <Tab.Screen
             name="Pets"
             options={{
               tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>🐾</Text>,
             }}
           >
-            {() => <HomeScreen session={session} />}
+            {(props) => <PetsScreen {...props} session={session} />}
           </Tab.Screen>
 
           <Tab.Screen
-            name="Habits"
-            component={HabitsScreen}
-            options={{
-              tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>✅</Text>,
-            }}
-          />
-
-          <Tab.Screen
             name="More"
-            component={ComingSoonScreen}
+            component={MoreScreen}
             options={{
               tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>✨</Text>,
             }}

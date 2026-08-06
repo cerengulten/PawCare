@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { supabase } from './lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import LoginScreen from './screens/LoginScreen';
@@ -7,6 +8,7 @@ import RegisterScreen from './screens/RegisterScreen';
 import AppTabs from './screens/AppTabs';
 import OnboardingScreen from './screens/OnboardingScreen';
 import { useProfile } from './lib/hooks/useProfile';
+import { colors } from './lib/theme';
 
 function AuthedApp({ session }: { session: Session }) {
   const { profile, loading: profileLoading } = useProfile();
@@ -29,7 +31,7 @@ function AuthedApp({ session }: { session: Session }) {
   if (profileLoading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#5C3D22" />
+        <ActivityIndicator size="large" color={colors.primaryGreen} />
       </View>
     );
   }
@@ -64,27 +66,40 @@ export default function App() {
 
   if (loading) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#5C3D22" />
-      </View>
+      <GestureHandlerRootView style={styles.flex}>
+        <View style={styles.loading}>
+          <ActivityIndicator size="large" color={colors.primaryGreen} />
+        </View>
+      </GestureHandlerRootView>
     );
   }
 
   if (!session) {
-    return showRegister ? (
-      <RegisterScreen onSwitch={() => setShowRegister(false)} />
-    ) : (
-      <LoginScreen onSwitch={() => setShowRegister(true)} />
+    return (
+      <GestureHandlerRootView style={styles.flex}>
+        {showRegister ? (
+          <RegisterScreen onSwitch={() => setShowRegister(false)} />
+        ) : (
+          <LoginScreen onSwitch={() => setShowRegister(true)} />
+        )}
+      </GestureHandlerRootView>
     );
   }
 
-  return <AuthedApp session={session} />;
+  return (
+    <GestureHandlerRootView style={styles.flex}>
+      <AuthedApp session={session} />
+    </GestureHandlerRootView>
+  );
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   loading: {
     flex: 1,
-    backgroundColor: '#FFF8F0',
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
