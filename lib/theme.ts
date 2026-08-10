@@ -19,6 +19,8 @@ export const colors = {
   streakAccentBg: '#FDF0DC',
   communityBlueBg: '#E3EEFA',
   communityBlueText: '#2A5A9A',
+  symptomBothBg: '#EEE0FF',
+  symptomBothText: '#6A1A9A',
 } as const;
 
 export const radii = {

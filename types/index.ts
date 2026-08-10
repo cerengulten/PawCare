@@ -91,3 +91,49 @@ export type VaccineRecord = {
   notification_id: string | null;
   created_at: string;
 };
+
+export type PoopConsistency = 'solid' | 'soft' | 'liquid' | 'mucus';
+export type PoopColor = 'brown' | 'yellow' | 'green' | 'black' | 'red';
+
+export type PoopLogDetails = {
+  consistency: PoopConsistency;
+  color: PoopColor;
+  frequency: number;
+};
+
+export type VomitSeverity = 'mild' | 'moderate' | 'severe';
+export type VomitCause = 'food' | 'motion' | 'ate_too_fast' | 'hairball' | 'foreign_object' | 'unknown';
+
+export type VomitLogDetails = {
+  severity: VomitSeverity;
+  possibleCause: VomitCause;
+  frequency: number;
+};
+
+export type HealthLog = {
+  id: string;
+  dog_id: string;
+  owner_id: string;
+  type: 'poop' | 'vomit';
+  details: PoopLogDetails | VomitLogDetails;
+  notes: string | null;
+  logged_at: string;
+};
+
+export type FoodType = 'wet' | 'dry' | 'mixed' | 'raw';
+
+export type MealDetail = {
+  id: string;
+  completion_id: string;
+  dog_id: string;
+  owner_id: string;
+  food_type: FoodType;
+  wet_amount_grams: number | null;
+  brand_wet: string | null;
+  dry_amount_grams: number | null;
+  brand_dry: string | null;
+  raw_amount_grams: number | null;
+  brand_raw: string | null;
+  notes: string | null;
+  logged_at: string;
+};

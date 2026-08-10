@@ -1,21 +1,32 @@
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, Image, ScrollView, Alert, StyleSheet } from 'react-native';
-import { Dog, Habit, HabitType, DogMood, VaccineRecord, Allergen } from '../types';
+import { Dog, Habit, HabitType, DogMood, VaccineRecord, Allergen, HealthLog } from '../types';
 import { useHabits, getHabitTarget } from '../lib/hooks/useHabits';
 import { useVaccines } from '../lib/hooks/useVaccines';
 import { useDogMood } from '../lib/hooks/useDogMood';
 import { useAllergens } from '../lib/hooks/useAllergens';
+import { useHealthLogs } from '../lib/hooks/useHealthLogs';
+import { useVomitLogs } from '../lib/hooks/useVomitLogs';
+import { useMealDetails } from '../lib/hooks/useMealDetails';
 import { usePetStreak } from '../lib/hooks/usePetStreak';
 import { useDogs } from '../lib/hooks/useDogs';
 import HabitRow from '../components/HabitRow';
 import WaterIncrementRow from '../components/WaterIncrementRow';
+import MealDetailLink from '../components/MealDetailLink';
+import MealDetailSheet from '../components/MealDetailSheet';
 import VaccineCard from '../components/VaccineCard';
+import PoopLogCard from '../components/PoopLogCard';
+import VomitLogCard from '../components/VomitLogCard';
 import HabitFormScreen from './HabitFormScreen';
 import HabitQuickAddScreen from './HabitQuickAddScreen';
 import HabitHistoryScreen from './HabitHistoryScreen';
 import VaccineFormScreen from './VaccineFormScreen';
 import AllergenFormScreen from './AllergenFormScreen';
 import MoodHistoryScreen from './MoodHistoryScreen';
+import PoopFormScreen from './PoopFormScreen';
+import VomitFormScreen from './VomitFormScreen';
+import SymptomHistoryScreen from './SymptomHistoryScreen';
+import MealHistoryScreen from './MealHistoryScreen';
 import { colors, radii } from '../lib/theme';
 
 type Props = {
@@ -25,7 +36,7 @@ type Props = {
   onDelete: () => void;
 };
 
-type Mode = 'detail' | 'habit-quick-add' | 'habit-form' | 'vaccine-list' | 'vaccine-form' | 'history' | 'mood-history' | 'allergen-form';
+type Mode = 'detail' | 'habit-quick-add' | 'habit-form' | 'vaccine-list' | 'vaccine-form' | 'history' | 'mood-history' | 'allergen-form' | 'health-list' | 'poop-form' | 'vomit-list' | 'vomit-form' | 'symptom-history' | 'meal-history';
 
 const MOOD_OPTIONS: { value: DogMood['mood']; emoji: string; label: string }[] = [
   { value: 'sleepy', emoji: '😴', label: 'Sleepy' },
@@ -62,11 +73,16 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
   const [editingVaccine, setEditingVaccine] = useState<VaccineRecord | null>(null);
   const [historyTarget, setHistoryTarget] = useState<Habit | null>(null);
   const [editingAllergen, setEditingAllergen] = useState<Allergen | null>(null);
+  const [editingLog, setEditingLog] = useState<HealthLog | null>(null);
+  const [editingVomitLog, setEditingVomitLog] = useState<HealthLog | null>(null);
+  const [logSource, setLogSource] = useState<'list' | 'history'>('list');
+  const [mealDetailHabitId, setMealDetailHabitId] = useState<string | null>(null);
 
   const {
     habits,
     completedToday,
     completedCounts,
+    completionIds,
     logHabitToday,
     undoHabitToday,
     logWaterAmount,
@@ -77,8 +93,14 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
   } = useHabits(dog.id);
   const { upcoming, overdue, addVaccine, updateVaccine, deleteVaccine } = useVaccines(dog.id);
   const { allergens, addAllergen, updateAllergen, deleteAllergen } = useAllergens(dog.id);
+  const { logs, addLog, updateLog, deleteLog } = useHealthLogs(dog.id);
+  const { logs: vomitLogs, addLog: addVomitLog, updateLog: updateVomitLog, deleteLog: deleteVomitLog } = useVomitLogs(dog.id);
+  const { mealDetails, getMealDetail, addMealDetail, deleteMealDetail } = useMealDetails(dog.id);
   const { mood, setTodayMood } = useDogMood(dog.id);
   const { streak } = usePetStreak(dog.id, habits.map(h => h.id));
+
+  const mealDetailCompletionId = mealDetailHabitId ? completionIds.get(mealDetailHabitId) ?? null : null;
+  const mealDetailInitial = mealDetailCompletionId ? getMealDetail(mealDetailCompletionId) ?? null : null;
 
   if (mode === 'habit-quick-add') {
     return (
@@ -185,6 +207,127 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
     );
   }
 
+  if (mode === 'health-list') {
+    return (
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <TouchableOpacity onPress={() => setMode('detail')} style={styles.backRow}>
+          <Text style={styles.backText}>‹ Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Poop Tracker</Text>
+        <Text style={styles.subtitle}>{dog.name}</Text>
+
+        {logs.length === 0 ? (
+          <Text style={styles.emptyText}>No Poop Logged Yet.</Text>
+        ) : (
+          <View style={styles.card}>
+            {logs.map((l, idx) => (
+              <View key={l.id}>
+                <PoopLogCard
+                  log={l}
+                  onPress={() => { setEditingLog(l); setMode('poop-form'); }}
+                />
+                {idx < logs.length - 1 ? <View style={styles.divider} /> : null}
+              </View>
+            ))}
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={styles.vaccineLink}
+          onPress={() => { setEditingLog(null); setMode('poop-form'); }}
+        >
+          <Text style={styles.vaccineLinkText}>+ Add</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    );
+  }
+
+  if (mode === 'poop-form') {
+    return (
+      <PoopFormScreen
+        log={editingLog}
+        addLog={addLog}
+        updateLog={updateLog}
+        deleteLog={deleteLog}
+        onDone={() => { setMode(logSource === 'history' ? 'symptom-history' : 'health-list'); setEditingLog(null); setLogSource('list'); }}
+        onCancel={() => { setMode(logSource === 'history' ? 'symptom-history' : 'health-list'); setEditingLog(null); setLogSource('list'); }}
+      />
+    );
+  }
+
+  if (mode === 'vomit-list') {
+    return (
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <TouchableOpacity onPress={() => setMode('detail')} style={styles.backRow}>
+          <Text style={styles.backText}>‹ Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Vomit Tracker</Text>
+        <Text style={styles.subtitle}>{dog.name}</Text>
+
+        {vomitLogs.length === 0 ? (
+          <Text style={styles.emptyText}>No Vomit Logged Yet.</Text>
+        ) : (
+          <View style={styles.card}>
+            {vomitLogs.map((l, idx) => (
+              <View key={l.id}>
+                <VomitLogCard
+                  log={l}
+                  onPress={() => { setEditingVomitLog(l); setMode('vomit-form'); }}
+                />
+                {idx < vomitLogs.length - 1 ? <View style={styles.divider} /> : null}
+              </View>
+            ))}
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={styles.vaccineLink}
+          onPress={() => { setEditingVomitLog(null); setMode('vomit-form'); }}
+        >
+          <Text style={styles.vaccineLinkText}>+ Add</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    );
+  }
+
+  if (mode === 'vomit-form') {
+    return (
+      <VomitFormScreen
+        log={editingVomitLog}
+        addLog={addVomitLog}
+        updateLog={updateVomitLog}
+        deleteLog={deleteVomitLog}
+        onDone={() => { setMode(logSource === 'history' ? 'symptom-history' : 'vomit-list'); setEditingVomitLog(null); setLogSource('list'); }}
+        onCancel={() => { setMode(logSource === 'history' ? 'symptom-history' : 'vomit-list'); setEditingVomitLog(null); setLogSource('list'); }}
+      />
+    );
+  }
+
+  if (mode === 'symptom-history') {
+    return (
+      <SymptomHistoryScreen
+        dog={dog}
+        logs={logs}
+        vomitLogs={vomitLogs}
+        onSelectPoop={(l) => { setLogSource('history'); setEditingLog(l); setMode('poop-form'); }}
+        onSelectVomit={(l) => { setLogSource('history'); setEditingVomitLog(l); setMode('vomit-form'); }}
+        onBack={() => setMode('detail')}
+      />
+    );
+  }
+
+  if (mode === 'meal-history') {
+    return (
+      <MealHistoryScreen
+        dog={dog}
+        mealDetails={mealDetails}
+        addMealDetail={addMealDetail}
+        deleteMealDetail={deleteMealDetail}
+        onBack={() => setMode('detail')}
+      />
+    );
+  }
+
   const sexLabel = dog.sex === 'male' ? 'Male' : dog.sex === 'female' ? 'Female' : null;
   const age = computeAge(dog.birth_date);
   const metaLine = [dog.breed, sexLabel, age].filter(Boolean).join(' · ');
@@ -196,6 +339,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
     : '＋ Add vaccine';
 
   return (
+    <>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.heroBand}>
         {dog.photo_url ? (
@@ -240,7 +384,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
           onPress={() => {
             Alert.alert(
               'Delete pet?',
-              `This permanently deletes ${dog.name} and all of their habits and vaccine records.`,
+              `This permanently deletes ${dog.name} and all of their habits, vaccine records, and poop/vomit tracker entries.`,
               [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Delete', style: 'destructive', onPress: onDelete },
@@ -324,6 +468,12 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
                       onReset={() => resetWaterToday(h.id)}
                     />
                   ) : null}
+                  {h.habit_type === 'feeding' && done && completionIds.get(h.id) ? (
+                    <MealDetailLink
+                      detail={getMealDetail(completionIds.get(h.id)!)}
+                      onPress={() => setMealDetailHabitId(h.id)}
+                    />
+                  ) : null}
                   {idx < habits.length - 1 ? <View style={styles.divider} /> : null}
                 </View>
               );
@@ -331,6 +481,15 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
           </View>
         )}
       </View>
+
+      {mealDetails.length > 0 ? (
+        <TouchableOpacity
+          style={styles.vaccineLink}
+          onPress={() => setMode('meal-history')}
+        >
+          <Text style={styles.vaccineLinkText}>Meal history →</Text>
+        </TouchableOpacity>
+      ) : null}
 
       <View style={styles.section}>
         <View style={styles.sectionTitleRow}>
@@ -359,6 +518,77 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
         )}
       </View>
 
+      <View style={styles.section}>
+        <View style={styles.sectionTitleRow}>
+          <Text style={styles.sectionTitle}>Poop Tracker</Text>
+          <TouchableOpacity
+            style={styles.addChip}
+            onPress={() => { setEditingLog(null); setMode('poop-form'); }}
+          >
+            <Text style={styles.addChipText}>＋ Add</Text>
+          </TouchableOpacity>
+        </View>
+        {logs.length > 0 ? (
+          <View style={styles.card}>
+            {logs.slice(0, 3).map((l, idx) => (
+              <View key={l.id}>
+                <PoopLogCard
+                  log={l}
+                  onPress={() => { setEditingLog(l); setMode('poop-form'); }}
+                />
+                {idx < Math.min(logs.length, 3) - 1 ? <View style={styles.divider} /> : null}
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.emptyText}>No Poop Logged Yet.</Text>
+        )}
+        {logs.length > 3 ? (
+          <TouchableOpacity onPress={() => setMode('health-list')} style={styles.seeAllRow}>
+            <Text style={styles.backText}>See all →</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionTitleRow}>
+          <Text style={styles.sectionTitle}>Vomit Tracker</Text>
+          <TouchableOpacity
+            style={styles.addChip}
+            onPress={() => { setEditingVomitLog(null); setMode('vomit-form'); }}
+          >
+            <Text style={styles.addChipText}>＋ Add</Text>
+          </TouchableOpacity>
+        </View>
+        {vomitLogs.length > 0 ? (
+          <View style={styles.card}>
+            {vomitLogs.slice(0, 3).map((l, idx) => (
+              <View key={l.id}>
+                <VomitLogCard
+                  log={l}
+                  onPress={() => { setEditingVomitLog(l); setMode('vomit-form'); }}
+                />
+                {idx < Math.min(vomitLogs.length, 3) - 1 ? <View style={styles.divider} /> : null}
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.emptyText}>No Vomit Logged Yet.</Text>
+        )}
+        {vomitLogs.length > 3 ? (
+          <TouchableOpacity onPress={() => setMode('vomit-list')} style={styles.seeAllRow}>
+            <Text style={styles.backText}>See all →</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      <TouchableOpacity
+        style={styles.vaccineLink}
+        onPress={() => setMode('symptom-history')}
+      >
+        <Text style={styles.vaccineLinkText}>🕒 Symptom History</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity
         style={styles.vaccineLink}
         onPress={() => setMode('vaccine-list')}
@@ -366,6 +596,18 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
         <Text style={styles.vaccineLinkText}>{vaccineLabel}</Text>
       </TouchableOpacity>
     </ScrollView>
+    <MealDetailSheet
+      visible={mealDetailHabitId !== null}
+      initial={mealDetailInitial}
+      onClose={() => setMealDetailHabitId(null)}
+      onSave={async (details) => {
+        if (!mealDetailCompletionId) return { error: new Error('No completion found for this habit today') };
+        const { error } = await addMealDetail(mealDetailCompletionId, dog.id, details);
+        if (!error) setMealDetailHabitId(null);
+        return { error };
+      }}
+    />
+    </>
   );
 }
 
@@ -610,6 +852,9 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 13,
     color: colors.textMuted,
+  },
+  seeAllRow: {
+    marginTop: 8,
   },
   divider: {
     height: 0.5,

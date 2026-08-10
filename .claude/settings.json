@@ -3,7 +3,9 @@
     "allow": [
       "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(p.dependencies['react-native-gesture-handler']\\);\")",
       "Bash(npm install *)",
-      "Bash(node -e \"console.log\\(require\\('./node_modules/react-native-gesture-handler/package.json'\\).version\\)\")"
+      "Bash(node -e \"console.log\\(require\\('./node_modules/react-native-gesture-handler/package.json'\\).version\\)\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"https://world.openfoodfacts.org/cgi/search.pl?search_terms=chicken&search_simple=1&json=1&page_size=1&fields=code,product_name\")",
+      "PowerShell(Add-Type -AssemblyName System.Drawing; $img = [System.Drawing.Image]::FromFile\\(\"c:\\\\Users\\\\crnyl\\\\Desktop\\\\PawCare\\\\pawcare\\\\assets\\\\pawcare_logo.png\"\\); \"$\\($img.Width\\) x $\\($img.Height\\)\"; $img.Dispose\\(\\))"
     ]
   },
   "enabledPlugins": {

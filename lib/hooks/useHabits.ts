@@ -29,6 +29,7 @@ async function cancelAllReminders(ids: string[] | null): Promise<void> {
 export function useHabits(dogId: string | null) {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [completedCounts, setCompletedCounts] = useState<Map<string, number>>(new Map());
+  const [completionIds, setCompletionIds] = useState<Map<string, string>>(new Map());
   const isFocused = useIsFocused();
 
   const completedToday = useMemo(() => {
@@ -64,16 +65,35 @@ export function useHabits(dogId: string | null) {
   }
 
   async function fetchCompletions(habitIds: string[]) {
-    if (habitIds.length === 0) { setCompletedCounts(new Map()); return; }
+    if (habitIds.length === 0) { setCompletedCounts(new Map()); setCompletionIds(new Map()); return; }
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setCompletedCounts(new Map()); return; }
+    if (!user) { setCompletedCounts(new Map()); setCompletionIds(new Map()); return; }
     const { data } = await supabase
       .from('habit_completions')
-      .select('habit_id, occurrence_count')
+      .select('id, habit_id, occurrence_count')
       .eq('owner_id', user.id)
       .eq('completed_date', today)
       .in('habit_id', habitIds);
-    if (data) setCompletedCounts(new Map(data.map(r => [r.habit_id, r.occurrence_count])));
+    if (data) {
+      setCompletedCounts(new Map(data.map(r => [r.habit_id, r.occurrence_count])));
+      setCompletionIds(new Map(data.map(r => [r.habit_id, r.id])));
+    }
+  }
+
+  // Read-only helper so `completionIds` stays current right after a tick, without waiting
+  // for the isFocused-driven refetch above — logOccurrence's RPC only returns the new
+  // count, not the row id, and toggleCompletion's upsert doesn't select it back either.
+  async function fetchCompletionId(habitId: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from('habit_completions')
+      .select('id')
+      .eq('habit_id', habitId)
+      .eq('owner_id', user.id)
+      .eq('completed_date', today)
+      .maybeSingle();
+    if (data) setCompletionIds(prev => new Map(prev).set(habitId, data.id));
   }
 
   async function toggleCompletion(habitId: string) {
@@ -89,12 +109,14 @@ export function useHabits(dogId: string | null) {
         .eq('owner_id', user.id)
         .eq('completed_date', today);
       setCompletedCounts(prev => { const m = new Map(prev); m.delete(habitId); return m; });
+      setCompletionIds(prev => { const m = new Map(prev); m.delete(habitId); return m; });
     } else {
       const target = habit ? getHabitTarget(habit) : 1;
       await supabase
         .from('habit_completions')
         .upsert({ habit_id: habitId, owner_id: user.id, completed_date: today, occurrence_count: target });
       setCompletedCounts(prev => new Map(prev).set(habitId, target));
+      await fetchCompletionId(habitId);
     }
   }
 
@@ -108,6 +130,7 @@ export function useHabits(dogId: string | null) {
     });
     const newCount = (data as number | null) ?? 0;
     setCompletedCounts(prev => new Map(prev).set(habitId, newCount));
+    if (newCount > 0) await fetchCompletionId(habitId);
   }
 
   async function undoOccurrence(habitId: string) {
@@ -121,6 +144,7 @@ export function useHabits(dogId: string | null) {
       if (newCount <= 0) m.delete(habitId); else m.set(habitId, newCount);
       return m;
     });
+    if (newCount <= 0) setCompletionIds(prev => { const m = new Map(prev); m.delete(habitId); return m; });
   }
 
   async function logWaterAmount(habitId: string, amountMl: number) {
@@ -146,6 +170,7 @@ export function useHabits(dogId: string | null) {
       .eq('owner_id', user.id)
       .eq('completed_date', today);
     setCompletedCounts(prev => { const m = new Map(prev); m.delete(habitId); return m; });
+    setCompletionIds(prev => { const m = new Map(prev); m.delete(habitId); return m; });
   }
 
   async function logHabitToday(habitId: string) {
@@ -238,6 +263,7 @@ export function useHabits(dogId: string | null) {
     habits,
     completedToday,
     completedCounts,
+    completionIds,
     toggleCompletion,
     logOccurrence,
     undoOccurrence,
