@@ -525,8 +525,10 @@ caused bugs twice.
     consolidated `dog_moods`/`dog_allergens`/`health_logs`/`habit_completions.occurrence_count`
     into "Supabase schema gotchas"; `meal_details` and vaccine schema details were already
     documented there from items 12/15)
-20. Commit and tag `v2.0` — **next task**
+20. ~~Commit and tag `v2.0`~~ (2026-08-24, commit `5bc3e28`, pushed to `origin/main` and
+    tagged `v2.0`)
 21. Vet finder map — use OpenStreetMap tiles + Foursquare Places free tier API for vet search
+    — **next task**
     (decided over Google Places to avoid billing requirement). Research Foursquare API setup
     before building.
 
