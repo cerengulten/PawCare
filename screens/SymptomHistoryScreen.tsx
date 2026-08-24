@@ -1,7 +1,11 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
-import { Dog, HealthLog, PoopConsistency, PoopColor, VomitSeverity } from '../types';
+import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet, ActivityIndicator } from 'react-native';
+import { Dog, HealthLog, PoopConsistency, PoopColor, VomitSeverity, VomitCause } from '../types';
 import { colors, radii } from '../lib/theme';
+import { useProfile } from '../lib/hooks/useProfile';
+import { computeAge } from '../lib/petAge';
+import { buildReportHtml } from '../lib/pdfReport';
+import { shareHtmlAsPdf } from '../lib/pdfExport';
 
 type Props = {
   dog: Dog;
@@ -20,20 +24,33 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-const CONSISTENCY_LABEL: Record<PoopConsistency, string> = {
+export const CONSISTENCY_LABEL: Record<PoopConsistency, string> = {
   solid: 'Solid',
   soft: 'Soft',
   liquid: 'Liquid',
   mucus: 'Mucus',
 };
 
-const SEVERITY_LABEL: Record<VomitSeverity, string> = {
+export const SEVERITY_LABEL: Record<VomitSeverity, string> = {
   mild: 'Mild',
   moderate: 'Moderate',
   severe: 'Severe',
 };
 
-function dateKey(iso: string): string {
+export const CAUSE_LABEL: Record<VomitCause, string> = {
+  food: 'Food',
+  motion: 'Motion',
+  ate_too_fast: 'Ate too fast',
+  hairball: 'Hairball',
+  foreign_object: 'Foreign object',
+  unknown: 'Unknown',
+};
+
+export function formatLongDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+export function dateKey(iso: string): string {
   return iso.split('T')[0];
 }
 
@@ -41,7 +58,7 @@ function toDateStr(y: number, m: number, d: number): string {
   return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
-function formatTime(iso: string): string {
+export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
@@ -69,6 +86,9 @@ function dayStatusStyle(status: DayStatus) {
 }
 
 export default function SymptomHistoryScreen({ dog, logs, vomitLogs, onSelectPoop, onSelectVomit, onBack }: Props) {
+  const { profile } = useProfile();
+  const [exporting, setExporting] = useState(false);
+
   const now = new Date();
   const todayKey = dateKey(now.toISOString());
 
@@ -159,6 +179,93 @@ export default function SymptomHistoryScreen({ dog, logs, vomitLogs, onSelectPoo
     return best;
   })();
 
+  const handleExport = async () => {
+    if (logs.length === 0 && vomitLogs.length === 0) {
+      Alert.alert('No Data', 'No symptom history to export yet.');
+      return;
+    }
+    setExporting(true);
+    try {
+      const entriesNewestFirst = [...logs, ...vomitLogs]
+        .slice()
+        .sort((a, b) => b.logged_at.localeCompare(a.logged_at));
+      const newestDate = dateKey(entriesNewestFirst[0].logged_at);
+      const oldestDate = dateKey(entriesNewestFirst[entriesNewestFirst.length - 1].logged_at);
+
+      const consistencyCounts = new Map<PoopConsistency, number>();
+      for (const l of logs) {
+        const c = (l.details as { consistency: PoopConsistency }).consistency;
+        consistencyCounts.set(c, (consistencyCounts.get(c) ?? 0) + 1);
+      }
+      let mostCommonConsistency: PoopConsistency | null = null;
+      let mostCommonCount = 0;
+      for (const [c, count] of consistencyCounts) {
+        if (count > mostCommonCount) { mostCommonConsistency = c; mostCommonCount = count; }
+      }
+
+      const sexLabel = dog.sex === 'male' ? 'Male' : dog.sex === 'female' ? 'Female' : 'Unknown';
+      const ageLabel = computeAge(dog.birth_date) || 'Unknown';
+      const weightLabel = dog.weight_kg != null ? `${dog.weight_kg} kg` : 'Unknown';
+      const ownerLabel = `${profile?.full_name ?? 'Unknown'}${profile?.username ? ` (@${profile.username})` : ''}`;
+      const periodLabel = oldestDate === newestDate
+        ? formatLongDate(newestDate)
+        : `${formatLongDate(oldestDate)} – ${formatLongDate(newestDate)}`;
+      const exportedLabel = `${formatLongDate(todayKey)} · PawCare app`;
+
+      const tableRows = entriesNewestFirst.map((l, i) => {
+        const isPoop = l.type === 'poop';
+        const typeColor = isPoop ? colors.pendingAmberText : colors.allergenText;
+        const details = isPoop
+          ? `${CONSISTENCY_LABEL[(l.details as { consistency: PoopConsistency }).consistency]} · ${(() => {
+              const color = (l.details as { color: PoopColor }).color;
+              return color[0].toUpperCase() + color.slice(1);
+            })()}`
+          : `${SEVERITY_LABEL[(l.details as { severity: VomitSeverity }).severity]} · ${CAUSE_LABEL[(l.details as { possibleCause: VomitCause }).possibleCause]}`;
+        const frequency = (l.details as { frequency: number }).frequency;
+        return `
+          <tr style="background:${i % 2 === 1 ? '#F8FCF6' : '#FFFFFF'};">
+            <td>${formatLongDate(dateKey(l.logged_at))}</td>
+            <td>${formatTime(l.logged_at)}</td>
+            <td style="color:${typeColor};font-weight:600;">${isPoop ? 'Poop' : 'Vomit'}</td>
+            <td>${details}</td>
+            <td>${frequency}</td>
+            <td>${l.notes ?? '—'}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const html = buildReportHtml({
+        title: '🐾 PawCare — Symptom History Report',
+        infoRows: [
+          { key: 'Dog name:', value: dog.name },
+          { key: 'Breed:', value: `${dog.breed ?? 'Unknown'} · ${sexLabel}` },
+          { key: 'Age / Weight:', value: `${ageLabel} · ${weightLabel}` },
+          { key: 'Owner:', value: ownerLabel },
+          { key: 'Period:', value: periodLabel },
+          { key: 'Exported:', value: exportedLabel },
+        ],
+        tableHeaders: ['Date', 'Time', 'Type', 'Details', 'Frequency', 'Notes'],
+        tableRowsHtml: tableRows,
+        summaryRows: [
+          { key: 'Poop logs:', value: `${logs.length}` },
+          { key: 'Vomit logs:', value: `${vomitLogs.length}` },
+          { key: 'Most common stool:', value: mostCommonConsistency ? CONSISTENCY_LABEL[mostCommonConsistency] : '—' },
+          { key: 'Generated by:', value: 'PawCare · pawcare.app' },
+        ],
+      });
+
+      const newest = new Date(newestDate);
+      const monthAbbrev = newest.toLocaleDateString('en-US', { month: 'short' });
+      const filename = `${dog.name.replace(/\s+/g, '_')}_symptom_history_${monthAbbrev}${newest.getFullYear()}.pdf`;
+
+      await shareHtmlAsPdf(filename, html);
+    } catch {
+      Alert.alert('Export Failed', 'Could not export symptom history. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <TouchableOpacity onPress={onBack} style={styles.backRow}>
@@ -172,9 +279,14 @@ export default function SymptomHistoryScreen({ dog, logs, vomitLogs, onSelectPoo
         </View>
         <TouchableOpacity
           style={styles.downloadBtn}
-          onPress={() => Alert.alert('Export', 'Coming soon!')}
+          onPress={handleExport}
+          disabled={exporting}
         >
-          <Text style={styles.downloadIcon}>⬇</Text>
+          {exporting ? (
+            <ActivityIndicator size="small" color={colors.primaryGreen} />
+          ) : (
+            <Text style={styles.downloadIcon}>⬇</Text>
+          )}
         </TouchableOpacity>
       </View>
 

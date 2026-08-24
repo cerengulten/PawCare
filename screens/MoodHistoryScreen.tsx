@@ -1,15 +1,19 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet, ActivityIndicator } from 'react-native';
 import { Dog, DogMood } from '../types';
 import { useMoodHistory } from '../lib/hooks/useMoodHistory';
+import { useProfile } from '../lib/hooks/useProfile';
+import { computeAge } from '../lib/petAge';
 import { colors, radii } from '../lib/theme';
+import { shareHtmlAsPdf } from '../lib/pdfExport';
+import { buildReportHtml } from '../lib/pdfReport';
 
 type Props = {
   dog: Dog;
   onBack: () => void;
 };
 
-const MOOD_EMOJI: Record<DogMood['mood'], string> = {
+export const MOOD_EMOJI: Record<DogMood['mood'], string> = {
   sleepy: '😴',
   off: '😟',
   good: '😊',
@@ -17,12 +21,20 @@ const MOOD_EMOJI: Record<DogMood['mood'], string> = {
   sick: '🤒',
 };
 
-const MOOD_LABEL: Record<DogMood['mood'], string> = {
+export const MOOD_LABEL: Record<DogMood['mood'], string> = {
   sleepy: 'Sleepy',
   off: 'Off',
   good: 'Good',
   great: 'Great',
   sick: 'Sick',
+};
+
+export const MOOD_COLOR: Record<DogMood['mood'], string> = {
+  good: colors.primaryGreen,
+  great: colors.communityBlueText,
+  sleepy: colors.communityBlueText,
+  off: colors.pendingAmberText,
+  sick: colors.allergenText,
 };
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -36,8 +48,18 @@ function toDateStr(y: number, m: number, d: number): string {
   return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
+export function formatLongDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+export function formatWeekday(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('en-US', { weekday: 'long' });
+}
+
 export default function MoodHistoryScreen({ dog, onBack }: Props) {
   const { historyByDate } = useMoodHistory(dog.id, HISTORY_DAYS);
+  const { profile } = useProfile();
+  const [exporting, setExporting] = useState(false);
 
   const now = new Date();
   const today = now.toISOString().split('T')[0];
@@ -112,6 +134,85 @@ export default function MoodHistoryScreen({ dog, onBack }: Props) {
 
   const hasAnyHistory = historyByDate.size > 0;
 
+  const handleExport = async () => {
+    if (historyByDate.size === 0) {
+      Alert.alert('No Data', 'No mood history to export yet.');
+      return;
+    }
+    setExporting(true);
+    try {
+      const entriesNewestFirst = Array.from(historyByDate.entries())
+        .sort(([a], [b]) => b.localeCompare(a));
+      const dates = entriesNewestFirst.map(([date]) => date);
+      const newestDate = dates[0];
+      const oldestDate = dates[dates.length - 1];
+
+      const totalDaysInPeriod = Math.round(
+        (new Date(newestDate).getTime() - new Date(oldestDate).getTime()) / 86400000
+      ) + 1;
+
+      const moodCounts = new Map<DogMood['mood'], number>();
+      let concerningDays = 0;
+      for (const [, mood] of entriesNewestFirst) {
+        moodCounts.set(mood, (moodCounts.get(mood) ?? 0) + 1);
+        if (mood === 'off' || mood === 'sick') concerningDays += 1;
+      }
+      let mostCommonMood: DogMood['mood'] | null = null;
+      let mostCommonCount = 0;
+      for (const [mood, count] of moodCounts) {
+        if (count > mostCommonCount) { mostCommonMood = mood; mostCommonCount = count; }
+      }
+
+      const sexLabel = dog.sex === 'male' ? 'Male' : dog.sex === 'female' ? 'Female' : 'Unknown';
+      const ageLabel = computeAge(dog.birth_date) || 'Unknown';
+      const weightLabel = dog.weight_kg != null ? `${dog.weight_kg} kg` : 'Unknown';
+      const ownerLabel = `${profile?.full_name ?? 'Unknown'}${profile?.username ? ` (@${profile.username})` : ''}`;
+      const periodLabel = oldestDate === newestDate
+        ? formatLongDate(newestDate)
+        : `${formatLongDate(oldestDate)} – ${formatLongDate(newestDate)}`;
+      const exportedLabel = `${formatLongDate(now.toISOString().split('T')[0])} · PawCare app`;
+
+      const tableRows = entriesNewestFirst.map(([date, mood], i) => `
+        <tr style="background:${i % 2 === 1 ? '#F8FCF6' : '#FFFFFF'};">
+          <td>${formatLongDate(date)}</td>
+          <td>${formatWeekday(date)}</td>
+          <td style="color:${MOOD_COLOR[mood]};font-weight:600;">${MOOD_LABEL[mood]}</td>
+          <td>${MOOD_EMOJI[mood]}</td>
+        </tr>
+      `).join('');
+
+      const html = buildReportHtml({
+        title: '🐾 PawCare — Mood History Report',
+        infoRows: [
+          { key: 'Dog name:', value: dog.name },
+          { key: 'Breed:', value: `${dog.breed ?? 'Unknown'} · ${sexLabel}` },
+          { key: 'Age / Weight:', value: `${ageLabel} · ${weightLabel}` },
+          { key: 'Owner:', value: ownerLabel },
+          { key: 'Period:', value: periodLabel },
+          { key: 'Exported:', value: exportedLabel },
+        ],
+        tableHeaders: ['Date', 'Day', 'Mood', 'Emoji'],
+        tableRowsHtml: tableRows,
+        summaryRows: [
+          { key: 'Most common mood:', value: mostCommonMood ? `${MOOD_LABEL[mostCommonMood]} (${mostCommonCount} days)` : '—' },
+          { key: 'Days logged:', value: `${historyByDate.size} of ${totalDaysInPeriod} days` },
+          { key: 'Concerning days:', value: `${concerningDays}` },
+          { key: 'Generated by:', value: 'PawCare · pawcare.app' },
+        ],
+      });
+
+      const newest = new Date(newestDate);
+      const monthAbbrev = newest.toLocaleDateString('en-US', { month: 'short' });
+      const filename = `${dog.name.replace(/\s+/g, '_')}_mood_history_${monthAbbrev}${newest.getFullYear()}.pdf`;
+
+      await shareHtmlAsPdf(filename, html);
+    } catch {
+      Alert.alert('Export Failed', 'Could not export mood history. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <TouchableOpacity onPress={onBack} style={styles.backRow}>
@@ -125,9 +226,14 @@ export default function MoodHistoryScreen({ dog, onBack }: Props) {
         </View>
         <TouchableOpacity
           style={styles.downloadBtn}
-          onPress={() => Alert.alert('Export', 'Coming soon!')}
+          onPress={handleExport}
+          disabled={exporting}
         >
-          <Text style={styles.downloadIcon}>⬇</Text>
+          {exporting ? (
+            <ActivityIndicator size="small" color={colors.primaryGreen} />
+          ) : (
+            <Text style={styles.downloadIcon}>⬇</Text>
+          )}
         </TouchableOpacity>
       </View>
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, ScrollView, Alert, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ScrollView, Alert, StyleSheet, ActivityIndicator } from 'react-native';
 import { Dog, Habit, HabitType, DogMood, VaccineRecord, Allergen, HealthLog } from '../types';
 import { useHabits, getHabitTarget } from '../lib/hooks/useHabits';
 import { useVaccines } from '../lib/hooks/useVaccines';
@@ -10,6 +10,7 @@ import { useVomitLogs } from '../lib/hooks/useVomitLogs';
 import { useMealDetails } from '../lib/hooks/useMealDetails';
 import { usePetStreak } from '../lib/hooks/usePetStreak';
 import { useDogs } from '../lib/hooks/useDogs';
+import { useProfile } from '../lib/hooks/useProfile';
 import HabitRow from '../components/HabitRow';
 import WaterIncrementRow from '../components/WaterIncrementRow';
 import MealDetailLink from '../components/MealDetailLink';
@@ -28,6 +29,10 @@ import VomitFormScreen from './VomitFormScreen';
 import SymptomHistoryScreen from './SymptomHistoryScreen';
 import MealHistoryScreen from './MealHistoryScreen';
 import { colors, radii } from '../lib/theme';
+import { computeAge } from '../lib/petAge';
+import { shareHtmlAsPdf } from '../lib/pdfExport';
+import { buildReportHtml } from '../lib/pdfReport';
+import { buildDogInfoRows, buildVaccineReport } from '../lib/reportBuilders';
 
 type Props = {
   dog: Dog;
@@ -54,18 +59,6 @@ function subtitleFor(h: Habit, count: number, target: number, done: boolean): st
   return h.reminder_times && h.reminder_times.length > 0 ? `Due at ${h.reminder_times[0]}` : 'Not logged yet';
 }
 
-function computeAge(birthDate: string | null): string {
-  if (!birthDate) return '';
-  const dob = new Date(birthDate);
-  const now = new Date();
-  let years = now.getFullYear() - dob.getFullYear();
-  let months = now.getMonth() - dob.getMonth();
-  if (now.getDate() < dob.getDate()) months -= 1;
-  if (months < 0) { years -= 1; months += 12; }
-  if (years <= 0) return `${Math.max(months, 0)}m`;
-  return months > 0 ? `${years}y ${months}m` : `${years}y`;
-}
-
 export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Props) {
   const [mode, setMode] = useState<Mode>('detail');
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
@@ -77,6 +70,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
   const [editingVomitLog, setEditingVomitLog] = useState<HealthLog | null>(null);
   const [logSource, setLogSource] = useState<'list' | 'history'>('list');
   const [mealDetailHabitId, setMealDetailHabitId] = useState<string | null>(null);
+  const [exportingVaccines, setExportingVaccines] = useState(false);
 
   const {
     habits,
@@ -98,6 +92,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
   const { mealDetails, getMealDetail, addMealDetail, deleteMealDetail } = useMealDetails(dog.id);
   const { mood, setTodayMood } = useDogMood(dog.id);
   const { streak } = usePetStreak(dog.id, habits.map(h => h.id));
+  const { profile } = useProfile();
 
   const mealDetailCompletionId = mealDetailHabitId ? completionIds.get(mealDetailHabitId) ?? null : null;
   const mealDetailInitial = mealDetailCompletionId ? getMealDetail(mealDetailCompletionId) ?? null : null;
@@ -127,13 +122,53 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
 
   if (mode === 'vaccine-list') {
     const allVaccines = [...overdue, ...upcoming];
+
+    const handleExportVaccines = async () => {
+      const report = buildVaccineReport(dog, overdue, upcoming);
+      if (!report) {
+        Alert.alert('No Data', 'No vaccines to export yet.');
+        return;
+      }
+      setExportingVaccines(true);
+      try {
+        const html = buildReportHtml({
+          title: report.title,
+          infoRows: buildDogInfoRows(dog, profile),
+          tableHeaders: report.tableHeaders,
+          tableRowsHtml: report.tableRowsHtml,
+          summaryRows: report.summaryRows,
+        });
+        await shareHtmlAsPdf(report.filename, html);
+      } catch {
+        Alert.alert('Export Failed', 'Could not export vaccine history. Please try again.');
+      } finally {
+        setExportingVaccines(false);
+      }
+    };
+
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <TouchableOpacity onPress={() => setMode('detail')} style={styles.backRow}>
           <Text style={styles.backText}>‹ Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Vaccines</Text>
-        <Text style={styles.subtitle}>{dog.name}</Text>
+
+        <View style={styles.listHeader}>
+          <View style={styles.listHeaderLeft}>
+            <Text style={styles.listHeaderDogName}>{dog.name}</Text>
+            <Text style={styles.title}>Vaccines</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.downloadBtn}
+            onPress={handleExportVaccines}
+            disabled={exportingVaccines}
+          >
+            {exportingVaccines ? (
+              <ActivityIndicator size="small" color={colors.primaryGreen} />
+            ) : (
+              <Text style={styles.downloadIcon}>⬇</Text>
+            )}
+          </TouchableOpacity>
+        </View>
 
         {allVaccines.length === 0 ? (
           <Text style={styles.emptyText}>No vaccines tracked yet.</Text>
@@ -638,6 +673,34 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 2,
     marginBottom: 16,
+  },
+  listHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  listHeaderLeft: {
+    flex: 1,
+    minWidth: 0,
+  },
+  listHeaderDogName: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginBottom: 1,
+  },
+  downloadBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: colors.moodSelectedBg,
+    borderWidth: 0.5,
+    borderColor: colors.moodSelectedBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  downloadIcon: {
+    fontSize: 15,
   },
   heroBand: {
     backgroundColor: colors.moodSelectedBg,

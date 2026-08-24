@@ -1,10 +1,18 @@
 import { useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet, ActivityIndicator } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Dog, MealDetail, FoodType } from '../types';
 import { useMealDetails } from '../lib/hooks/useMealDetails';
+import { useProfile } from '../lib/hooks/useProfile';
+import { computeAge } from '../lib/petAge';
+import { buildReportHtml } from '../lib/pdfReport';
+import { shareHtmlAsPdf } from '../lib/pdfExport';
 import MealDetailSheet from '../components/MealDetailSheet';
 import { colors, radii } from '../lib/theme';
+
+export function formatLongDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
 type Props = {
   dog: Dog;
@@ -21,7 +29,7 @@ const FOOD_TYPE_EMOJI: Record<FoodType, string> = {
   raw: '🥚',
 };
 
-const FOOD_TYPE_LABEL: Record<FoodType, string> = {
+export const FOOD_TYPE_LABEL: Record<FoodType, string> = {
   wet: 'Wet',
   dry: 'Dry',
   mixed: 'Mixed',
@@ -51,11 +59,11 @@ const FILTER_OPTIONS: { value: FoodType | 'all'; label: string }[] = [
 
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-function dateKey(iso: string): string {
+export function dateKey(iso: string): string {
   return iso.split('T')[0];
 }
 
-function formatTime(iso: string): string {
+export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
@@ -66,7 +74,7 @@ function formatDateHeader(key: string, todayKey: string, yesterdayKey: string): 
 }
 
 // Meal name is derived purely for display from time-of-day, not stored on meal_details.
-function mealNameFor(iso: string): string {
+export function mealNameFor(iso: string): string {
   const hour = new Date(iso).getHours();
   if (hour >= 5 && hour < 11) return 'Breakfast';
   if (hour >= 11 && hour < 16) return 'Lunch';
@@ -76,7 +84,7 @@ function mealNameFor(iso: string): string {
 
 type AmountPillInfo = { dotColor: string; amount: number; sub: string };
 
-function amountPillsFor(detail: MealDetail): AmountPillInfo[] {
+export function amountPillsFor(detail: MealDetail): AmountPillInfo[] {
   if (detail.food_type === 'mixed') {
     const pills: AmountPillInfo[] = [];
     if (detail.wet_amount_grams) pills.push({ dotColor: FOOD_TYPE_DOT.wet, amount: detail.wet_amount_grams, sub: 'wet' });
@@ -90,7 +98,7 @@ function amountPillsFor(detail: MealDetail): AmountPillInfo[] {
   return [{ dotColor: FOOD_TYPE_DOT[detail.food_type], amount, sub: detail.food_type }];
 }
 
-function formatBrands(detail: MealDetail): { emoji: string; label: string; brand: string }[] {
+export function formatBrands(detail: MealDetail): { emoji: string; label: string; brand: string }[] {
   if (detail.food_type === 'mixed') {
     const parts: { emoji: string; label: string; brand: string }[] = [];
     if (detail.brand_wet) parts.push({ emoji: FOOD_TYPE_EMOJI.wet, label: 'Wet', brand: detail.brand_wet });
@@ -103,7 +111,7 @@ function formatBrands(detail: MealDetail): { emoji: string; label: string; brand
   return brand ? [{ emoji: FOOD_TYPE_EMOJI[detail.food_type], label: 'Brand', brand }] : [];
 }
 
-function mostCommon<T extends string>(items: T[]): T | null {
+export function mostCommon<T extends string>(items: T[]): T | null {
   const counts = new Map<T, number>();
   for (const item of items) counts.set(item, (counts.get(item) ?? 0) + 1);
   let best: T | null = null;
@@ -114,7 +122,7 @@ function mostCommon<T extends string>(items: T[]): T | null {
   return best;
 }
 
-function totalGrams(detail: MealDetail): number {
+export function totalGrams(detail: MealDetail): number {
   return (detail.wet_amount_grams ?? 0) + (detail.dry_amount_grams ?? 0) + (detail.raw_amount_grams ?? 0);
 }
 
@@ -205,6 +213,8 @@ function MealEntryRow({ detail, onEdit, onDelete }: MealEntryRowProps) {
 }
 
 export default function MealHistoryScreen({ dog, mealDetails, addMealDetail, deleteMealDetail, onBack }: Props) {
+  const { profile } = useProfile();
+  const [exporting, setExporting] = useState(false);
   const [filter, setFilter] = useState<FoodType | 'all'>('all');
   const [editingDetail, setEditingDetail] = useState<MealDetail | null>(null);
 
@@ -261,6 +271,78 @@ export default function MealHistoryScreen({ dog, mealDetails, addMealDetail, del
     await deleteMealDetail(id);
   }
 
+  const handleExport = async () => {
+    if (mealDetails.length === 0) {
+      Alert.alert('No Data', 'No meal history to export yet.');
+      return;
+    }
+    setExporting(true);
+    try {
+      const allSorted = mealDetails.slice().sort((a, b) => b.logged_at.localeCompare(a.logged_at));
+      const newestDate = dateKey(allSorted[0].logged_at);
+      const oldestDate = dateKey(allSorted[allSorted.length - 1].logged_at);
+
+      const mostCommonType = mostCommon(mealDetails.map(d => d.food_type));
+      const avgGramsPerMeal = Math.round(
+        mealDetails.reduce((sum, d) => sum + totalGrams(d), 0) / mealDetails.length
+      );
+
+      const sexLabel = dog.sex === 'male' ? 'Male' : dog.sex === 'female' ? 'Female' : 'Unknown';
+      const ageLabel = computeAge(dog.birth_date) || 'Unknown';
+      const weightLabel = dog.weight_kg != null ? `${dog.weight_kg} kg` : 'Unknown';
+      const ownerLabel = `${profile?.full_name ?? 'Unknown'}${profile?.username ? ` (@${profile.username})` : ''}`;
+      const periodLabel = oldestDate === newestDate
+        ? formatLongDate(newestDate)
+        : `${formatLongDate(oldestDate)} – ${formatLongDate(newestDate)}`;
+      const exportedLabel = `${formatLongDate(todayKey)} · PawCare app`;
+
+      const tableRows = allSorted.map((d, i) => {
+        const amount = amountPillsFor(d).map(p => `${p.amount}g ${p.sub}`).join(', ') || '—';
+        const brand = formatBrands(d).map(b => `${b.label}: ${b.brand}`).join(', ') || '—';
+        return `
+          <tr style="background:${i % 2 === 1 ? '#F8FCF6' : '#FFFFFF'};">
+            <td>${formatLongDate(dateKey(d.logged_at))}</td>
+            <td>${formatTime(d.logged_at)}</td>
+            <td>${mealNameFor(d.logged_at)}</td>
+            <td>${FOOD_TYPE_LABEL[d.food_type]}</td>
+            <td>${amount}</td>
+            <td>${brand}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const html = buildReportHtml({
+        title: '🐾 PawCare — Meal History Report',
+        infoRows: [
+          { key: 'Dog name:', value: dog.name },
+          { key: 'Breed:', value: `${dog.breed ?? 'Unknown'} · ${sexLabel}` },
+          { key: 'Age / Weight:', value: `${ageLabel} · ${weightLabel}` },
+          { key: 'Owner:', value: ownerLabel },
+          { key: 'Period:', value: periodLabel },
+          { key: 'Exported:', value: exportedLabel },
+        ],
+        tableHeaders: ['Date', 'Time', 'Meal', 'Type', 'Amount', 'Brand'],
+        tableRowsHtml: tableRows,
+        summaryRows: [
+          { key: 'Total meals logged:', value: `${mealDetails.length}` },
+          { key: 'Most common type:', value: mostCommonType ? FOOD_TYPE_LABEL[mostCommonType] : '—' },
+          { key: 'Avg grams per meal:', value: `${avgGramsPerMeal}g` },
+          { key: 'Generated by:', value: 'PawCare · pawcare.app' },
+        ],
+      });
+
+      const newest = new Date(newestDate);
+      const monthAbbrev = newest.toLocaleDateString('en-US', { month: 'short' });
+      const filename = `${dog.name.replace(/\s+/g, '_')}_meal_history_${monthAbbrev}${newest.getFullYear()}.pdf`;
+
+      await shareHtmlAsPdf(filename, html);
+    } catch {
+      Alert.alert('Export Failed', 'Could not export meal history. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -273,9 +355,13 @@ export default function MealHistoryScreen({ dog, mealDetails, addMealDetail, del
             <Text style={styles.headerDogName}>{dog.name}</Text>
             <Text style={styles.title}>Meal History</Text>
           </View>
-          <View style={[styles.downloadBtn, styles.downloadBtnDisabled]}>
-            <Text style={styles.downloadIcon}>⬇</Text>
-          </View>
+          <TouchableOpacity style={styles.downloadBtn} onPress={handleExport} disabled={exporting}>
+            {exporting ? (
+              <ActivityIndicator size="small" color={colors.primaryGreen} />
+            ) : (
+              <Text style={styles.downloadIcon}>⬇</Text>
+            )}
+          </TouchableOpacity>
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow} contentContainerStyle={styles.filterRowContent}>
@@ -417,11 +503,6 @@ const styles = StyleSheet.create({
     borderColor: colors.moodSelectedBorder,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  downloadBtnDisabled: {
-    backgroundColor: colors.notStartedBg,
-    borderColor: colors.cardBorder,
-    opacity: 0.5,
   },
   downloadIcon: {
     fontSize: 15,

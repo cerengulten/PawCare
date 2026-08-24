@@ -270,6 +270,115 @@ https://docs.expo.dev/versions/v54.0.0/ before writing Expo-related code — don
     `pendingAmberText`, mixed -> `symptomBothBg`/`symptomBothText`, raw -> `moodSelectedBg`/
     `primaryGreen`). `FOOD_TYPE_EMOJI` (🥩 wet / 🌾 dry / 🥣 mixed / 🥚 raw) is this feature's
     canonical emoji set, also used by `MealDetailLink.tsx`.
+- **Phase 2 item 13 — Mood history PDF export (2026-08-11):** the download icon on
+  `screens/MoodHistoryScreen.tsx` generates a styled PDF report (first PDF feature in the
+  app), matching a supplied mockup, "Option 1: rich single sheet" — a green title bar, a
+  dog-info header block (name/breed+sex/age+weight/owner/period/exported-date), a
+  Date/Day/Mood/Emoji table sorted newest-first with per-row mood-colored text, and a tan
+  summary footer (most common mood, days logged out of period, concerning-days count,
+  generated-by line). This started as a CSV export (same data/structure) but CSV can't carry
+  cell colors — Excel/Sheets/Numbers render `.csv` as plain black-on-white text regardless of
+  any styling — so it was redone as a real styled document once that limitation came up. No
+  Notes column — `dog_moods` has no `notes` column anywhere in the schema and mood logging
+  has no notes UI, so the mockup's Notes column was dropped rather than shipped as an
+  always-empty placeholder. Export covers the same 90-day window (`HISTORY_DAYS`) already
+  loaded for the calendar, unchanged. Owner info comes from the existing `useProfile()` hook
+  (`full_name`/`username`); age comes from `computeAge(birthDate)`, a helper extracted out of
+  `DogDetailScreen.tsx` into a new shared `lib/petAge.ts` (pure function, same logic/output
+  as before — `DogDetailScreen.tsx` now imports it instead of defining it locally).
+  New `lib/pdfExport.ts` (`shareHtmlAsPdf(filename, html)`) builds the PDF via `expo-print`'s
+  `Print.printToFileAsync({ html })`, renames the result to the desired filename using the
+  same `expo-file-system` `File`/`Paths` API `lib/csvExport.ts` already uses (`expo-print`
+  doesn't let you control its output filename directly), then shares it via `expo-sharing`
+  — same pattern as `shareCsv`, different mime type. The HTML template reuses `lib/theme.ts`
+  color tokens wherever they exact-match the mockup's hexes (title bar/info block/table
+  header/summary footer all have exact-match tokens) rather than a separate print-only
+  palette; the two mood-accent hexes without an exact token (`good`/`great`) fall back to the
+  closest existing tokens (`primaryGreen`, `communityBlueText`) instead of adding new one-off
+  colors for a single template. Filename is `<DogName>_mood_history_<MonthAbbrev><Year>.pdf`
+  keyed off the **newest** logged entry's month/year (not today's date, not a date range) —
+  e.g. `Deneme_mood_history_Aug2026.pdf`. The download button shows an `ActivityIndicator`
+  and disables itself while the PDF is being built/shared, to prevent double-tap
+  double-shares. (`lib/csvExport.ts` from the first version of this feature is unused now
+  that item 14 also became PDF — left in place rather than deleted, in case a future CSV need
+  comes up, but nothing currently imports it.)
+- **Phase 2 item 14 — Meal + Symptom history PDF export (2026-08-11):** the download buttons
+  on `screens/MealHistoryScreen.tsx` (previously a permanently-disabled `View`, not tappable)
+  and `screens/SymptomHistoryScreen.tsx` (previously `Alert.alert('Export', 'Coming soon!')`)
+  now generate the same style of report PDF as mood history, covering the dog's **entire**
+  history for that log type (unlike mood's 90-day cap — `useMealDetails`/`useHealthLogs`/
+  `useVomitLogs` have no date-window limit, so "export what the screen already has loaded"
+  means the full history here). Since this made three screens building the identical
+  title-bar/info-block/table/summary-footer HTML shell, that shell was extracted into a new
+  `lib/pdfReport.ts` (`buildReportHtml({ title, infoRows, tableHeaders, tableRowsHtml,
+  summaryRows })`) — each screen still builds its own colored `<tr>` markup (mood colors by
+  mood, symptom colors by poop/vomit type) and passes it in as `tableRowsHtml`, since coloring
+  logic differs per report; `MoodHistoryScreen.tsx` was refactored to call this builder too
+  instead of keeping its own copy of the CSS. `lib/pdfExport.ts` (`shareHtmlAsPdf`) is
+  unchanged and shared by all three. Meal History's table (Date/Time/Meal/Type/Amount/Brand)
+  reuses `MealHistoryScreen.tsx`'s existing `mealNameFor`/`amountPillsFor`/`formatBrands`/
+  `mostCommon`/`totalGrams` helpers verbatim rather than re-deriving any of that formatting;
+  Symptom History's table (Date/Time/Type/Details/Frequency/Notes) merges `logs` (poop) +
+  `vomitLogs` sorted newest-first, and adds a local `CAUSE_LABEL` map (duplicated from
+  `components/VomitLogCard.tsx`, matching this app's per-screen label-map duplication
+  convention). Both new exports call `useProfile()` locally for owner info, same as mood.
+  Filenames follow the same `<DogName>_<subject>_<MonthAbbrev><Year>.pdf` convention:
+  `meal_history` and `symptom_history`.
+- **Phase 2 item 15 — Vaccine history PDF export (2026-08-24):** unlike Mood/Meal/Symptom,
+  there's no dedicated `VaccineHistoryScreen.tsx` — vaccine data only lives inline in
+  `screens/DogDetailScreen.tsx`'s `'vaccine-list'` mode, so rather than building a new
+  screen, that mode's header was restructured from a plain title/subtitle into the same
+  `header`/`headerLeft`/download-icon row layout the History screens use, and a
+  `handleExportVaccines` function was added following the same `lib/pdfReport.ts` +
+  `lib/pdfExport.ts` convention as items 13–14 (new `exportingVaccines` state gates the
+  `ActivityIndicator`/disabled behavior, same as the other three). Table columns are
+  Vaccine/Date Given/Next Due/Status/Notes — Status is colored using the same tri-state
+  scheme as `components/VaccineCard.tsx`/`lib/vaccineDisplay.ts` (red `Overdue`, amber
+  `Soon` within 30 days via `daysAway`, green `Scheduled`), reusing `daysAway`/`formatDate`
+  from `lib/vaccineDisplay.ts` rather than re-deriving date math. Vaccines have no natural
+  "period" the way backward-looking logs do (`next_due_date` skews into the future), so
+  `infoRows` drops the Period row from the mood/meal/symptom template and `summaryRows`
+  reports counts instead (total tracked / overdue / upcoming in next 30 days). Filename is
+  keyed off **today's date**, not a "newest entry" date like the other three exports —
+  `<DogName>_vaccine_history_<MonthAbbrev><Year>.pdf`. No schema or hook changes —
+  `useVaccines(dog.id)`'s existing `overdue`/`upcoming` (both ordered by `next_due_date`,
+  no date-window limit) already had everything needed.
+- **Phase 2 item 16 — Consolidated "Download report" button (2026-08-24):** a new
+  `screens/ReportPickerScreen.tsx` (`{ dog, onBack }` props) renders a 5-row list (Mood /
+  Meal / Symptom / Vaccine / All Reports) so exporting no longer requires navigating into
+  each history screen to find its own download icon. First built inline in
+  `DogDetailScreen.tsx`, then moved to the **More** tab per user feedback — `MoreScreen.tsx`
+  has no single-dog context (it aggregates across all dogs), so it gained a "Download
+  report" section with one row per dog (`{dog.name}`, tapping it mode-swaps to
+  `<ReportPickerScreen dog={dog} onBack={...} />` via a new `reportDog: Dog | null` state,
+  same "mode swap as pseudo-screen" pattern as `showNotifPlaceholder`); the section is
+  omitted entirely when `dogs.length === 0`. `DogDetailScreen.tsx` has no report UI of its
+  own. `ReportPickerScreen.tsx` owns its own hook instances scoped to its `dog` prop
+  (`useMoodHistory(dog.id, 90)` — same 90-day window `MoodHistoryScreen.tsx` uses —
+  `useMealDetails`, `useHealthLogs`, `useVomitLogs`, `useVaccines`, `useProfile`), separate
+  from any instances `DogDetailScreen.tsx` holds for the same dog (same duplicate-hook-
+  instance caveat already noted under "Known issues"). New `lib/reportBuilders.ts` holds
+  pure, React-free `buildMoodReport`/`buildMealReport`/`buildSymptomReport`/
+  `buildVaccineReport` functions (each returns a table/summary bundle or `null` when there's
+  no data) plus a shared `buildDogInfoRows(dog, profile)` for the name/breed/age·weight/owner
+  rows every report needs. Mood/Meal/Symptom's builders are *new* standalone implementations
+  that import their host screens' now-`export`ed formatting helpers/label maps (e.g.
+  `MOOD_LABEL`, `amountPillsFor`, `CAUSE_LABEL`) rather than refactoring those three
+  screens' own working `handleExport` functions — deliberately duplicating the report-shape
+  logic once, matching this app's existing per-domain-duplication convention (see
+  `useVomitLogs` vs `useHealthLogs`), so the three already-shipped download buttons keep
+  working completely unchanged. Vaccine is the one exception: its export logic already lived
+  in `DogDetailScreen.tsx`'s `handleExportVaccines`, which was refactored to call the new
+  `buildVaccineReport` instead of duplicating it a second time. The "All Reports" option
+  calls all four builders, drops the `null` ones, and renders them through a new
+  `buildMultiSectionReportHtml` in `lib/pdfReport.ts` (same title-band/info-block shell as
+  the existing single-table `buildReportHtml`, but repeats a heading+table+summary block per
+  section, with a "No entries yet" placeholder for report types with zero data) — filename
+  `<DogName>_full_report_<MonthAbbrev><Year>.pdf`, keyed off today's date like the vaccine
+  export (a combined report has no single natural "newest entry" date). A single
+  `exportingReport: ReportKey | null` state (rather than one boolean per report) both drives
+  the picker row's spinner and disables the other rows during an export, since
+  `expo-print`/`expo-sharing` calls shouldn't overlap.
 
 **Not built yet:** vet-visits tracking, FastAPI backend, RAG chatbot, vet finder.
 
@@ -299,6 +408,40 @@ a full manual end-to-end pass, and the `v1.0` commit/tag.
 - `dogs` table: `owner_id` (not `user_id`). No `avatar_emoji`/`is_neutered` cols; has `notes`/`updated_at`. `useDogs.ts` previously queried a nonexistent `user_id` col — errors were swallowed, so the dog list just looked empty. Fixed.
 - `profiles` table (pre-existing, undocumented until discovered): `id uuid PK -> auth.users(id)`, `full_name text` (nullable, not `name`), `avatar_url text`, `push_token text`, `created_at` (no `updated_at`). RLS: `auth.uid() = id` on select/insert/update. Trigger `on_auth_user_created` -> `handle_new_user()` auto-inserts a bare row on every signup (`full_name` from `raw_user_meta_data`, null until `OnboardingScreen` sets it). **Always `.upsert()`, never `.insert()`** — row usually already exists. Verify `avatar_url`/`push_token` against live schema before building avatar/notifications features.
 - `habits` table: `category` has a check constraint allowing only `feeding` / `walk` / `medication` / `grooming` / `training` / `vaccine` / `other` — **not** `health`/`exercise`, which the original `Habit` type wrongly assumed (caused a live constraint-violation error before being caught). `category` is now derived from `habit_type`, not user-chosen, so this is handled in one place (`HabitFormScreen.tsx`'s `HABIT_TYPE_CATEGORY` map).
+- `habit_completions` table: still one row per `(habit_id, owner_id, completed_date)` — a
+  `times_per_day > 1` habit does **not** get multiple rows per day. Partial daily progress
+  lives in an `occurrence_count smallint` column (default `1`, `>= 0` constrained) added by
+  `supabase/sql/2026-07-22_habit_completion_occurrences.sql`, mutated only through the
+  `increment_habit_completion(p_habit_id, p_completed_date, p_max)` /
+  `decrement_habit_completion(p_habit_id, p_completed_date)` Postgres RPCs (`SECURITY
+  DEFINER`, `auth.uid()` read server-side) — never a plain client `update`, since
+  supabase-js has no relative `column = column + 1` primitive and a client-computed "+1"
+  write would be racy under rapid double-taps. `useHabits.ts`'s `logOccurrence`/
+  `undoOccurrence` are the only callers.
+- `dog_moods` table (`supabase/sql/2026-08-05_dog_moods.sql`): `id`/`dog_id`/`owner_id`/
+  `mood` (check-constrained `'sleepy' | 'off' | 'good' | 'great' | 'sick'`)/`logged_date`
+  (defaults `current_date`)/`created_at`. Unique on `(dog_id, owner_id, logged_date)` — one
+  mood per dog per day, safe to plain-`upsert()` from the client (unlike
+  `habit_completions`, this isn't a racy increment, so no RPC needed). Owner-scoped RLS.
+- `dog_allergens` table (`supabase/sql/2026-08-06_dog_allergens_table.sql`, Phase 2 item 5):
+  `id`/`dog_id`/`owner_id`/`allergen` text/`created_at`. Case-insensitive unique index on
+  `(dog_id, lower(allergen))`. Normalized out of the older flat `dogs.allergens text[]`
+  column (`supabase/sql/2026-08-05_dog_allergens.sql`, Phase 1) — that column is still
+  present but unwritten since this table shipped; backfilled once, safe to drop in a future
+  cleanup migration once confirmed unused in prod. Owner-scoped RLS.
+- `health_logs` table (`supabase/sql/2026-08-07_health_logs.sql`, Phase 2 items 8–9):
+  `id`/`dog_id`/`owner_id`/`type` (check-constrained `'poop' | 'vomit'`)/`details` jsonb
+  (default `'{}'`)/`notes`/`logged_at`. One table backs both the poop tracker (item 8) and
+  vomit tracker (item 9) — `type` was check-constrained to allow `'vomit'` from the start
+  even though only `'poop'` rows were written until item 9 shipped, specifically so the
+  vomit tracker needed zero schema change. `details`' concrete shape is discriminated by
+  `type` in app code (`types/index.ts`'s `PoopLogDetails` / `VomitLogDetails` union on
+  `HealthLog.details`) — poop stores `{ consistency, color, frequency }`, vomit stores
+  `{ severity, possibleCause, frequency }`. `lib/hooks/useHealthLogs.ts` (poop) and
+  `lib/hooks/useVomitLogs.ts` (vomit) both query this same table filtered by `type`, kept as
+  two separate duplicated hooks rather than one parameterized hook — this app's established
+  per-domain-duplication convention (see also the Mood/Meal/Symptom report builders under
+  Phase 2 item 16). Owner-scoped RLS.
 - Email confirmation + leaked-password protection: Supabase dashboard toggles, not yet enabled (Phase 2 item 2).
 - `meal_details` table (Phase 2 item 12, Option C) — **confirmed final schema**: `id`/
   `completion_id` (FK -> `habit_completions(id)`, unique — one optional detail per feeding
@@ -309,9 +452,8 @@ a full manual end-to-end pass, and the `v1.0` commit/tag.
   split (see "Done" above) since a single pair couldn't represent a `mixed` meal's separate
   wet/dry portions; `raw` got its own `raw_amount_grams`/`brand_raw` rather than reusing wet's
   or dry's. Owner-scoped RLS, same `auth.uid() = owner_id` pattern as every other table.
-  `habit_completions` itself is one row per `(habit_id, owner_id, completed_date)` regardless
-  of `times_per_day` — confirmed from `supabase/sql/2026-07-21_habit_types.sql` — which is why
-  one `meal_details` row per completion (not per occurrence) is the right granularity.
+  Since `habit_completions` is one row per day regardless of `times_per_day` (see above), one
+  `meal_details` row per completion — not per occurrence — is the right granularity.
 
 **Auth implementation details:**
 - `lib/supabase.ts` doesn't set `flowType` -> defaults to `'implicit'`, not `'pkce'` (confirmed from `@supabase/auth-js` source). OAuth redirect returns tokens in the URL **fragment**, not `?code=` — `useGoogleSignIn.ts` uses `setSession()`, not `exchangeCodeForSession()`. Don't switch to PKCE without changing both together.
@@ -364,14 +506,26 @@ caused bugs twice.
 12. ~~Food/meal log history view~~ (2026-08-10, see "Done" above — "Option C" quick-tick +
     optional per-day meal detail, plus `MealHistoryScreen.tsx`; export still pending, see
     item 14)
-13. Export mood history as CSV/Excel (`expo-sharing` + CSV generation; start with CSV, upgrade to `.xlsx` only if needed) — **next task**
-14. Export food + health log as CSV/Excel
-15. Export vet/vaccine history as PDF
-16. "Download report" button — add to pet profile and/or More tab
+13. ~~Export mood history as CSV~~ (2026-08-11, see "Done" above — rich report-style CSV,
+    not a bare dump)
+14. ~~Export food + health log as PDF~~ (2026-08-11, see "Done" above — meal history +
+    symptom history, same styled-report approach as item 13)
+15. ~~Export vet/vaccine history as PDF~~ (2026-08-24, see "Done" above — download icon
+    added to `DogDetailScreen.tsx`'s `'vaccine-list'` mode header, same report style as
+    items 13–14)
+16. ~~"Download report" button~~ (2026-08-24, see "Done" above — consolidated picker,
+    reached via a per-dog row under a new "Download report" section on the More tab,
+    individual + combined "All Reports" export)
 17. ~~Conflict warning badge on food sensitivity card when the scanner finds a match~~ — deferred with the scanner, see "Deferred to a future version" above
-18. Full Phase 2 end-to-end test: add allergy → log poop/vomit → view history → export report
-19. Update CLAUDE.md with Phase 2 schema decisions and new tables
-20. Commit and tag `v2.0`
+18. ~~Full Phase 2 end-to-end test: add allergy → log poop/vomit → view history → export
+    report~~ (2026-08-24 — manually verified on a physical iPhone via Expo Go: habits +
+    meal detail, allergy CRUD, mood, poop/vomit tracker, symptom history, vaccines, meal
+    history, all 5 report exports, and an empty-state second-pet pass. All working.)
+19. ~~Update CLAUDE.md with Phase 2 schema decisions and new tables~~ (2026-08-24 —
+    consolidated `dog_moods`/`dog_allergens`/`health_logs`/`habit_completions.occurrence_count`
+    into "Supabase schema gotchas"; `meal_details` and vaccine schema details were already
+    documented there from items 12/15)
+20. Commit and tag `v2.0` — **next task**
 21. Vet finder map — use OpenStreetMap tiles + Foursquare Places free tier API for vet search
     (decided over Google Places to avoid billing requirement). Research Foursquare API setup
     before building.
@@ -403,6 +557,15 @@ caused bugs twice.
 - `react-native-gesture-handler` — added during the Option B redesign for `HabitRow.tsx`'s
   `Swipeable` (swipe-to-reveal Edit/Delete/History). Not needed for navigation itself (no
   native-stack/drawer in use) — it's here purely for the swipe gesture on habit rows.
+- `expo-file-system`, `expo-sharing` — export/share plumbing shared by both `lib/csvExport.ts`
+  (kept for future CSV needs, e.g. item 14) and `lib/pdfExport.ts` (Phase 2 item 13's mood
+  history PDF). `expo-file-system`'s SDK 54 API is the new `File`/`Paths` class-based API
+  (`new File(Paths.cache, filename)`, `.create()`/`.write()`/`.move()`/`.uri`), **not** the
+  legacy `FileSystem.cacheDirectory` string + `writeAsStringAsync` API from older SDKs — don't
+  reach for the legacy API from training data/memory, it's a different import shape
+  (`expo-file-system/legacy` if the old API is ever needed).
+- `expo-print` — HTML→PDF rendering (Phase 2 item 13, `lib/pdfExport.ts`'s
+  `Print.printToFileAsync({ html })`). First PDF feature in the app.
 - `@expo/vector-icons` is **not** installed/used for the tab bar — it's only resolvable nested inside `node_modules/expo/node_modules/@expo/vector-icons`, not from app source, so tab icons use plain emoji via `<Text>` instead. Install it explicitly as a follow-up if real icons are wanted later.
 - All installed via `npx expo install <pkg>`, then `npm install --legacy-peer-deps` to resolve — pre-existing peer conflict between pinned `react@19.1.0` and transitive `react-dom@19.2.7` (Expo CLI/web tooling, not app code). Plain `npm install` fails on this regardless of what's being added.
 - `app.json` has `"scheme": "pawcare"` for a future dev-client/standalone build — no effect on Expo Go's own redirect URI, which `makeRedirectUri()` generates automatically.

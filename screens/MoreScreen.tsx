@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, Image, ScrollView, StyleSheet } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { Dog } from '../types';
 import { useProfile } from '../lib/hooks/useProfile';
 import { useDogs } from '../lib/hooks/useDogs';
 import { useAllVaccines } from '../lib/hooks/useAllVaccines';
 import VaccineCard from '../components/VaccineCard';
+import ReportPickerScreen from './ReportPickerScreen';
 import { colors, radii } from '../lib/theme';
 
 export default function MoreScreen() {
@@ -12,6 +14,11 @@ export default function MoreScreen() {
   const { dogs } = useDogs();
   const { upcoming, overdue } = useAllVaccines();
   const [showNotifPlaceholder, setShowNotifPlaceholder] = useState(false);
+  const [reportDog, setReportDog] = useState<Dog | null>(null);
+
+  if (reportDog) {
+    return <ReportPickerScreen dog={reportDog} onBack={() => setReportDog(null)} />;
+  }
 
   if (showNotifPlaceholder) {
     return (
@@ -70,6 +77,26 @@ export default function MoreScreen() {
           ))
         )}
       </View>
+
+      {dogs.length > 0 ? (
+        <>
+          <Text style={styles.sectionTitle}>Download report</Text>
+          <View style={styles.card}>
+            {dogs.map((dog, idx) => (
+              <View key={dog.id}>
+                <TouchableOpacity style={styles.row} onPress={() => setReportDog(dog)}>
+                  <View style={styles.iconBox}><Text style={styles.iconText}>📄</Text></View>
+                  <View style={styles.rowInfo}>
+                    <Text style={styles.rowTitle}>{dog.name}</Text>
+                  </View>
+                  <Text style={styles.chevron}>›</Text>
+                </TouchableOpacity>
+                {idx < dogs.length - 1 ? <View style={styles.divider} /> : null}
+              </View>
+            ))}
+          </View>
+        </>
+      ) : null}
 
       <Text style={styles.sectionTitle}>Coming soon</Text>
       <View style={styles.card}>
