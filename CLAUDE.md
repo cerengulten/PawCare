@@ -379,8 +379,91 @@ https://docs.expo.dev/versions/v54.0.0/ before writing Expo-related code — don
   `exportingReport: ReportKey | null` state (rather than one boolean per report) both drives
   the picker row's spinner and disables the other rows during an export, since
   `expo-print`/`expo-sharing` calls shouldn't overlap.
+- **Phase 2 item 21 — Vet Finder (2026-08-24):** new `screens/VetFinderScreen.tsx`,
+  reachable via a live "Vet Finder" row on the More tab (previously a disabled "Soon" row
+  inside "Coming soon" — now its own section above that card). Renders a real interactive
+  map, but via `react-native-webview` loading a self-contained Leaflet.js HTML page
+  (`lib/vetMapHtml.ts`) rather than `react-native-maps`/MapLibre — both of those need a
+  native module Expo Go can't run, and the user has no Mac/Android device/spare disk space
+  for an emulator to test a dev-client build with, so WebView+Leaflet was chosen
+  specifically to keep this feature Expo-Go-testable like everything else in the app.
+  Map tiles come from the official `tile.openstreetmap.org` XYZ endpoint with Leaflet's
+  default attribution control left enabled (required by the OSM Tile Usage Policy). Vet
+  data comes from the **Overpass API** (`overpass-api.de`, free, keyless,
+  `node["amenity"="veterinary"](around:5000,{lat},{lon})` query, 5km radius) via new
+  `lib/hooks/useNearbyVets.ts` — `searchNearMe()` requests foreground location via
+  `expo-location` then queries Overpass; on permission denial, `searchByAddress()` falls
+  back to a manual address `TextInput`, geocoded through Nominatim
+  (`nominatim.openstreetmap.org`, with a descriptive `User-Agent` per its usage policy).
+  Results are haversine-sorted by distance client-side (no server-side distance calc
+  available from Overpass) into a new `VetResult` type (`types/index.ts`) — a map view up
+  top plus a scrollable distance-sorted list below, tap-to-call via `Linking.openURL('tel:...')`.
+  Overpass's public instance has no guaranteed SLA/rate-limit contract; if it proves flaky
+  in real use, `overpass.kumi.systems` is a documented community mirror with identical query
+  syntax and no registration, worth swapping to if needed. **Forward-looking note**: this
+  WebView/Leaflet approach is explicitly the Expo-Go-compatible interim solution, not a
+  permanent architectural choice — once the app is deployed and the user has a Mac, an
+  Android device, or is willing to pay Apple's $99/year Developer Program fee, this can be
+  swapped for a native `react-native-maps` view against the same Overpass data source with
+  `useNearbyVets.ts` carrying over unchanged; only the presentation layer (WebView → native
+  map + markers) would need to change. `screens/HomeScreen.tsx`'s previously-static "Nearby
+  vets" placeholder card was wired up in the same pass with a simple tappable link,
+  navigating cross-tab to `More` → Vet Finder via a new `openVetFinder?: boolean` param on
+  `RootTabParamList`'s `More` route, consumed and cleared in `MoreScreen.tsx` the same way
+  `PetsScreen.tsx` already consumes/clears its `dogId` param from `HomeScreen.tsx`'s
+  `PetSummaryCard` taps. `MoreScreen.tsx` gained `route`/`navigation` props for this (was
+  previously prop-less, registered via `component={MoreScreen}` in `AppTabs.tsx` — that
+  registration didn't need to change, `component=` already passes them automatically).
+- **Phase 2 item 21 follow-up — Home "Nearby vets" two-state preview (2026-08-25):** the
+  simple link above was replaced with a real preview, new `components/NearbyVetsSection.tsx`
+  (`{ dog, onOpenVetFinder }` props), rendered on `HomeScreen.tsx` for the first dog
+  (`dogs[0]`). Four render states: **loading** (a gray skeleton block, no spinner — spinners
+  read as "blocking" for a dashboard preview), **placeholder** ("Tap to find vets near you",
+  shown whenever there's no cached/fetched result yet or location permission was denied —
+  `lib/hooks/useHomeVetPreview.ts` calls `Location.requestForegroundPermissionsAsync()` on
+  first load (not just a status check — this one *does* prompt), so a fresh install asks for
+  location right on Home instead of requiring a detour through the full `VetFinderScreen`
+  first; the OS only shows the dialog once, so this is a no-op on subsequent loads either
+  way), **normal** (a non-interactive mini Leaflet map tile + the single nearest vet row with
+  a "Nearest" chip), and **alert** (red-tinted section, up to two nearest vet rows with
+  tap-to-call/"Directions" buttons). New `lib/hooks/useHomeVetPreview.ts` supplies the map/
+  normal/alert states' vet data: on mount it reads an `AsyncStorage` cache
+  (`@pawcare/vet_results_cache`, 10-minute TTL) and only falls through to a fresh
+  `fetchVetsNear()` call (exported from `useNearbyVets.ts` for reuse, same Overpass query, no
+  new endpoint) when the cache is stale/absent — distinct from `useNearbyVets()` (which the
+  full `VetFinderScreen.tsx` still owns unchanged, including its own `searchNearMe()`).
+  - **Alert-state logic** (revised 2026-08-25 after the initial "2 of last 5 entries"
+    version didn't match the intended behavior): computed from `useMoodHistory(dogId, 7)` —
+    requires **all 3 of the last 3 exact consecutive calendar days** (today, yesterday, the
+    day before) to have a logged mood of `'off'` or `'sick'`. A missing log or a good day on
+    any one of those three breaks the streak and suppresses the alert — this is stricter
+    than "N of the last M entries," by design, since a gap in logging shouldn't itself read
+    as reassuring. Pure `useMemo` derivation in `NearbyVetsSection.tsx` keyed off
+    `historyByDate.get(dateStringDaysAgo(i))` for `i` in `0..2`, no new Supabase query —
+    reuses the existing `useMoodHistory` hook per the "check before writing new queries"
+    habit.
+  - `lib/vetMapHtml.ts`'s `buildVetMapHtml()` gained an optional 3rd `options` param
+    (`interactive`, `variant: 'normal' | 'alert'`, `highlightVetId`) so both the full
+    `VetFinderScreen` map and the Home preview's non-interactive mini map share one HTML
+    template rather than duplicating it — `interactive: false` disables all Leaflet
+    drag/zoom/tap gestures (it's a preview tile, not a real map) but **attribution stays on
+    in every mode** (just shrunk via CSS for the small tile), since the OSM Tile Usage
+    Policy's visible-attribution requirement doesn't have a "too small to bother" exception.
+    The WebView itself is wrapped in a plain `<View style={{ pointerEvents: 'none' }}>` so
+    taps pass through to an enclosing `TouchableOpacity` instead of being swallowed by the
+    native WebView — this is what makes "tap anywhere on the mini map" open the full
+    Vet Finder screen.
+  - "Open now"/hours-open status was deliberately **not** implemented — OSM's
+    `opening_hours` tag uses a small grammar (e.g. `Mo-Fr 08:00-18:00; Sa 09:00-13:00`) that
+    isn't safe to eyeball-parse, and showing a wrong "Open now" claim for a vet clinic is a
+    worse failure mode than showing nothing. Only distance is shown; a future pass could add
+    a proper `opening_hours` parser if this becomes worth it.
+  - New `colors.alertCardBg`/`alertBorder` tokens added to `lib/theme.ts` for the alert
+    state's card background/border — matched to a supplied mockup's hex values, no other new
+    colors added (existing `allergenBg`/`allergenText`/`primaryGreen`/`moodSelectedBg` tokens
+    cover the rest of both states).
 
-**Not built yet:** vet-visits tracking, FastAPI backend, RAG chatbot, vet finder.
+**Not built yet:** vet-visits tracking, FastAPI backend, RAG chatbot.
 
 **Phase 1 ("Option B" redesign, 2026-08-06) is complete.** Four items carried over into
 Phase 2 rather than blocking closeout — see "Phase 2 to-do list" below: Google sign-in bug
@@ -465,7 +548,7 @@ a full manual end-to-end pass, and the `v1.0` commit/tag.
 1. Auth + pet profile + care tracker (meals, walks, vet visits, meds) + reminders
 2. Allergy/sensitivity profile + ingredient conflict flagging
 3. AI chatbot (RAG, grounded in pet's own profile + nutrition corpus)
-4. Vet finder map (OpenStreetMap tiles + Foursquare Places free tier — see Phase 2 item 21)
+4. Vet finder map (WebView + Leaflet.js over OpenStreetMap tiles, Overpass API for vet data — see Phase 2 item 21)
 
 Don't start Phase N+1 until Phase N has a working, testable slice.
 
@@ -527,10 +610,9 @@ caused bugs twice.
     documented there from items 12/15)
 20. ~~Commit and tag `v2.0`~~ (2026-08-24, commit `5bc3e28`, pushed to `origin/main` and
     tagged `v2.0`)
-21. Vet finder map — use OpenStreetMap tiles + Foursquare Places free tier API for vet search
-    — **next task**
-    (decided over Google Places to avoid billing requirement). Research Foursquare API setup
-    before building.
+21. ~~Vet Finder~~ (2026-08-24, see "Done" above — WebView + Leaflet.js map, Overpass API
+    for vet data; Foursquare/Geoapify researched and passed over, see the item's "Done"
+    entry for why)
 
 ## Conventions
 - TypeScript strict mode (RN); type hints on all FastAPI endpoints (once it exists)
@@ -568,6 +650,14 @@ caused bugs twice.
   (`expo-file-system/legacy` if the old API is ever needed).
 - `expo-print` — HTML→PDF rendering (Phase 2 item 13, `lib/pdfExport.ts`'s
   `Print.printToFileAsync({ html })`). First PDF feature in the app.
+- `expo-location`, `react-native-webview` (Phase 2 item 21, Vet Finder) — `expo-location`
+  requests foreground GPS permission (`lib/hooks/useNearbyVets.ts`); `react-native-webview`
+  renders a Leaflet.js map **inside a WebView** rather than using `react-native-maps` or
+  MapLibre, specifically because both of those need a native module that Expo Go can't run
+  — WebView is a supported Expo Go module, so this keeps the vet finder testable without a
+  dev-client build. `app.json` gained its first `plugins` entry (`expo-location`, with a
+  custom `locationWhenInUsePermission` string) — harmless in Expo Go, becomes load-bearing
+  once/if this app ever moves to a dev-client build.
 - `@expo/vector-icons` is **not** installed/used for the tab bar — it's only resolvable nested inside `node_modules/expo/node_modules/@expo/vector-icons`, not from app source, so tab icons use plain emoji via `<Text>` instead. Install it explicitly as a follow-up if real icons are wanted later.
 - All installed via `npx expo install <pkg>`, then `npm install --legacy-peer-deps` to resolve — pre-existing peer conflict between pinned `react@19.1.0` and transitive `react-dom@19.2.7` (Expo CLI/web tooling, not app code). Plain `npm install` fails on this regardless of what's being added.
 - `app.json` has `"scheme": "pawcare"` for a future dev-client/standalone build — no effect on Expo Go's own redirect URI, which `makeRedirectUri()` generates automatically.

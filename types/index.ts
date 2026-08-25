@@ -137,3 +137,14 @@ export type MealDetail = {
   notes: string | null;
   logged_at: string;
 };
+
+export type VetResult = {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  address: string | null;
+  phone: string | null;
+  openingHours: string | null;
+  distanceKm: number;
+};

@@ -4,6 +4,7 @@ import { useProfile } from '../lib/hooks/useProfile';
 import { useDogs } from '../lib/hooks/useDogs';
 import { useOverallStreak } from '../lib/hooks/useOverallStreak';
 import PetSummaryCard from '../components/PetSummaryCard';
+import NearbyVetsSection from '../components/NearbyVetsSection';
 import { RootTabParamList } from './AppTabs';
 import { colors, radii } from '../lib/theme';
 
@@ -65,12 +66,10 @@ export default function HomeScreen({ navigation }: Props) {
         </View>
       ) : null}
 
-      <Text style={styles.sectionTitle}>Nearby vets</Text>
-      <View style={styles.mapPlaceholder}>
-        <Text style={styles.mapPin}>📍</Text>
-        <Text style={styles.mapLabel}>Vet finder</Text>
-        <View style={styles.grayChip}><Text style={styles.grayChipText}>Coming soon</Text></View>
-      </View>
+      <NearbyVetsSection
+        dog={dogs[0] ?? null}
+        onOpenVetFinder={() => navigation.navigate('More', { openVetFinder: true })}
+      />
 
       <View style={styles.aiBar}>
         <Text style={styles.aiIcon}>💬</Text>
@@ -98,33 +97,34 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    padding: 16,
-    paddingTop: 56,
+    padding: 20,
+    paddingTop: 60,
+    paddingBottom: 32,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 22,
   },
   greetingLabel: {
-    fontSize: 12,
+    fontSize: 14,
     color: colors.textMuted,
   },
   greetingName: {
-    fontSize: 19,
+    fontSize: 24,
     fontWeight: '600',
     color: colors.textDark,
   },
   avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
   },
   avatarPlaceholder: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: colors.moodSelectedBg,
     borderWidth: 1.5,
     borderColor: '#A8C89A',
@@ -132,93 +132,73 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarEmoji: {
-    fontSize: 16,
+    fontSize: 20,
   },
   strip: {
-    marginBottom: 12,
+    marginBottom: 20,
   },
   streakPill: {
     backgroundColor: colors.streakAccentBg,
     borderWidth: 0.5,
     borderColor: '#E0C090',
-    borderRadius: 10,
-    padding: 10,
+    borderRadius: 14,
+    padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
+    gap: 10,
+    marginBottom: 24,
   },
   streakEmoji: {
-    fontSize: 16,
+    fontSize: 20,
   },
   streakTextGroup: {
     flex: 1,
   },
   streakTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '500',
     color: colors.pendingAmberText,
   },
   streakSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#A07840',
   },
   weekChip: {
     backgroundColor: colors.card,
     borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   weekChipText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.pendingAmberText,
   },
   sectionTitle: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 6,
-  },
-  mapPlaceholder: {
-    backgroundColor: colors.moodSelectedBg,
-    borderRadius: radii.card,
-    borderWidth: 0.5,
-    borderColor: '#A8C89A',
-    height: 84,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  mapPin: {
-    fontSize: 20,
-  },
-  mapLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.primaryGreen,
-    marginTop: 2,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   aiBar: {
     backgroundColor: colors.card,
     borderRadius: radii.card,
     borderWidth: 0.5,
     borderColor: colors.cardBorder,
-    padding: 12,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
+    gap: 10,
+    marginBottom: 24,
   },
   aiIcon: {
-    fontSize: 16,
+    fontSize: 20,
   },
   aiText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textMuted,
   },
   tipCard: {
@@ -226,19 +206,19 @@ const styles = StyleSheet.create({
     borderRadius: radii.card,
     borderWidth: 0.5,
     borderColor: colors.cardBorder,
-    padding: 12,
+    padding: 16,
   },
   tipTitle: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '500',
     color: colors.textDark,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   tipBody: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textMuted,
-    lineHeight: 17,
-    marginBottom: 6,
+    lineHeight: 19,
+    marginBottom: 8,
   },
   grayChip: {
     backgroundColor: colors.notStartedBg,
@@ -247,7 +227,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   grayChipText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '500',
     color: colors.notStartedText,
   },
@@ -259,7 +239,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   blueChipText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '500',
     color: colors.communityBlueText,
   },

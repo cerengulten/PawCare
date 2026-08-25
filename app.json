@@ -26,6 +26,14 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "PawCare uses your location to find veterinary clinics near you."
+        }
+      ]
+    ]
   }
 }

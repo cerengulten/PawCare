@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, ScrollView, StyleSheet } from 'react-native';
+import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { supabase } from '../lib/supabase';
 import { Dog } from '../types';
 import { useProfile } from '../lib/hooks/useProfile';
@@ -7,17 +8,33 @@ import { useDogs } from '../lib/hooks/useDogs';
 import { useAllVaccines } from '../lib/hooks/useAllVaccines';
 import VaccineCard from '../components/VaccineCard';
 import ReportPickerScreen from './ReportPickerScreen';
+import VetFinderScreen from './VetFinderScreen';
+import { RootTabParamList } from './AppTabs';
 import { colors, radii } from '../lib/theme';
 
-export default function MoreScreen() {
+type Props = BottomTabScreenProps<RootTabParamList, 'More'>;
+
+export default function MoreScreen({ route, navigation }: Props) {
   const { profile } = useProfile();
   const { dogs } = useDogs();
   const { upcoming, overdue } = useAllVaccines();
   const [showNotifPlaceholder, setShowNotifPlaceholder] = useState(false);
   const [reportDog, setReportDog] = useState<Dog | null>(null);
+  const [showVetFinder, setShowVetFinder] = useState(false);
+
+  useEffect(() => {
+    if (route.params?.openVetFinder) {
+      setShowVetFinder(true);
+      navigation.setParams({ openVetFinder: undefined });
+    }
+  }, [route.params?.openVetFinder]);
 
   if (reportDog) {
     return <ReportPickerScreen dog={reportDog} onBack={() => setReportDog(null)} />;
+  }
+
+  if (showVetFinder) {
+    return <VetFinderScreen onBack={() => setShowVetFinder(false)} />;
   }
 
   if (showNotifPlaceholder) {
@@ -98,17 +115,20 @@ export default function MoreScreen() {
         </>
       ) : null}
 
-      <Text style={styles.sectionTitle}>Coming soon</Text>
+      <Text style={styles.sectionTitle}>Vet Finder</Text>
       <View style={styles.card}>
-        <View style={[styles.row, styles.rowDisabled]}>
+        <TouchableOpacity style={styles.row} onPress={() => setShowVetFinder(true)}>
           <View style={styles.iconBox}><Text style={styles.iconText}>📍</Text></View>
           <View style={styles.rowInfo}>
             <Text style={styles.rowTitle}>Vet Finder</Text>
             <Text style={styles.rowSubtitle}>Find vets near you</Text>
           </View>
-          <View style={styles.grayChip}><Text style={styles.grayChipText}>Soon</Text></View>
-        </View>
-        <View style={styles.divider} />
+          <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.sectionTitle}>Coming soon</Text>
+      <View style={styles.card}>
         <View style={[styles.row, styles.rowDisabled]}>
           <View style={styles.iconBox}><Text style={styles.iconText}>💬</Text></View>
           <View style={styles.rowInfo}>

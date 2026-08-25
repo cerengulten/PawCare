@@ -11,7 +11,7 @@ import { colors } from '../lib/theme';
 export type RootTabParamList = {
   Home: undefined;
   Pets: { dogId?: string } | undefined;
-  More: undefined;
+  More: { openVetFinder?: boolean } | undefined;
 };
 
 const Tab = createBottomTabNavigator<RootTabParamList>();

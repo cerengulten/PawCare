@@ -21,6 +21,8 @@ export const colors = {
   communityBlueText: '#2A5A9A',
   symptomBothBg: '#EEE0FF',
   symptomBothText: '#6A1A9A',
+  alertCardBg: '#FFF8F8',
+  alertBorder: '#E0A0A0',
 } as const;
 
 export const radii = {
