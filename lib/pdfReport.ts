@@ -1,4 +1,4 @@
-import { colors } from './theme';
+import { colors } from './reportTheme';
 
 export type ReportKeyValue = { key: string; value: string };
 

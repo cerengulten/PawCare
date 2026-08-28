@@ -1,7 +1,9 @@
+import { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Habit } from '../types';
 import ProgressRing from './ProgressRing';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
 
 type Props = {
   habit: Habit;
@@ -29,14 +31,16 @@ const SIZES = {
 };
 
 export default function HabitRing({ habit, count, target, done, size, onPress, interactive = true }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const dims = SIZES[size];
   const icon = HABIT_TYPE_ICONS[habit.habit_type];
   const progress = target > 0 ? count / target : 0;
-  const ringColor = done ? colors.doneGreen : colors.pendingAmber;
+  const ringColor = done ? theme.done : theme.pending;
 
   const ring = (
     <View style={styles.wrap}>
-      <ProgressRing size={dims.ring} strokeWidth={dims.stroke} progress={progress} color={ringColor} trackColor={colors.notStartedBg}>
+      <ProgressRing size={dims.ring} strokeWidth={dims.stroke} progress={progress} color={ringColor} trackColor={theme.notStartedBg}>
         <Text style={{ fontSize: dims.icon }}>{icon}</Text>
       </ProgressRing>
       {done && dims.badge > 0 ? (
@@ -61,22 +65,24 @@ export default function HabitRing({ habit, count, target, done, size, onPress, i
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    position: 'relative',
-  },
-  badge: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    backgroundColor: colors.doneGreen,
-    borderWidth: 1.5,
-    borderColor: 'white',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeIcon: {
-    color: 'white',
-    fontWeight: '700',
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    wrap: {
+      position: 'relative',
+    },
+    badge: {
+      position: 'absolute',
+      bottom: -2,
+      right: -2,
+      backgroundColor: theme.done,
+      borderWidth: 1.5,
+      borderColor: 'white',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    badgeIcon: {
+      color: 'white',
+      fontWeight: '700',
+    },
+  });
+}

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useGoogleSignIn } from '../lib/hooks/useGoogleSignIn';
 import { useAppleSignIn } from '../lib/hooks/useAppleSignIn';
-import { colors, radii } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
 
 // Apple sign-in isn't configured in Supabase yet (pending the Apple Developer
 // Program membership decision). Flip this once that's done and the provider
@@ -11,6 +12,8 @@ import { colors, radii } from '../lib/theme';
 const APPLE_SIGN_IN_ENABLED = false;
 
 export default function SocialSignInButtons() {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const { signInWithGoogle } = useGoogleSignIn();
   const { signInWithApple } = useAppleSignIn();
   const [appleAvailable, setAppleAvailable] = useState(false);
@@ -51,7 +54,7 @@ export default function SocialSignInButtons() {
 
       <TouchableOpacity style={styles.button} onPress={handleGoogle} disabled={loadingProvider !== null}>
         {loadingProvider === 'google' ? (
-          <ActivityIndicator color={colors.primaryGreen} />
+          <ActivityIndicator color={theme.primary} />
         ) : (
           <Text style={styles.buttonText}>Continue with Google</Text>
         )}
@@ -60,7 +63,7 @@ export default function SocialSignInButtons() {
       {APPLE_SIGN_IN_ENABLED && Platform.OS === 'ios' && appleAvailable ? (
         <TouchableOpacity style={styles.button} onPress={handleApple} disabled={loadingProvider !== null}>
           {loadingProvider === 'apple' ? (
-            <ActivityIndicator color={colors.primaryGreen} />
+            <ActivityIndicator color={theme.primary} />
           ) : (
             <Text style={styles.buttonText}>Continue with Apple</Text>
           )}
@@ -70,45 +73,47 @@ export default function SocialSignInButtons() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    width: '100%',
-    marginTop: 16,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.cardBorder,
-  },
-  dividerText: {
-    color: colors.textMuted,
-    fontSize: 13,
-    marginHorizontal: 8,
-  },
-  error: {
-    color: colors.allergenText,
-    fontSize: 13,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  button: {
-    width: '100%',
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    padding: 16,
-    alignItems: 'center',
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  buttonText: {
-    color: colors.textDark,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      width: '100%',
+      marginTop: 16,
+    },
+    divider: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: theme.border,
+    },
+    dividerText: {
+      color: theme.textMuted,
+      fontSize: 13,
+      marginHorizontal: 8,
+    },
+    error: {
+      color: theme.allergenText,
+      fontSize: 13,
+      marginBottom: 12,
+      textAlign: 'center',
+    },
+    button: {
+      width: '100%',
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      padding: 16,
+      alignItems: 'center',
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    buttonText: {
+      color: theme.textDark,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+  });
+}

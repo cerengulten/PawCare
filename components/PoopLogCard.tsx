@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { HealthLog, PoopConsistency, PoopLogDetails } from '../types';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
 
 type Props = {
   log: HealthLog;
@@ -14,14 +16,14 @@ const CONSISTENCY_LABEL: Record<PoopConsistency, string> = {
   mucus: 'Mucus',
 };
 
-function severityStyle(consistency: PoopConsistency) {
+function severityStyle(theme: ThemeTokens, consistency: PoopConsistency) {
   if (consistency === 'solid') {
-    return { dot: colors.doneGreen, chipBg: colors.moodSelectedBg, chipText: colors.primaryGreen };
+    return { dot: theme.done, chipBg: theme.moodSelBg, chipText: theme.primary };
   }
   if (consistency === 'soft') {
-    return { dot: colors.pendingAmber, chipBg: colors.pendingAmberBg, chipText: colors.pendingAmberText };
+    return { dot: theme.pending, chipBg: theme.pendingAmberBg, chipText: theme.pendingAmberText };
   }
-  return { dot: colors.allergenText, chipBg: colors.allergenBg, chipText: colors.allergenText };
+  return { dot: theme.allergenText, chipBg: theme.allergenBg, chipText: theme.allergenText };
 }
 
 function formatLoggedAt(iso: string): string {
@@ -31,8 +33,10 @@ function formatLoggedAt(iso: string): string {
 }
 
 export default function PoopLogCard({ log, onPress }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const details = log.details as PoopLogDetails;
-  const { dot, chipBg, chipText } = severityStyle(details.consistency);
+  const { dot, chipBg, chipText } = severityStyle(theme, details.consistency);
 
   return (
     <TouchableOpacity style={styles.row} onPress={onPress}>
@@ -50,40 +54,42 @@ export default function PoopLogCard({ log, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 5,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    flexShrink: 0,
-  },
-  info: {
-    flex: 1,
-    minWidth: 0,
-  },
-  title: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textDark,
-  },
-  meta: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 1,
-  },
-  chip: {
-    borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  chipText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 5,
+    },
+    dot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      flexShrink: 0,
+    },
+    info: {
+      flex: 1,
+      minWidth: 0,
+    },
+    title: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.textDark,
+    },
+    meta: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 1,
+    },
+    chip: {
+      borderRadius: 20,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+    },
+    chipText: {
+      fontSize: 12,
+      fontWeight: '500',
+    },
+  });
+}

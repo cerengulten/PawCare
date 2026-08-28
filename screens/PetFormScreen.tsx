@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,9 @@ import DateTimePicker, {
 import * as ImagePicker from 'expo-image-picker';
 import { Dog } from '../types';
 import { useDogs } from '../lib/hooks/useDogs';
-import { colors, radii } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
+import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
 type UseDogsReturn = ReturnType<typeof useDogs>;
 
@@ -43,6 +45,8 @@ function parseDateOnly(s: string): Date {
 }
 
 export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [name, setName] = useState(dog?.name ?? '');
   const [breed, setBreed] = useState(dog?.breed ?? '');
   const [weightText, setWeightText] = useState(dog?.weight_kg?.toString() ?? '');
@@ -116,7 +120,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
 
     const { error } = dog
       ? await updateDog(dog.id, payload)
-      : await addDog({ ...payload, sex: null, notes: null });
+      : await addDog({ ...payload, sex: null, notes: null, theme_family: 'sage_clay' });
 
     setLoading(false);
     if (error) {
@@ -127,6 +131,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
   }
 
   return (
+    <SwipeBackWrapper onBack={onCancel}>
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -147,21 +152,21 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
         <TextInput
           style={styles.input}
           placeholder="Name"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.textMuted}
           value={name}
           onChangeText={setName}
         />
         <TextInput
           style={styles.input}
           placeholder="Breed (optional)"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.textMuted}
           value={breed}
           onChangeText={setBreed}
         />
         <TextInput
           style={styles.input}
           placeholder="Weight in kg (optional)"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.textMuted}
           value={weightText}
           onChangeText={setWeightText}
           keyboardType="decimal-pad"
@@ -203,90 +208,93 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
+    </SwipeBackWrapper>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollContent: {
-    padding: 24,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#1A3A10',
-    marginBottom: 20,
-  },
-  error: {
-    color: colors.allergenText,
-    fontSize: 13,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  photoPicker: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: colors.card,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    overflow: 'hidden',
-  },
-  photoPreview: {
-    width: 96,
-    height: 96,
-  },
-  photoPickerText: {
-    color: colors.textMuted,
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  input: {
-    width: '100%',
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    padding: 16,
-    fontSize: 15,
-    color: '#1A3A10',
-    marginBottom: 12,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-  },
-  inputText: {
-    fontSize: 15,
-    color: '#1A3A10',
-  },
-  placeholderText: {
-    fontSize: 15,
-    color: colors.textMuted,
-  },
-  button: {
-    width: '100%',
-    backgroundColor: colors.primaryGreen,
-    borderRadius: radii.card,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  switchRow: {
-    flexDirection: 'row',
-    marginTop: 20,
-  },
-  switchLink: {
-    color: colors.primaryGreen,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    scrollContent: {
+      padding: 24,
+      alignItems: 'center',
+    },
+    title: {
+      fontSize: 26,
+      fontWeight: '700',
+      color: theme.textDark,
+      marginBottom: 20,
+    },
+    error: {
+      color: theme.allergenText,
+      fontSize: 13,
+      marginBottom: 12,
+      textAlign: 'center',
+    },
+    photoPicker: {
+      width: 96,
+      height: 96,
+      borderRadius: 48,
+      backgroundColor: theme.surface,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 20,
+      overflow: 'hidden',
+    },
+    photoPreview: {
+      width: 96,
+      height: 96,
+    },
+    photoPickerText: {
+      color: theme.textMuted,
+      fontSize: 13,
+      textAlign: 'center',
+    },
+    input: {
+      width: '100%',
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      padding: 16,
+      fontSize: 15,
+      color: theme.textDark,
+      marginBottom: 12,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+    },
+    inputText: {
+      fontSize: 15,
+      color: theme.textDark,
+    },
+    placeholderText: {
+      fontSize: 15,
+      color: theme.textMuted,
+    },
+    button: {
+      width: '100%',
+      backgroundColor: theme.primary,
+      borderRadius: theme.radiiCard,
+      padding: 16,
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    buttonText: {
+      color: 'white',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    switchRow: {
+      flexDirection: 'row',
+      marginTop: 20,
+    },
+    switchLink: {
+      color: theme.primary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+  });
+}

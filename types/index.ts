@@ -1,3 +1,5 @@
+import { ThemeFamily } from '../lib/themes';
+
 export type Profile = {
   id: string;
   full_name: string | null;
@@ -17,6 +19,7 @@ export type Dog = {
   sex: 'male' | 'female' | null;
   photo_url: string | null;
   notes: string | null;
+  theme_family: ThemeFamily | null;
   created_at: string;
   updated_at: string;
 };

@@ -461,9 +461,80 @@ https://docs.expo.dev/versions/v54.0.0/ before writing Expo-related code — don
   - New `colors.alertCardBg`/`alertBorder` tokens added to `lib/theme.ts` for the alert
     state's card background/border — matched to a supplied mockup's hex values, no other new
     colors added (existing `allergenBg`/`allergenText`/`primaryGreen`/`moodSelectedBg` tokens
-    cover the rest of both states).
+    cover the rest of both states). (`lib/theme.ts` itself was deleted in the dynamic-theming
+    pass below — this note describes state as of when it was written.)
+- **Dynamic per-pet theming — architecture & wiring (2026-08-27):** foundational plumbing so
+  each dog can carry its own visual identity, recoloring the **whole app** — not just its own
+  screen — whenever that dog is the active selection. Theme-picker UI and an onboarding
+  theme suggestion are a deliberately deferred follow-up; this pass only makes the column,
+  palette data, context, and app-wide switching mechanism exist and wired correctly.
+  - New `dogs.theme_family` column (nullable text, default `'sage_clay'`, CHECK-constrained
+    to 8 palette names), `supabase/sql/2026-08-27_dogs_theme_family.sql`. `Dog.theme_family:
+    ThemeFamily | null` added to `types/index.ts`.
+  - New `lib/themes.ts` is now the **single source of truth for every color/radius token in
+    the app** — `lib/theme.ts` was deleted, not just supplemented. Exports `ThemeFamily` (8
+    values: `sage_clay` | `warm_honey` | `cool_ash` | `deep_cocoa` | `cream_chalk` |
+    `midnight` | `dusty_bloom` | `quiet_tide`), `ThemeTokens` (31 fields), and
+    `THEMES: Record<ThemeFamily, ThemeTokens>`. `ThemeTokens` combines two kinds of fields,
+    per an explicit product decision to fold them into one object rather than keep two
+    parallel imports: **brand tokens** (`background`/`surface`/`surfaceAlt`/`border`/
+    `divider`/`primary`/`primaryLight`/`primaryMid`/`primaryDark`/`textDark`/`textMuted`/
+    `chipText`/`streakBg`/`streakBorder`/`alertBg`/`alertBorder`/`moodSelBg`/`moodSelBorder`/
+    `done`/`pending`) that vary per palette with hand-picked hex values per family, and
+    **semantic tokens** (`allergenBg`/`allergenText`/`communityBlueBg`/`communityBlueText`/
+    `symptomBothBg`/`symptomBothText`/`pendingAmberBg`/`pendingAmberText`/`notStartedBg`/
+    `notStartedText`, plus the structural `radiiCard: 14`) that carry the **same** value
+    across all 8 palettes, ported verbatim from the old `lib/theme.ts` — these signal
+    meaning (warning/info/pending/etc.), not brand identity, so they don't get 8 invented
+    variants.
+  - New `lib/ThemeContext.tsx`: `ThemeProvider` (default `sage_clay`) + `useTheme()` ->
+    `{ activeTheme, activeFamily, setTheme, theme }` (`theme` is a short alias of
+    `activeTheme`, used at the ~30 migrated call sites). Wraps the entire app in `App.tsx`,
+    inside `GestureHandlerRootView`, above the loading/login/register/onboarding branches.
+  - **Theming is app-wide, not scoped to the Pets tab** — Home, More, and Pets all reflect
+    whichever dog is currently selected; there is no reset-to-`sage_clay` when leaving Pets.
+    `sage_clay` is only the default (no dog selected, or a dog with no `theme_family`). Driven
+    by one effect in `AuthedApp` (`App.tsx`): `useDogs()`/`useSelectedPet()` were **lifted**
+    from `PetsScreen.tsx` up to `AuthedApp`, which now owns dog/selection state and passes it
+    down through `AppTabs.tsx`'s `Pets` tab render-prop; `PetsScreen.tsx` no longer calls
+    either hook itself, just consumes the props. `AuthedApp` derives `selectedDog` and runs
+    `useEffect(() => setTheme(selectedDog?.theme_family ?? 'sage_clay'), [selectedDog?.id,
+    selectedDog?.theme_family])` — this applies immediately on app load (including on Home,
+    before Pets has ever been opened) since the state lives at the app root, not inside a
+    lazily-mounted tab screen. Incidental side benefit: this removes one of the two known
+    duplicate-hook-instance sites called out below under "Known issues" (Pets tab no longer
+    has its own `useDogs()` instance; `PetSummaryCard` still does).
+  - All ~30 remaining `lib/theme.ts` consumers (every screen and most components) were
+    migrated to `const { theme } = useTheme();`, with any module-scope `StyleSheet.create()`
+    hoisted into a `theme`-keyed `makeStyles(theme)` function called via
+    `useMemo(() => makeStyles(theme), [theme])` — this is now the standard pattern for any
+    themed screen/component going forward. Files whose color-mapping helper functions run
+    outside a component (e.g. `PoopLogCard.tsx`/`VomitLogCard.tsx`'s `severityStyle`,
+    `SymptomHistoryScreen.tsx`'s `poopColorChipStyle`/`vomitSeverityChipStyle`/
+    `dayStatusStyle`) now take `theme` as an explicit first parameter instead of closing over
+    a module-level `colors` constant. `MealHistoryScreen.tsx`'s exported `amountPillsFor`
+    (also used by `lib/reportBuilders.ts`) had its `dotColor` field removed entirely rather
+    than parameterized, since the report caller never used it — call sites needing a dot
+    color now look it up themselves via a new `foodTypeDot(theme)` map keyed by the pill's
+    existing `sub` field. A handful of un-tokenized hardcoded hex leftovers found during the
+    audit (`#A8C89A` → `border`, `#EAF3E4` → `divider`, `#1A3A10` → `textDark`) were folded
+    into the token system in the same pass rather than left stale.
+  - **PDF/CSV report exports are a deliberate exception — they stay fixed on `sage_clay`**
+    regardless of the active in-app theme, since a report is a document, not live themed UI.
+    `lib/pdfReport.ts` and `lib/reportBuilders.ts` build raw HTML strings outside any
+    component and can't call `useTheme()`; they, plus the three screens that build their own
+    report tables inline (`MoodHistoryScreen.tsx`/`MealHistoryScreen.tsx`/
+    `SymptomHistoryScreen.tsx`'s `handleExport` functions), import a new fixed
+    `lib/reportTheme.ts` (`colors`, old-`lib/theme.ts`-shaped, derived once from
+    `THEMES.sage_clay` + the semantic tokens) instead of `useTheme()`. The report HTML's
+    alternating-row background hexes (`#F8FCF6`/`#FFFFFF`) and white button-label text
+    remain literal — those aren't brand colors, they're fixed print styling.
+  - `lib/hooks/useDogs.ts`/`useSelectedPet.ts` were not changed — only where they're called
+    from moved.
 
-**Not built yet:** vet-visits tracking, FastAPI backend, RAG chatbot.
+**Not built yet:** vet-visits tracking, FastAPI backend, RAG chatbot, theme-picker UI (the
+column/palette/context from the item above exist; there's no way for a user to actually set
+`theme_family` yet — that's the next task).
 
 **Phase 1 ("Option B" redesign, 2026-08-06) is complete.** Four items carried over into
 Phase 2 rather than blocking closeout — see "Phase 2 to-do list" below: Google sign-in bug
@@ -483,12 +554,18 @@ a full manual end-to-end pass, and the `v1.0` commit/tag.
 - Entry: `index.ts` -> `App.tsx`. `expo-router` is installed but unused (`app/` dir empty) — navigation is `@react-navigation` (bottom tabs), not file-based routing.
 - `App.tsx`: owns auth state (`getSession()`/`onAuthStateChange`), local-state switches Login/Register/`AuthedApp`. Post-auth (and post-onboarding), `AuthedApp` renders `screens/AppTabs.tsx` (the bottom tab navigator).
 - `screens/HomeScreen.tsx` is the **Home** tab (dashboard) and `screens/PetsScreen.tsx` is the **Pets** tab (pet switcher + detail) — these are two separate files/purposes now; don't confuse them with each other or with the pre-redesign `HomeScreen.tsx` (which used to mean "pet list" and was renamed to `PetsScreen.tsx`).
-- All screens share one palette via `lib/theme.ts`'s `colors`/`radii` exports — always import
-  from there instead of hardcoding hex values, including in new auth/form screens.
+- All screens pull colors/radii from `useTheme()` (`lib/ThemeContext.tsx`, backed by
+  `lib/themes.ts`'s per-family `ThemeTokens`) — always use that instead of hardcoding hex
+  values, including in new auth/form screens. `lib/theme.ts` no longer exists (deleted in
+  the dynamic-theming pass, see "Done" above); any module-scope `StyleSheet.create()` that
+  needs theme colors must be hoisted into a `makeStyles(theme)` function called via
+  `useMemo(() => makeStyles(theme), [theme])`. PDF/CSV report code is the one exception —
+  it imports the fixed `lib/reportTheme.ts` instead, since reports don't follow the active
+  in-app theme.
 - Auth gating checks `profile.full_name` being unset (not row existence) — see `useProfile.ts` / `AuthedApp` in `App.tsx`. A `profiles` row exists almost immediately after signup regardless (DB trigger, see below).
 
 **Supabase schema gotchas** (always verify live schema before coding against a table — inferring from code has caused bugs twice):
-- `dogs` table: `owner_id` (not `user_id`). No `avatar_emoji`/`is_neutered` cols; has `notes`/`updated_at`. `useDogs.ts` previously queried a nonexistent `user_id` col — errors were swallowed, so the dog list just looked empty. Fixed.
+- `dogs` table: `owner_id` (not `user_id`). No `avatar_emoji`/`is_neutered` cols; has `notes`/`updated_at`. `useDogs.ts` previously queried a nonexistent `user_id` col — errors were swallowed, so the dog list just looked empty. Fixed. `theme_family text` (nullable, default `'sage_clay'`, CHECK-constrained to 8 palette names — see `lib/themes.ts`'s `ThemeFamily`) added `2026-08-27_dogs_theme_family.sql`.
 - `profiles` table (pre-existing, undocumented until discovered): `id uuid PK -> auth.users(id)`, `full_name text` (nullable, not `name`), `avatar_url text`, `push_token text`, `created_at` (no `updated_at`). RLS: `auth.uid() = id` on select/insert/update. Trigger `on_auth_user_created` -> `handle_new_user()` auto-inserts a bare row on every signup (`full_name` from `raw_user_meta_data`, null until `OnboardingScreen` sets it). **Always `.upsert()`, never `.insert()`** — row usually already exists. Verify `avatar_url`/`push_token` against live schema before building avatar/notifications features.
 - `habits` table: `category` has a check constraint allowing only `feeding` / `walk` / `medication` / `grooming` / `training` / `vaccine` / `other` — **not** `health`/`exercise`, which the original `Habit` type wrongly assumed (caused a live constraint-violation error before being caught). `category` is now derived from `habit_type`, not user-chosen, so this is handled in one place (`HabitFormScreen.tsx`'s `HABIT_TYPE_CATEGORY` map).
 - `habit_completions` table: still one row per `(habit_id, owner_id, completed_date)` — a

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet, ActivityIndicator } from 'react-native';
 import { Dog } from '../types';
 import { useMoodHistory } from '../lib/hooks/useMoodHistory';
@@ -7,7 +7,9 @@ import { useHealthLogs } from '../lib/hooks/useHealthLogs';
 import { useVomitLogs } from '../lib/hooks/useVomitLogs';
 import { useVaccines } from '../lib/hooks/useVaccines';
 import { useProfile } from '../lib/hooks/useProfile';
-import { colors, radii } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
+import SwipeBackWrapper from '../components/SwipeBackWrapper';
 import { shareHtmlAsPdf } from '../lib/pdfExport';
 import { buildReportHtml, buildMultiSectionReportHtml } from '../lib/pdfReport';
 import {
@@ -27,6 +29,8 @@ type Props = {
 type ReportKey = 'mood' | 'meal' | 'symptom' | 'vaccine' | 'all';
 
 export default function ReportPickerScreen({ dog, onBack }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const { profile } = useProfile();
   const { historyByDate: moodHistoryByDate } = useMoodHistory(dog.id, 90);
   const { mealDetails } = useMealDetails(dog.id);
@@ -96,6 +100,7 @@ export default function ReportPickerScreen({ dog, onBack }: Props) {
   ];
 
   return (
+    <SwipeBackWrapper onBack={onBack}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <TouchableOpacity onPress={onBack} style={styles.backRow}>
         <Text style={styles.backText}>‹ Back</Text>
@@ -118,7 +123,7 @@ export default function ReportPickerScreen({ dog, onBack }: Props) {
           >
             <Text style={styles.reportRowLabel}>{row.label}</Text>
             {exportingReport === row.key ? (
-              <ActivityIndicator size="small" color={colors.primaryGreen} />
+              <ActivityIndicator size="small" color={theme.primary} />
             ) : (
               <Text style={styles.downloadIcon}>⬇</Text>
             )}
@@ -126,70 +131,73 @@ export default function ReportPickerScreen({ dog, onBack }: Props) {
         ))}
       </View>
     </ScrollView>
+    </SwipeBackWrapper>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 16,
-    paddingTop: 56,
-  },
-  backRow: {
-    marginBottom: 8,
-  },
-  backText: {
-    color: colors.primaryGreen,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  listHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  listHeaderLeft: {
-    flex: 1,
-    minWidth: 0,
-  },
-  listHeaderDogName: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginBottom: 1,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.textDark,
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    padding: 14,
-  },
-  reportRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-  },
-  reportRowBorder: {
-    borderTopWidth: 0.5,
-    borderTopColor: colors.cardBorder,
-  },
-  reportRowLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.textDark,
-  },
-  downloadIcon: {
-    fontSize: 18,
-    color: colors.primaryGreen,
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    content: {
+      padding: 16,
+      paddingTop: 56,
+    },
+    backRow: {
+      marginBottom: 8,
+    },
+    backText: {
+      color: theme.primary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    listHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+    },
+    listHeaderLeft: {
+      flex: 1,
+      minWidth: 0,
+    },
+    listHeaderDogName: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginBottom: 1,
+    },
+    title: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: theme.textDark,
+    },
+    card: {
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      padding: 14,
+    },
+    reportRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 14,
+    },
+    reportRowBorder: {
+      borderTopWidth: 0.5,
+      borderTopColor: theme.border,
+    },
+    reportRowLabel: {
+      fontSize: 15,
+      fontWeight: '500',
+      color: theme.textDark,
+    },
+    downloadIcon: {
+      fontSize: 18,
+      color: theme.primary,
+    },
+  });
+}

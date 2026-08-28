@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { View, Text, Image, ScrollView, StyleSheet } from 'react-native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useProfile } from '../lib/hooks/useProfile';
@@ -6,7 +7,8 @@ import { useOverallStreak } from '../lib/hooks/useOverallStreak';
 import PetSummaryCard from '../components/PetSummaryCard';
 import NearbyVetsSection from '../components/NearbyVetsSection';
 import { RootTabParamList } from './AppTabs';
-import { colors, radii } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
 
 type Props = BottomTabScreenProps<RootTabParamList, 'Home'>;
 
@@ -18,6 +20,8 @@ function greeting(): string {
 }
 
 export default function HomeScreen({ navigation }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const { profile } = useProfile();
   const { dogs } = useDogs();
   const { streak } = useOverallStreak();
@@ -91,156 +95,158 @@ export default function HomeScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 20,
-    paddingTop: 60,
-    paddingBottom: 32,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 22,
-  },
-  greetingLabel: {
-    fontSize: 14,
-    color: colors.textMuted,
-  },
-  greetingName: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: colors.textDark,
-  },
-  avatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-  },
-  avatarPlaceholder: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: colors.moodSelectedBg,
-    borderWidth: 1.5,
-    borderColor: '#A8C89A',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarEmoji: {
-    fontSize: 20,
-  },
-  strip: {
-    marginBottom: 20,
-  },
-  streakPill: {
-    backgroundColor: colors.streakAccentBg,
-    borderWidth: 0.5,
-    borderColor: '#E0C090',
-    borderRadius: 14,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 24,
-  },
-  streakEmoji: {
-    fontSize: 20,
-  },
-  streakTextGroup: {
-    flex: 1,
-  },
-  streakTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.pendingAmberText,
-  },
-  streakSubtitle: {
-    fontSize: 13,
-    color: '#A07840',
-  },
-  weekChip: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  weekChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.pendingAmberText,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  aiBar: {
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 24,
-  },
-  aiIcon: {
-    fontSize: 20,
-  },
-  aiText: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.textMuted,
-  },
-  tipCard: {
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    padding: 16,
-  },
-  tipTitle: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.textDark,
-    marginBottom: 6,
-  },
-  tipBody: {
-    fontSize: 13,
-    color: colors.textMuted,
-    lineHeight: 19,
-    marginBottom: 8,
-  },
-  grayChip: {
-    backgroundColor: colors.notStartedBg,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  grayChipText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.notStartedText,
-  },
-  blueChip: {
-    backgroundColor: colors.communityBlueBg,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    alignSelf: 'flex-start',
-  },
-  blueChipText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.communityBlueText,
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    content: {
+      padding: 20,
+      paddingTop: 60,
+      paddingBottom: 32,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 22,
+    },
+    greetingLabel: {
+      fontSize: 14,
+      color: theme.textMuted,
+    },
+    greetingName: {
+      fontSize: 24,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    avatar: {
+      width: 46,
+      height: 46,
+      borderRadius: 23,
+    },
+    avatarPlaceholder: {
+      width: 46,
+      height: 46,
+      borderRadius: 23,
+      backgroundColor: theme.moodSelBg,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarEmoji: {
+      fontSize: 20,
+    },
+    strip: {
+      marginBottom: 20,
+    },
+    streakPill: {
+      backgroundColor: theme.streakBg,
+      borderWidth: 0.5,
+      borderColor: theme.streakBorder,
+      borderRadius: 14,
+      padding: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 24,
+    },
+    streakEmoji: {
+      fontSize: 20,
+    },
+    streakTextGroup: {
+      flex: 1,
+    },
+    streakTitle: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: theme.pendingAmberText,
+    },
+    streakSubtitle: {
+      fontSize: 13,
+      color: theme.pendingAmberText,
+    },
+    weekChip: {
+      backgroundColor: theme.surface,
+      borderRadius: 20,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    weekChipText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.pendingAmberText,
+    },
+    sectionTitle: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 8,
+    },
+    aiBar: {
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      padding: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 24,
+    },
+    aiIcon: {
+      fontSize: 20,
+    },
+    aiText: {
+      flex: 1,
+      fontSize: 14,
+      color: theme.textMuted,
+    },
+    tipCard: {
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      padding: 16,
+    },
+    tipTitle: {
+      fontSize: 15,
+      fontWeight: '500',
+      color: theme.textDark,
+      marginBottom: 6,
+    },
+    tipBody: {
+      fontSize: 13,
+      color: theme.textMuted,
+      lineHeight: 19,
+      marginBottom: 8,
+    },
+    grayChip: {
+      backgroundColor: theme.notStartedBg,
+      borderRadius: 20,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    grayChipText: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: theme.notStartedText,
+    },
+    blueChip: {
+      backgroundColor: theme.communityBlueBg,
+      borderRadius: 20,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      alignSelf: 'flex-start',
+    },
+    blueChipText: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: theme.communityBlueText,
+    },
+  });
+}

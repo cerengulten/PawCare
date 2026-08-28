@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { HealthLog, VomitLogDetails, VomitSeverity, VomitCause } from '../types';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
 
 type Props = {
   log: HealthLog;
@@ -22,14 +24,14 @@ const CAUSE_LABEL: Record<VomitCause, string> = {
   unknown: 'Unknown',
 };
 
-function severityStyle(severity: VomitSeverity) {
+function severityStyle(theme: ThemeTokens, severity: VomitSeverity) {
   if (severity === 'mild') {
-    return { dot: colors.doneGreen, chipBg: colors.moodSelectedBg, chipText: colors.primaryGreen };
+    return { dot: theme.done, chipBg: theme.moodSelBg, chipText: theme.primary };
   }
   if (severity === 'moderate') {
-    return { dot: colors.pendingAmber, chipBg: colors.pendingAmberBg, chipText: colors.pendingAmberText };
+    return { dot: theme.pending, chipBg: theme.pendingAmberBg, chipText: theme.pendingAmberText };
   }
-  return { dot: colors.allergenText, chipBg: colors.allergenBg, chipText: colors.allergenText };
+  return { dot: theme.allergenText, chipBg: theme.allergenBg, chipText: theme.allergenText };
 }
 
 function formatLoggedAt(iso: string): string {
@@ -39,8 +41,10 @@ function formatLoggedAt(iso: string): string {
 }
 
 export default function VomitLogCard({ log, onPress }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const details = log.details as VomitLogDetails;
-  const { dot, chipBg, chipText } = severityStyle(details.severity);
+  const { dot, chipBg, chipText } = severityStyle(theme, details.severity);
 
   return (
     <TouchableOpacity style={styles.row} onPress={onPress}>
@@ -58,40 +62,42 @@ export default function VomitLogCard({ log, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 5,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    flexShrink: 0,
-  },
-  info: {
-    flex: 1,
-    minWidth: 0,
-  },
-  title: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textDark,
-  },
-  meta: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 1,
-  },
-  chip: {
-    borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  chipText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 5,
+    },
+    dot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      flexShrink: 0,
+    },
+    info: {
+      flex: 1,
+      minWidth: 0,
+    },
+    title: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.textDark,
+    },
+    meta: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 1,
+    },
+    chip: {
+      borderRadius: 20,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+    },
+    chipText: {
+      fontSize: 12,
+      fontWeight: '500',
+    },
+  });
+}

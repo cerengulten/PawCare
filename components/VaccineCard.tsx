@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { VaccineRecord } from '../types';
-import { colors, radii } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
 import { daysAway, formatDaysAway, formatDate, SOON_THRESHOLD_DAYS } from '../lib/vaccineDisplay';
 
 type Props = {
@@ -11,9 +13,11 @@ type Props = {
 };
 
 export default function VaccineCard({ vaccine, isOverdue, onPress, dogName }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const days = daysAway(vaccine.next_due_date);
   const isSoon = !isOverdue && days <= SOON_THRESHOLD_DAYS;
-  const dotColor = isOverdue ? colors.allergenText : isSoon ? colors.pendingAmber : colors.doneGreen;
+  const dotColor = isOverdue ? theme.allergenText : isSoon ? theme.pending : theme.done;
   const chipStyle = isOverdue ? styles.chipRed : isSoon ? styles.chipAmber : styles.chipGreen;
   const chipTextStyle = isOverdue ? styles.chipTextRed : isSoon ? styles.chipTextAmber : styles.chipTextGreen;
   const chipLabel = isOverdue ? 'Overdue' : isSoon ? 'Soon' : 'Scheduled';
@@ -34,58 +38,60 @@ export default function VaccineCard({ vaccine, isOverdue, onPress, dogName }: Pr
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 5,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    flexShrink: 0,
-  },
-  info: {
-    flex: 1,
-    minWidth: 0,
-  },
-  name: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textDark,
-  },
-  meta: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 1,
-  },
-  chip: {
-    borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  chipAmber: {
-    backgroundColor: colors.pendingAmberBg,
-  },
-  chipGreen: {
-    backgroundColor: colors.moodSelectedBg,
-  },
-  chipRed: {
-    backgroundColor: colors.allergenBg,
-  },
-  chipText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  chipTextAmber: {
-    color: colors.pendingAmberText,
-  },
-  chipTextGreen: {
-    color: colors.primaryGreen,
-  },
-  chipTextRed: {
-    color: colors.allergenText,
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 5,
+    },
+    dot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      flexShrink: 0,
+    },
+    info: {
+      flex: 1,
+      minWidth: 0,
+    },
+    name: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.textDark,
+    },
+    meta: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 1,
+    },
+    chip: {
+      borderRadius: 20,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+    },
+    chipAmber: {
+      backgroundColor: theme.pendingAmberBg,
+    },
+    chipGreen: {
+      backgroundColor: theme.moodSelBg,
+    },
+    chipRed: {
+      backgroundColor: theme.allergenBg,
+    },
+    chipText: {
+      fontSize: 12,
+      fontWeight: '500',
+    },
+    chipTextAmber: {
+      color: theme.pendingAmberText,
+    },
+    chipTextGreen: {
+      color: theme.primary,
+    },
+    chipTextRed: {
+      color: theme.allergenText,
+    },
+  });
+}

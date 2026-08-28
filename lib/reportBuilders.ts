@@ -1,4 +1,4 @@
-import { colors } from './theme';
+import { colors } from './reportTheme';
 import { computeAge } from './petAge';
 import { daysAway, formatDate as formatDueDate } from './vaccineDisplay';
 import { ReportKeyValue } from './pdfReport';

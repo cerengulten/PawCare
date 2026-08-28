@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
   View,
@@ -15,7 +15,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { MealDetail, FoodType } from '../types';
-import { colors, radii } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
 
 type SavePayload = {
   food_type: FoodType;
@@ -57,6 +58,8 @@ function parseAmount(text: string): { value: number | null; error?: string } {
 }
 
 export default function MealDetailSheet({ visible, initial, onClose, onSave }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [foodType, setFoodType] = useState<FoodType | null>(initial?.food_type ?? null);
   const [wetAmountText, setWetAmountText] = useState(amountText(initial?.wet_amount_grams ?? null));
   const [brandWet, setBrandWet] = useState(initial?.brand_wet ?? '');
@@ -185,7 +188,7 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
               <TextInput
                 style={styles.input}
                 placeholder="Amount (grams, optional)"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={wetAmountText}
                 onChangeText={setWetAmountText}
                 keyboardType="number-pad"
@@ -193,7 +196,7 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
               <TextInput
                 style={styles.input}
                 placeholder="Brand (optional)"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={brandWet}
                 onChangeText={setBrandWet}
               />
@@ -205,7 +208,7 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
               <TextInput
                 style={styles.input}
                 placeholder="Amount (grams, optional)"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={dryAmountText}
                 onChangeText={setDryAmountText}
                 keyboardType="number-pad"
@@ -213,7 +216,7 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
               <TextInput
                 style={styles.input}
                 placeholder="Brand (optional)"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={brandDry}
                 onChangeText={setBrandDry}
               />
@@ -225,7 +228,7 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
               <TextInput
                 style={styles.input}
                 placeholder="Amount (grams, optional)"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={rawAmountText}
                 onChangeText={setRawAmountText}
                 keyboardType="number-pad"
@@ -233,7 +236,7 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
               <TextInput
                 style={styles.input}
                 placeholder="Brand (optional)"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={brandRaw}
                 onChangeText={setBrandRaw}
               />
@@ -247,7 +250,7 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
                 <TextInput
                   style={styles.input}
                   placeholder="Grams"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={theme.textMuted}
                   value={wetAmountText}
                   onChangeText={setWetAmountText}
                   keyboardType="number-pad"
@@ -255,7 +258,7 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
                 <TextInput
                   style={styles.input}
                   placeholder="Brand"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={theme.textMuted}
                   value={brandWet}
                   onChangeText={setBrandWet}
                 />
@@ -265,7 +268,7 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
                 <TextInput
                   style={styles.input}
                   placeholder="Grams"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={theme.textMuted}
                   value={dryAmountText}
                   onChangeText={setDryAmountText}
                   keyboardType="number-pad"
@@ -273,7 +276,7 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
                 <TextInput
                   style={styles.input}
                   placeholder="Brand"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={theme.textMuted}
                   value={brandDry}
                   onChangeText={setBrandDry}
                 />
@@ -284,7 +287,7 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
           <TextInput
             style={styles.input}
             placeholder="Notes (optional)"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={theme.textMuted}
             value={notes}
             onChangeText={setNotes}
           />
@@ -298,108 +301,110 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-  },
-  sheetWrapper: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: radii.card,
-    borderTopRightRadius: radii.card,
-    padding: 20,
-    paddingBottom: 32,
-  },
-  handleArea: {
-    alignItems: 'center',
-    paddingBottom: 12,
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.cardBorder,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textDark,
-    marginBottom: 12,
-  },
-  error: {
-    color: colors.allergenText,
-    fontSize: 13,
-    marginBottom: 10,
-  },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  chipGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 12,
-  },
-  chipBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  chipBtnSelected: {
-    backgroundColor: colors.moodSelectedBg,
-    borderColor: colors.moodSelectedBorder,
-  },
-  chipBtnLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textDark,
-  },
-  input: {
-    backgroundColor: colors.background,
-    borderRadius: radii.card,
-    padding: 14,
-    fontSize: 15,
-    color: colors.textDark,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  mixedRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  mixedColumn: {
-    flex: 1,
-  },
-  mixedColumnLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textMuted,
-    marginBottom: 6,
-  },
-  button: {
-    backgroundColor: colors.primaryGreen,
-    borderRadius: radii.card,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    backdrop: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0,0,0,0.35)',
+    },
+    sheetWrapper: {
+      flex: 1,
+      justifyContent: 'flex-end',
+    },
+    sheet: {
+      backgroundColor: theme.surface,
+      borderTopLeftRadius: theme.radiiCard,
+      borderTopRightRadius: theme.radiiCard,
+      padding: 20,
+      paddingBottom: 32,
+    },
+    handleArea: {
+      alignItems: 'center',
+      paddingBottom: 12,
+    },
+    handle: {
+      width: 36,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: theme.border,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: theme.textDark,
+      marginBottom: 12,
+    },
+    error: {
+      color: theme.allergenText,
+      fontSize: 13,
+      marginBottom: 10,
+    },
+    fieldLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 8,
+    },
+    chipGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginBottom: 12,
+    },
+    chipBtn: {
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      backgroundColor: theme.background,
+      borderWidth: 1,
+      borderColor: theme.border,
+      marginRight: 8,
+      marginBottom: 8,
+    },
+    chipBtnSelected: {
+      backgroundColor: theme.moodSelBg,
+      borderColor: theme.moodSelBorder,
+    },
+    chipBtnLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    input: {
+      backgroundColor: theme.background,
+      borderRadius: theme.radiiCard,
+      padding: 14,
+      fontSize: 15,
+      color: theme.textDark,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    mixedRow: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    mixedColumn: {
+      flex: 1,
+    },
+    mixedColumnLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.textMuted,
+      marginBottom: 6,
+    },
+    button: {
+      backgroundColor: theme.primary,
+      borderRadius: theme.radiiCard,
+      padding: 16,
+      alignItems: 'center',
+      marginTop: 6,
+    },
+    buttonText: {
+      color: 'white',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+  });
+}

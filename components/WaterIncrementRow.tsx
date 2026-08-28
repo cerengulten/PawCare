@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
 
 type Props = {
   onAdd: (amountMl: number) => void;
@@ -9,6 +11,8 @@ type Props = {
 const INCREMENTS = [50, 100, 250];
 
 export default function WaterIncrementRow({ onAdd, onReset }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
     <View style={styles.row}>
       {INCREMENTS.map(amount => (
@@ -23,31 +27,33 @@ export default function WaterIncrementRow({ onAdd, onReset }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flexWrap: 'wrap',
-    marginTop: 2,
-    marginBottom: 4,
-    paddingLeft: 34,
-  },
-  pill: {
-    backgroundColor: colors.background,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    borderRadius: 10,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  pillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primaryGreen,
-  },
-  resetText: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flexWrap: 'wrap',
+      marginTop: 2,
+      marginBottom: 4,
+      paddingLeft: 34,
+    },
+    pill: {
+      backgroundColor: theme.background,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      borderRadius: 10,
+      paddingVertical: 4,
+      paddingHorizontal: 8,
+    },
+    pillText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.primary,
+    },
+    resetText: {
+      fontSize: 12,
+      color: theme.textMuted,
+    },
+  });
+}

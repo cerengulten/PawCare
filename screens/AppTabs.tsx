@@ -6,7 +6,9 @@ import { Session } from '@supabase/supabase-js';
 import HomeScreen from './HomeScreen';
 import PetsScreen from './PetsScreen';
 import MoreScreen from './MoreScreen';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { useDogs } from '../lib/hooks/useDogs';
+import { useSelectedPet } from '../lib/hooks/useSelectedPet';
 
 export type RootTabParamList = {
   Home: undefined;
@@ -16,11 +18,32 @@ export type RootTabParamList = {
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
+type DogsState = ReturnType<typeof useDogs>;
+type SelectedPetState = ReturnType<typeof useSelectedPet>;
+
 type Props = {
   session: Session;
+  dogs: DogsState['dogs'];
+  dogsLoading: DogsState['loading'];
+  addDog: DogsState['addDog'];
+  updateDog: DogsState['updateDog'];
+  deleteDog: DogsState['deleteDog'];
+  selectedDogId: SelectedPetState['selectedDogId'];
+  selectDog: SelectedPetState['selectDog'];
 };
 
-export default function AppTabs({ session }: Props) {
+export default function AppTabs({
+  session,
+  dogs,
+  dogsLoading,
+  addDog,
+  updateDog,
+  deleteDog,
+  selectedDogId,
+  selectDog,
+}: Props) {
+  const { theme } = useTheme();
+
   return (
     <SafeAreaProvider>
       <NavigationContainer>
@@ -28,9 +51,9 @@ export default function AppTabs({ session }: Props) {
           initialRouteName="Home"
           screenOptions={{
             headerShown: false,
-            tabBarActiveTintColor: colors.primaryGreen,
-            tabBarInactiveTintColor: colors.notStartedText,
-            tabBarStyle: { backgroundColor: colors.background, borderTopColor: colors.cardBorder },
+            tabBarActiveTintColor: theme.primary,
+            tabBarInactiveTintColor: theme.notStartedText,
+            tabBarStyle: { backgroundColor: theme.background, borderTopColor: theme.border },
           }}
         >
           <Tab.Screen
@@ -47,7 +70,19 @@ export default function AppTabs({ session }: Props) {
               tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>🐾</Text>,
             }}
           >
-            {(props) => <PetsScreen {...props} session={session} />}
+            {(props) => (
+              <PetsScreen
+                {...props}
+                session={session}
+                dogs={dogs}
+                dogsLoading={dogsLoading}
+                addDog={addDog}
+                updateDog={updateDog}
+                deleteDog={deleteDog}
+                selectedDogId={selectedDogId}
+                selectDog={selectDog}
+              />
+            )}
           </Tab.Screen>
 
           <Tab.Screen

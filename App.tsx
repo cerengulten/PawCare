@@ -8,11 +8,30 @@ import RegisterScreen from './screens/RegisterScreen';
 import AppTabs from './screens/AppTabs';
 import OnboardingScreen from './screens/OnboardingScreen';
 import { useProfile } from './lib/hooks/useProfile';
-import { colors } from './lib/theme';
+import { useDogs } from './lib/hooks/useDogs';
+import { useSelectedPet } from './lib/hooks/useSelectedPet';
+import { ThemeProvider, useTheme } from './lib/ThemeContext';
 
 function AuthedApp({ session }: { session: Session }) {
+  const { theme, setTheme } = useTheme();
   const { profile, loading: profileLoading } = useProfile();
   const [onboardingActive, setOnboardingActive] = useState(false);
+
+  // Lifted here (rather than owned solely by PetsScreen) so the active theme reflects
+  // the selected dog app-wide — including Home, before the Pets tab has ever been
+  // opened — not just while the Pets tab itself is mounted/focused. See
+  // lib/ThemeContext.tsx / lib/themes.ts. PetsScreen consumes this same state via
+  // props passed down through AppTabs instead of owning its own useDogs()/
+  // useSelectedPet() instances.
+  const dogsState = useDogs();
+  const selectedPetState = useSelectedPet(dogsState.dogs);
+  const selectedDog = selectedPetState.selectedDogId
+    ? dogsState.dogs.find(d => d.id === selectedPetState.selectedDogId) ?? null
+    : null;
+
+  useEffect(() => {
+    setTheme(selectedDog?.theme_family ?? 'sage_clay');
+  }, [selectedDog?.id, selectedDog?.theme_family]);
 
   useEffect(() => {
     // A `profiles` row is auto-created at signup by a DB trigger (with
@@ -30,8 +49,8 @@ function AuthedApp({ session }: { session: Session }) {
 
   if (profileLoading) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color={colors.primaryGreen} />
+      <View style={[styles.loading, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
@@ -45,10 +64,22 @@ function AuthedApp({ session }: { session: Session }) {
     );
   }
 
-  return <AppTabs session={session} />;
+  return (
+    <AppTabs
+      session={session}
+      dogs={dogsState.dogs}
+      dogsLoading={dogsState.loading}
+      addDog={dogsState.addDog}
+      updateDog={dogsState.updateDog}
+      deleteDog={dogsState.deleteDog}
+      selectedDogId={selectedPetState.selectedDogId}
+      selectDog={selectedPetState.selectDog}
+    />
+  );
 }
 
-export default function App() {
+function AppInner() {
+  const { theme } = useTheme();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [showRegister, setShowRegister] = useState(false);
@@ -66,29 +97,29 @@ export default function App() {
 
   if (loading) {
     return (
-      <GestureHandlerRootView style={styles.flex}>
-        <View style={styles.loading}>
-          <ActivityIndicator size="large" color={colors.primaryGreen} />
-        </View>
-      </GestureHandlerRootView>
+      <View style={[styles.loading, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
     );
   }
 
   if (!session) {
-    return (
-      <GestureHandlerRootView style={styles.flex}>
-        {showRegister ? (
-          <RegisterScreen onSwitch={() => setShowRegister(false)} />
-        ) : (
-          <LoginScreen onSwitch={() => setShowRegister(true)} />
-        )}
-      </GestureHandlerRootView>
+    return showRegister ? (
+      <RegisterScreen onSwitch={() => setShowRegister(false)} />
+    ) : (
+      <LoginScreen onSwitch={() => setShowRegister(true)} />
     );
   }
 
+  return <AuthedApp session={session} />;
+}
+
+export default function App() {
   return (
     <GestureHandlerRootView style={styles.flex}>
-      <AuthedApp session={session} />
+      <ThemeProvider>
+        <AppInner />
+      </ThemeProvider>
     </GestureHandlerRootView>
   );
 }
@@ -99,7 +130,6 @@ const styles = StyleSheet.create({
   },
   loading: {
     flex: 1,
-    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },

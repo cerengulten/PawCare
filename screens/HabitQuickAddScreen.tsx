@@ -1,6 +1,9 @@
+import { useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { HabitType } from '../types';
-import { colors, radii } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
+import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
 type Props = {
   onSelect: (habitType: HabitType) => void;
@@ -18,7 +21,10 @@ const PRESETS: { type: HabitType; label: string; icon: string; description: stri
 ];
 
 export default function HabitQuickAddScreen({ onSelect, onCancel }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
+    <SwipeBackWrapper onBack={onCancel}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Add a habit</Text>
       <Text style={styles.subtitle}>Choose a type to get started</Text>
@@ -41,63 +47,66 @@ export default function HabitQuickAddScreen({ onSelect, onCancel }: Props) {
         <Text style={styles.cancelLink}>Cancel</Text>
       </TouchableOpacity>
     </ScrollView>
+    </SwipeBackWrapper>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 24,
-    paddingTop: 60,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: colors.textDark,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textMuted,
-    marginBottom: 20,
-  },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  icon: {
-    fontSize: 24,
-    marginRight: 14,
-  },
-  info: {
-    flex: 1,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textDark,
-  },
-  description: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  cancelRow: {
-    marginTop: 12,
-    alignItems: 'center',
-  },
-  cancelLink: {
-    color: colors.primaryGreen,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    content: {
+      padding: 24,
+      paddingTop: 60,
+    },
+    title: {
+      fontSize: 26,
+      fontWeight: '700',
+      color: theme.textDark,
+      marginBottom: 4,
+    },
+    subtitle: {
+      fontSize: 14,
+      color: theme.textMuted,
+      marginBottom: 20,
+    },
+    card: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      padding: 14,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    icon: {
+      fontSize: 24,
+      marginRight: 14,
+    },
+    info: {
+      flex: 1,
+    },
+    label: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    description: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 2,
+    },
+    cancelRow: {
+      marginTop: 12,
+      alignItems: 'center',
+    },
+    cancelLink: {
+      color: theme.primary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+  });
+}

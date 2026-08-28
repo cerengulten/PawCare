@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { Dog } from '../types';
 import { useHabits } from '../lib/hooks/useHabits';
 import { useDogMood } from '../lib/hooks/useDogMood';
-import { colors, radii } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
 
 type Props = {
   dog: Dog;
@@ -26,6 +28,8 @@ const MOOD_LABEL: Record<string, string> = {
 };
 
 export default function PetSummaryCard({ dog, onPress }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const { habits, completedToday } = useHabits(dog.id);
   const { mood } = useDogMood(dog.id);
 
@@ -59,50 +63,52 @@ export default function PetSummaryCard({ dog, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    padding: 14,
-    minWidth: 160,
-    marginRight: 10,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
-  },
-  photo: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-  },
-  emoji: {
-    fontSize: 22,
-  },
-  name: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.textDark,
-    flexShrink: 1,
-  },
-  progressTrack: {
-    height: 6,
-    backgroundColor: colors.cardBorder,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 6,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.doneGreen,
-    borderRadius: 3,
-  },
-  subtitle: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      padding: 14,
+      minWidth: 160,
+      marginRight: 10,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 10,
+    },
+    photo: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+    },
+    emoji: {
+      fontSize: 22,
+    },
+    name: {
+      fontSize: 15,
+      fontWeight: '500',
+      color: theme.textDark,
+      flexShrink: 1,
+    },
+    progressTrack: {
+      height: 6,
+      backgroundColor: theme.border,
+      borderRadius: 3,
+      overflow: 'hidden',
+      marginBottom: 6,
+    },
+    progressFill: {
+      height: '100%',
+      backgroundColor: theme.done,
+      borderRadius: 3,
+    },
+    subtitle: {
+      fontSize: 12,
+      color: theme.textMuted,
+    },
+  });
+}

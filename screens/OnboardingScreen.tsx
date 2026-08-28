@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,8 @@ import { useDogs } from '../lib/hooks/useDogs';
 import { useDebounce } from '../lib/hooks/useDebounce';
 import { USERNAME_REQUIREMENTS, isUsernameFormatValid, suggestUsernames } from '../lib/usernamePolicy';
 import PetFormScreen from './PetFormScreen';
-import { colors, radii } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
 
 type Props = {
   session: Session;
@@ -27,6 +28,8 @@ type Step = 'identity' | 'pet' | 'addAnother';
 type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid';
 
 export default function OnboardingScreen({ onComplete }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const { profile, completeOnboarding, checkUsernameAvailable } = useProfile();
   const { dogs, addDog, updateDog } = useDogs();
   const [step, setStep] = useState<Step>('identity');
@@ -182,7 +185,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
       <TextInput
         style={styles.input}
         placeholder="Your name"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={theme.textMuted}
         value={fullName}
         onChangeText={setFullName}
         autoCapitalize="words"
@@ -191,7 +194,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
       <TextInput
         style={styles.input}
         placeholder="Username"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={theme.textMuted}
         value={username}
         onChangeText={setUsername}
         autoCapitalize="none"
@@ -249,127 +252,129 @@ export default function OnboardingScreen({ onComplete }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  paw: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: colors.textDark,
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textMuted,
-    marginBottom: 32,
-    textAlign: 'center',
-  },
-  error: {
-    color: colors.allergenText,
-    fontSize: 13,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  input: {
-    width: '100%',
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    padding: 16,
-    fontSize: 15,
-    color: colors.textDark,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  checklist: {
-    width: '100%',
-    marginBottom: 4,
-  },
-  checklistItem: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginBottom: 2,
-  },
-  checklistItemMet: {
-    color: colors.doneGreen,
-  },
-  statusChecking: {
-    width: '100%',
-    fontSize: 12,
-    color: colors.textMuted,
-    marginBottom: 8,
-  },
-  statusAvailable: {
-    width: '100%',
-    fontSize: 12,
-    color: colors.doneGreen,
-    marginBottom: 8,
-  },
-  statusTaken: {
-    width: '100%',
-    fontSize: 12,
-    color: colors.allergenText,
-    marginBottom: 8,
-  },
-  suggestionsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 8,
-  },
-  chip: {
-    backgroundColor: colors.card,
-    borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    marginRight: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  chipText: {
-    color: colors.textDark,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  button: {
-    width: '100%',
-    backgroundColor: colors.primaryGreen,
-    borderRadius: radii.card,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    width: '100%',
-    alignItems: 'center',
-    padding: 16,
-    marginTop: 8,
-  },
-  secondaryButtonText: {
-    color: colors.textMuted,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  signOutRow: {
-    marginBottom: 16,
-  },
-  signOutText: {
-    color: colors.textMuted,
-    fontSize: 13,
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 24,
+    },
+    paw: {
+      fontSize: 48,
+      marginBottom: 12,
+    },
+    title: {
+      fontSize: 26,
+      fontWeight: '700',
+      color: theme.textDark,
+      marginBottom: 6,
+      textAlign: 'center',
+    },
+    subtitle: {
+      fontSize: 14,
+      color: theme.textMuted,
+      marginBottom: 32,
+      textAlign: 'center',
+    },
+    error: {
+      color: theme.allergenText,
+      fontSize: 13,
+      marginBottom: 12,
+      textAlign: 'center',
+    },
+    input: {
+      width: '100%',
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      padding: 16,
+      fontSize: 15,
+      color: theme.textDark,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    checklist: {
+      width: '100%',
+      marginBottom: 4,
+    },
+    checklistItem: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginBottom: 2,
+    },
+    checklistItemMet: {
+      color: theme.done,
+    },
+    statusChecking: {
+      width: '100%',
+      fontSize: 12,
+      color: theme.textMuted,
+      marginBottom: 8,
+    },
+    statusAvailable: {
+      width: '100%',
+      fontSize: 12,
+      color: theme.done,
+      marginBottom: 8,
+    },
+    statusTaken: {
+      width: '100%',
+      fontSize: 12,
+      color: theme.allergenText,
+      marginBottom: 8,
+    },
+    suggestionsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginBottom: 8,
+    },
+    chip: {
+      backgroundColor: theme.surface,
+      borderRadius: 999,
+      paddingVertical: 6,
+      paddingHorizontal: 14,
+      marginRight: 8,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    chipText: {
+      color: theme.textDark,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    button: {
+      width: '100%',
+      backgroundColor: theme.primary,
+      borderRadius: theme.radiiCard,
+      padding: 16,
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    buttonText: {
+      color: 'white',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    secondaryButton: {
+      width: '100%',
+      alignItems: 'center',
+      padding: 16,
+      marginTop: 8,
+    },
+    secondaryButtonText: {
+      color: theme.textMuted,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    signOutRow: {
+      marginBottom: 16,
+    },
+    signOutText: {
+      color: theme.textMuted,
+      fontSize: 13,
+    },
+  });
+}

@@ -1,11 +1,16 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet, ActivityIndicator } from 'react-native';
 import { Dog, HealthLog, PoopConsistency, PoopColor, VomitSeverity, VomitCause } from '../types';
-import { colors, radii } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
+// Report export always renders in the fixed sage_clay palette regardless of the
+// active in-app theme (see lib/reportTheme.ts) — reports are documents, not live UI.
+import { colors as reportColors } from '../lib/reportTheme';
 import { useProfile } from '../lib/hooks/useProfile';
 import { computeAge } from '../lib/petAge';
 import { buildReportHtml } from '../lib/pdfReport';
 import { shareHtmlAsPdf } from '../lib/pdfExport';
+import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
 type Props = {
   dog: Dog;
@@ -62,30 +67,32 @@ export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
-function poopColorChipStyle(color: PoopColor) {
+function poopColorChipStyle(theme: ThemeTokens, color: PoopColor) {
   if (color === 'brown' || color === 'green') {
-    return { bg: colors.moodSelectedBg, text: colors.primaryGreen };
+    return { bg: theme.moodSelBg, text: theme.primary };
   }
   if (color === 'yellow') {
-    return { bg: colors.pendingAmberBg, text: colors.pendingAmberText };
+    return { bg: theme.pendingAmberBg, text: theme.pendingAmberText };
   }
-  return { bg: colors.allergenBg, text: colors.allergenText };
+  return { bg: theme.allergenBg, text: theme.allergenText };
 }
 
-function vomitSeverityChipStyle(severity: VomitSeverity) {
-  if (severity === 'mild') return { bg: colors.moodSelectedBg, text: colors.primaryGreen };
-  if (severity === 'moderate') return { bg: colors.pendingAmberBg, text: colors.pendingAmberText };
-  return { bg: colors.allergenBg, text: colors.allergenText };
+function vomitSeverityChipStyle(theme: ThemeTokens, severity: VomitSeverity) {
+  if (severity === 'mild') return { bg: theme.moodSelBg, text: theme.primary };
+  if (severity === 'moderate') return { bg: theme.pendingAmberBg, text: theme.pendingAmberText };
+  return { bg: theme.allergenBg, text: theme.allergenText };
 }
 
-function dayStatusStyle(status: DayStatus) {
-  if (status === 'poop') return { bg: colors.pendingAmberBg, text: colors.pendingAmberText };
-  if (status === 'vomit') return { bg: colors.allergenBg, text: colors.allergenText };
-  if (status === 'both') return { bg: colors.symptomBothBg, text: colors.symptomBothText };
+function dayStatusStyle(theme: ThemeTokens, status: DayStatus) {
+  if (status === 'poop') return { bg: theme.pendingAmberBg, text: theme.pendingAmberText };
+  if (status === 'vomit') return { bg: theme.allergenBg, text: theme.allergenText };
+  if (status === 'both') return { bg: theme.symptomBothBg, text: theme.symptomBothText };
   return null;
 }
 
 export default function SymptomHistoryScreen({ dog, logs, vomitLogs, onSelectPoop, onSelectVomit, onBack }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const { profile } = useProfile();
   const [exporting, setExporting] = useState(false);
 
@@ -214,7 +221,7 @@ export default function SymptomHistoryScreen({ dog, logs, vomitLogs, onSelectPoo
 
       const tableRows = entriesNewestFirst.map((l, i) => {
         const isPoop = l.type === 'poop';
-        const typeColor = isPoop ? colors.pendingAmberText : colors.allergenText;
+        const typeColor = isPoop ? reportColors.pendingAmberText : reportColors.allergenText;
         const details = isPoop
           ? `${CONSISTENCY_LABEL[(l.details as { consistency: PoopConsistency }).consistency]} · ${(() => {
               const color = (l.details as { color: PoopColor }).color;
@@ -267,6 +274,7 @@ export default function SymptomHistoryScreen({ dog, logs, vomitLogs, onSelectPoo
   };
 
   return (
+    <SwipeBackWrapper onBack={onBack}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <TouchableOpacity onPress={onBack} style={styles.backRow}>
         <Text style={styles.backText}>‹ Back</Text>
@@ -283,7 +291,7 @@ export default function SymptomHistoryScreen({ dog, logs, vomitLogs, onSelectPoo
           disabled={exporting}
         >
           {exporting ? (
-            <ActivityIndicator size="small" color={colors.primaryGreen} />
+            <ActivityIndicator size="small" color={theme.primary} />
           ) : (
             <Text style={styles.downloadIcon}>⬇</Text>
           )}
@@ -325,7 +333,7 @@ export default function SymptomHistoryScreen({ dog, logs, vomitLogs, onSelectPoo
             const isFuture = cell.dateStr > todayKey;
             const disabled = !cell.inMonth || isFuture;
             const status = cell.inMonth ? statusFor(cell.dateStr) : 'none';
-            const statusStyle = dayStatusStyle(status);
+            const statusStyle = dayStatusStyle(theme, status);
             const isSelected = cell.dateStr === selectedDate;
             const isToday = cell.dateStr === todayKey;
 
@@ -362,15 +370,15 @@ export default function SymptomHistoryScreen({ dog, logs, vomitLogs, onSelectPoo
 
         <View style={styles.legend}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: colors.pendingAmberBg }]} />
+            <View style={[styles.legendDot, { backgroundColor: theme.pendingAmberBg }]} />
             <Text style={styles.legendText}>Poop</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: colors.allergenBg }]} />
+            <View style={[styles.legendDot, { backgroundColor: theme.allergenBg }]} />
             <Text style={styles.legendText}>Vomit</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: colors.symptomBothBg }]} />
+            <View style={[styles.legendDot, { backgroundColor: theme.symptomBothBg }]} />
             <Text style={styles.legendText}>Both</Text>
           </View>
         </View>
@@ -386,8 +394,8 @@ export default function SymptomHistoryScreen({ dog, logs, vomitLogs, onSelectPoo
           {selectedEntries.map((l, idx) => {
             const isPoop = l.type === 'poop';
             const chip = isPoop
-              ? poopColorChipStyle((l.details as { color: PoopColor }).color)
-              : vomitSeverityChipStyle((l.details as { severity: VomitSeverity }).severity);
+              ? poopColorChipStyle(theme, (l.details as { color: PoopColor }).color)
+              : vomitSeverityChipStyle(theme, (l.details as { severity: VomitSeverity }).severity);
             const subtype = isPoop
               ? CONSISTENCY_LABEL[(l.details as { consistency: PoopConsistency }).consistency]
               : SEVERITY_LABEL[(l.details as { severity: VomitSeverity }).severity];
@@ -439,261 +447,264 @@ export default function SymptomHistoryScreen({ dog, logs, vomitLogs, onSelectPoo
         </View>
       </View>
     </ScrollView>
+    </SwipeBackWrapper>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 16,
-    paddingTop: 20,
-  },
-  backRow: {
-    marginBottom: 16,
-  },
-  backText: {
-    color: colors.primaryGreen,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  headerLeft: {
-    flex: 1,
-    minWidth: 0,
-  },
-  headerDogName: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginBottom: 1,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.textDark,
-  },
-  downloadBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: colors.moodSelectedBg,
-    borderWidth: 0.5,
-    borderColor: colors.moodSelectedBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  downloadIcon: {
-    fontSize: 15,
-  },
-  calendarCard: {
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    padding: 14,
-    marginBottom: 12,
-  },
-  monthNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  monthNavArrow: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.primaryGreen,
-    paddingHorizontal: 8,
-  },
-  monthNavArrowDisabled: {
-    color: colors.cardBorder,
-  },
-  monthLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.textDark,
-  },
-  weekdayRow: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  weekdayLabel: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  cell: {
-    width: `${100 / 7}%`,
-    aspectRatio: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 2,
-  },
-  dayCell: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayCellSelected: {
-    borderWidth: 1.5,
-    borderColor: colors.primaryGreen,
-  },
-  dayCellDisabled: {
-    opacity: 0.35,
-  },
-  dayNumber: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.textDark,
-  },
-  dayNumberDisabled: {
-    color: colors.textMuted,
-  },
-  dayEmoji: {
-    fontSize: 9,
-    lineHeight: 11,
-    marginTop: 1,
-  },
-  todayDot: {
-    position: 'absolute',
-    bottom: 3,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.primaryGreen,
-  },
-  legend: {
-    flexDirection: 'row',
-    gap: 14,
-    justifyContent: 'center',
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 0.5,
-    borderTopColor: '#EAF3E4',
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 3,
-  },
-  legendText: {
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  weekLabel: {
-    marginTop: 20,
-  },
-  cardFlat: {
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    padding: 12,
-  },
-  emptyDayText: {
-    textAlign: 'center',
-    fontSize: 13,
-    color: colors.textMuted,
-    paddingVertical: 8,
-  },
-  entryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 6,
-  },
-  entryEmoji: {
-    fontSize: 20,
-  },
-  entryBody: {
-    flex: 1,
-    minWidth: 0,
-  },
-  entryName: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.textDark,
-  },
-  entrySub: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: 1,
-  },
-  entryNotes: {
-    fontSize: 11,
-    color: colors.textMuted,
-    fontStyle: 'italic',
-    marginTop: 2,
-  },
-  chip: {
-    borderRadius: 20,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-  },
-  chipText: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  divider: {
-    height: 0.5,
-    backgroundColor: '#EAF3E4',
-    marginVertical: 4,
-  },
-  statStrip: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: colors.card,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    borderRadius: 12,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  statNum: {
-    fontSize: 18,
-    fontWeight: '500',
-    color: colors.textDark,
-  },
-  statNumRed: {
-    color: colors.allergenText,
-  },
-  statNumGreen: {
-    color: colors.primaryGreen,
-    fontSize: 13,
-  },
-  statLabel: {
-    fontSize: 10,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    content: {
+      padding: 16,
+      paddingTop: 20,
+    },
+    backRow: {
+      marginBottom: 16,
+    },
+    backText: {
+      color: theme.primary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+    },
+    headerLeft: {
+      flex: 1,
+      minWidth: 0,
+    },
+    headerDogName: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginBottom: 1,
+    },
+    title: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    downloadBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 10,
+      backgroundColor: theme.moodSelBg,
+      borderWidth: 0.5,
+      borderColor: theme.moodSelBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    downloadIcon: {
+      fontSize: 15,
+    },
+    calendarCard: {
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      padding: 14,
+      marginBottom: 12,
+    },
+    monthNav: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    monthNavArrow: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: theme.primary,
+      paddingHorizontal: 8,
+    },
+    monthNavArrowDisabled: {
+      color: theme.border,
+    },
+    monthLabel: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: theme.textDark,
+    },
+    weekdayRow: {
+      flexDirection: 'row',
+      marginBottom: 4,
+    },
+    weekdayLabel: {
+      flex: 1,
+      textAlign: 'center',
+      fontSize: 11,
+      color: theme.textMuted,
+    },
+    grid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+    },
+    cell: {
+      width: `${100 / 7}%`,
+      aspectRatio: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 2,
+    },
+    dayCell: {
+      width: '100%',
+      height: '100%',
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    dayCellSelected: {
+      borderWidth: 1.5,
+      borderColor: theme.primary,
+    },
+    dayCellDisabled: {
+      opacity: 0.35,
+    },
+    dayNumber: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: theme.textDark,
+    },
+    dayNumberDisabled: {
+      color: theme.textMuted,
+    },
+    dayEmoji: {
+      fontSize: 9,
+      lineHeight: 11,
+      marginTop: 1,
+    },
+    todayDot: {
+      position: 'absolute',
+      bottom: 3,
+      width: 4,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: theme.primary,
+    },
+    legend: {
+      flexDirection: 'row',
+      gap: 14,
+      justifyContent: 'center',
+      marginTop: 10,
+      paddingTop: 10,
+      borderTopWidth: 0.5,
+      borderTopColor: theme.divider,
+    },
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+    },
+    legendDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 3,
+    },
+    legendText: {
+      fontSize: 11,
+      color: theme.textMuted,
+    },
+    sectionLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 8,
+    },
+    weekLabel: {
+      marginTop: 20,
+    },
+    cardFlat: {
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      padding: 12,
+    },
+    emptyDayText: {
+      textAlign: 'center',
+      fontSize: 13,
+      color: theme.textMuted,
+      paddingVertical: 8,
+    },
+    entryRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 6,
+    },
+    entryEmoji: {
+      fontSize: 20,
+    },
+    entryBody: {
+      flex: 1,
+      minWidth: 0,
+    },
+    entryName: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: theme.textDark,
+    },
+    entrySub: {
+      fontSize: 11,
+      color: theme.textMuted,
+      marginTop: 1,
+    },
+    entryNotes: {
+      fontSize: 11,
+      color: theme.textMuted,
+      fontStyle: 'italic',
+      marginTop: 2,
+    },
+    chip: {
+      borderRadius: 20,
+      paddingHorizontal: 9,
+      paddingVertical: 3,
+    },
+    chipText: {
+      fontSize: 11,
+      fontWeight: '500',
+    },
+    divider: {
+      height: 0.5,
+      backgroundColor: theme.divider,
+      marginVertical: 4,
+    },
+    statStrip: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    statBox: {
+      flex: 1,
+      backgroundColor: theme.surface,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      borderRadius: 12,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+    statNum: {
+      fontSize: 18,
+      fontWeight: '500',
+      color: theme.textDark,
+    },
+    statNumRed: {
+      color: theme.allergenText,
+    },
+    statNumGreen: {
+      color: theme.primary,
+      fontSize: 13,
+    },
+    statLabel: {
+      fontSize: 10,
+      color: theme.textMuted,
+      marginTop: 2,
+    },
+  });
+}

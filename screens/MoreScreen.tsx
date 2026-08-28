@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, ScrollView, StyleSheet } from 'react-native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { supabase } from '../lib/supabase';
@@ -10,11 +10,15 @@ import VaccineCard from '../components/VaccineCard';
 import ReportPickerScreen from './ReportPickerScreen';
 import VetFinderScreen from './VetFinderScreen';
 import { RootTabParamList } from './AppTabs';
-import { colors, radii } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
+import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
 type Props = BottomTabScreenProps<RootTabParamList, 'More'>;
 
 export default function MoreScreen({ route, navigation }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const { profile } = useProfile();
   const { dogs } = useDogs();
   const { upcoming, overdue } = useAllVaccines();
@@ -39,6 +43,7 @@ export default function MoreScreen({ route, navigation }: Props) {
 
   if (showNotifPlaceholder) {
     return (
+      <SwipeBackWrapper onBack={() => setShowNotifPlaceholder(false)}>
       <View style={styles.container}>
         <TouchableOpacity onPress={() => setShowNotifPlaceholder(false)} style={styles.backRow}>
           <Text style={styles.backText}>‹ Back</Text>
@@ -49,6 +54,7 @@ export default function MoreScreen({ route, navigation }: Props) {
           <Text style={styles.placeholderSubtitle}>Coming soon.</Text>
         </View>
       </View>
+      </SwipeBackWrapper>
     );
   }
 
@@ -178,168 +184,170 @@ export default function MoreScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 16,
-    paddingTop: 56,
-  },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backRow: {
-    padding: 16,
-    paddingTop: 56,
-  },
-  backText: {
-    color: colors.primaryGreen,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  placeholderEmoji: {
-    fontSize: 40,
-    marginBottom: 12,
-  },
-  placeholderTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textDark,
-    marginBottom: 4,
-  },
-  placeholderSubtitle: {
-    fontSize: 13,
-    color: colors.textMuted,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '500',
-    color: colors.textDark,
-    marginBottom: 16,
-  },
-  profileCard: {
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    padding: 16,
-    marginBottom: 12,
-  },
-  profileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-  },
-  avatarPlaceholder: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.moodSelectedBg,
-    borderWidth: 1.5,
-    borderColor: '#A8C89A',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarEmoji: {
-    fontSize: 26,
-  },
-  profileName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textDark,
-  },
-  profileMeta: {
-    fontSize: 13,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textMuted,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    paddingHorizontal: 2,
-    paddingBottom: 6,
-    paddingTop: 8,
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    padding: 14,
-    marginBottom: 12,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: colors.textMuted,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
-  },
-  rowDisabled: {
-    opacity: 0.55,
-  },
-  iconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 11,
-    backgroundColor: '#EAF3E4',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconText: {
-    fontSize: 19,
-  },
-  rowInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-  rowTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textDark,
-  },
-  rowSubtitle: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-  signOutTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.pendingAmberText,
-  },
-  grayChip: {
-    backgroundColor: colors.notStartedBg,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  grayChipText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.notStartedText,
-  },
-  chevron: {
-    fontSize: 16,
-    color: '#A8C89A',
-  },
-  divider: {
-    height: 0.5,
-    backgroundColor: '#EAF3E4',
-    marginVertical: 4,
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    content: {
+      padding: 16,
+      paddingTop: 56,
+    },
+    center: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    backRow: {
+      padding: 16,
+      paddingTop: 56,
+    },
+    backText: {
+      color: theme.primary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    placeholderEmoji: {
+      fontSize: 40,
+      marginBottom: 12,
+    },
+    placeholderTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.textDark,
+      marginBottom: 4,
+    },
+    placeholderSubtitle: {
+      fontSize: 13,
+      color: theme.textMuted,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: '500',
+      color: theme.textDark,
+      marginBottom: 16,
+    },
+    profileCard: {
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      padding: 16,
+      marginBottom: 12,
+    },
+    profileRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+    },
+    avatar: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+    },
+    avatarPlaceholder: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: theme.moodSelBg,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarEmoji: {
+      fontSize: 26,
+    },
+    profileName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    profileMeta: {
+      fontSize: 13,
+      color: theme.textMuted,
+      marginTop: 2,
+    },
+    sectionTitle: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.textMuted,
+      letterSpacing: 0.5,
+      textTransform: 'uppercase',
+      paddingHorizontal: 2,
+      paddingBottom: 6,
+      paddingTop: 8,
+    },
+    card: {
+      backgroundColor: theme.surface,
+      borderRadius: 14,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      padding: 14,
+      marginBottom: 12,
+    },
+    emptyText: {
+      fontSize: 13,
+      color: theme.textMuted,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 10,
+    },
+    rowDisabled: {
+      opacity: 0.55,
+    },
+    iconBox: {
+      width: 40,
+      height: 40,
+      borderRadius: 11,
+      backgroundColor: theme.divider,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    iconText: {
+      fontSize: 19,
+    },
+    rowInfo: {
+      flex: 1,
+      minWidth: 0,
+    },
+    rowTitle: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.textDark,
+    },
+    rowSubtitle: {
+      fontSize: 12,
+      color: theme.textMuted,
+    },
+    signOutTitle: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.pendingAmberText,
+    },
+    grayChip: {
+      backgroundColor: theme.notStartedBg,
+      borderRadius: 20,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    grayChipText: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: theme.notStartedText,
+    },
+    chevron: {
+      fontSize: 16,
+      color: theme.border,
+    },
+    divider: {
+      height: 0.5,
+      backgroundColor: theme.divider,
+      marginVertical: 4,
+    },
+  });
+}

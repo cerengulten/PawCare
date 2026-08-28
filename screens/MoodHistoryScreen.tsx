@@ -1,11 +1,16 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet, ActivityIndicator } from 'react-native';
 import { Dog, DogMood } from '../types';
 import { useMoodHistory } from '../lib/hooks/useMoodHistory';
 import { useProfile } from '../lib/hooks/useProfile';
 import { computeAge } from '../lib/petAge';
-import { colors, radii } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
+// Report export always renders in the fixed sage_clay palette regardless of the
+// active in-app theme (see lib/reportTheme.ts) — reports are documents, not live UI.
+import { colors as reportColors } from '../lib/reportTheme';
 import { shareHtmlAsPdf } from '../lib/pdfExport';
+import SwipeBackWrapper from '../components/SwipeBackWrapper';
 import { buildReportHtml } from '../lib/pdfReport';
 
 type Props = {
@@ -30,11 +35,11 @@ export const MOOD_LABEL: Record<DogMood['mood'], string> = {
 };
 
 export const MOOD_COLOR: Record<DogMood['mood'], string> = {
-  good: colors.primaryGreen,
-  great: colors.communityBlueText,
-  sleepy: colors.communityBlueText,
-  off: colors.pendingAmberText,
-  sick: colors.allergenText,
+  good: reportColors.primaryGreen,
+  great: reportColors.communityBlueText,
+  sleepy: reportColors.communityBlueText,
+  off: reportColors.pendingAmberText,
+  sick: reportColors.allergenText,
 };
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -57,6 +62,8 @@ export function formatWeekday(dateStr: string): string {
 }
 
 export default function MoodHistoryScreen({ dog, onBack }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const { historyByDate } = useMoodHistory(dog.id, HISTORY_DAYS);
   const { profile } = useProfile();
   const [exporting, setExporting] = useState(false);
@@ -214,6 +221,7 @@ export default function MoodHistoryScreen({ dog, onBack }: Props) {
   };
 
   return (
+    <SwipeBackWrapper onBack={onBack}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <TouchableOpacity onPress={onBack} style={styles.backRow}>
         <Text style={styles.backText}>‹ Back</Text>
@@ -230,7 +238,7 @@ export default function MoodHistoryScreen({ dog, onBack }: Props) {
           disabled={exporting}
         >
           {exporting ? (
-            <ActivityIndicator size="small" color={colors.primaryGreen} />
+            <ActivityIndicator size="small" color={theme.primary} />
           ) : (
             <Text style={styles.downloadIcon}>⬇</Text>
           )}
@@ -337,214 +345,217 @@ export default function MoodHistoryScreen({ dog, onBack }: Props) {
         </View>
       </View>
     </ScrollView>
+    </SwipeBackWrapper>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 16,
-    paddingTop: 20,
-  },
-  backRow: {
-    marginBottom: 16,
-  },
-  backText: {
-    color: colors.primaryGreen,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  headerLeft: {
-    flex: 1,
-    minWidth: 0,
-  },
-  headerDogName: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginBottom: 1,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.textDark,
-  },
-  downloadBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: colors.moodSelectedBg,
-    borderWidth: 0.5,
-    borderColor: colors.moodSelectedBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  downloadIcon: {
-    fontSize: 15,
-  },
-  gentleCopy: {
-    fontSize: 13,
-    color: colors.textMuted,
-    textAlign: 'center',
-    marginBottom: 16,
-    fontStyle: 'italic',
-  },
-  calendarCard: {
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    padding: 14,
-    marginBottom: 12,
-  },
-  monthNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  monthNavArrow: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.primaryGreen,
-    paddingHorizontal: 8,
-  },
-  monthNavArrowDisabled: {
-    color: colors.cardBorder,
-  },
-  monthLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.textDark,
-  },
-  weekdayRow: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  weekdayLabel: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  cell: {
-    width: `${100 / 7}%`,
-    aspectRatio: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 2,
-  },
-  dayCell: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayCellLogged: {
-    backgroundColor: colors.moodSelectedBg,
-  },
-  dayCellSelected: {
-    borderWidth: 1.5,
-    borderColor: colors.moodSelectedBorder,
-  },
-  dayCellDisabled: {
-    opacity: 0.35,
-  },
-  dayMoodEmoji: {
-    fontSize: 14,
-  },
-  dayNumber: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.textDark,
-  },
-  dayNumberDisabled: {
-    color: colors.textMuted,
-  },
-  todayDot: {
-    position: 'absolute',
-    bottom: 3,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.primaryGreen,
-  },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  monthStatsLabel: {
-    marginTop: 20,
-  },
-  cardFlat: {
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    padding: 12,
-  },
-  emptyDayText: {
-    textAlign: 'center',
-    fontSize: 13,
-    color: colors.textMuted,
-    paddingVertical: 8,
-  },
-  entryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 4,
-  },
-  entryEmoji: {
-    fontSize: 22,
-  },
-  entryName: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textDark,
-  },
-  statStrip: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: colors.card,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    borderRadius: 12,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  statNum: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.textDark,
-  },
-  statNumGreen: {
-    color: colors.primaryGreen,
-    fontSize: 13,
-  },
-  statLabel: {
-    fontSize: 10,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    content: {
+      padding: 16,
+      paddingTop: 20,
+    },
+    backRow: {
+      marginBottom: 16,
+    },
+    backText: {
+      color: theme.primary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+    },
+    headerLeft: {
+      flex: 1,
+      minWidth: 0,
+    },
+    headerDogName: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginBottom: 1,
+    },
+    title: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    downloadBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 10,
+      backgroundColor: theme.moodSelBg,
+      borderWidth: 0.5,
+      borderColor: theme.moodSelBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    downloadIcon: {
+      fontSize: 15,
+    },
+    gentleCopy: {
+      fontSize: 13,
+      color: theme.textMuted,
+      textAlign: 'center',
+      marginBottom: 16,
+      fontStyle: 'italic',
+    },
+    calendarCard: {
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      padding: 14,
+      marginBottom: 12,
+    },
+    monthNav: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    monthNavArrow: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: theme.primary,
+      paddingHorizontal: 8,
+    },
+    monthNavArrowDisabled: {
+      color: theme.border,
+    },
+    monthLabel: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: theme.textDark,
+    },
+    weekdayRow: {
+      flexDirection: 'row',
+      marginBottom: 4,
+    },
+    weekdayLabel: {
+      flex: 1,
+      textAlign: 'center',
+      fontSize: 11,
+      color: theme.textMuted,
+    },
+    grid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+    },
+    cell: {
+      width: `${100 / 7}%`,
+      aspectRatio: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 2,
+    },
+    dayCell: {
+      width: '100%',
+      height: '100%',
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    dayCellLogged: {
+      backgroundColor: theme.moodSelBg,
+    },
+    dayCellSelected: {
+      borderWidth: 1.5,
+      borderColor: theme.moodSelBorder,
+    },
+    dayCellDisabled: {
+      opacity: 0.35,
+    },
+    dayMoodEmoji: {
+      fontSize: 14,
+    },
+    dayNumber: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: theme.textDark,
+    },
+    dayNumberDisabled: {
+      color: theme.textMuted,
+    },
+    todayDot: {
+      position: 'absolute',
+      bottom: 3,
+      width: 4,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: theme.primary,
+    },
+    sectionLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 8,
+    },
+    monthStatsLabel: {
+      marginTop: 20,
+    },
+    cardFlat: {
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      padding: 12,
+    },
+    emptyDayText: {
+      textAlign: 'center',
+      fontSize: 13,
+      color: theme.textMuted,
+      paddingVertical: 8,
+    },
+    entryRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 4,
+    },
+    entryEmoji: {
+      fontSize: 22,
+    },
+    entryName: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.textDark,
+    },
+    statStrip: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    statBox: {
+      flex: 1,
+      backgroundColor: theme.surface,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      borderRadius: 12,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+    statNum: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: theme.textDark,
+    },
+    statNumGreen: {
+      color: theme.primary,
+      fontSize: 13,
+    },
+    statLabel: {
+      fontSize: 10,
+      color: theme.textMuted,
+      marginTop: 2,
+    },
+  });
+}

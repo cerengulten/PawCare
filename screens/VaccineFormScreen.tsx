@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,9 @@ import DateTimePicker, {
 import { VaccineRecord } from '../types';
 import { useVaccines } from '../lib/hooks/useVaccines';
 import { requestNotificationPermissions } from '../lib/notifications';
-import { colors, radii } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
+import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
 type UseVaccinesReturn = ReturnType<typeof useVaccines>;
 
@@ -70,6 +72,8 @@ export default function VaccineFormScreen({
   onDone,
   onCancel,
 }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [vaccineName, setVaccineName] = useState(vaccine?.vaccine_name ?? '');
   const [dateGivenText, setDateGivenText] = useState(vaccine?.date_given?.slice(0, 10) ?? '');
   const [nextDueDateText, setNextDueDateText] = useState(vaccine?.next_due_date?.slice(0, 10) ?? '');
@@ -203,6 +207,7 @@ export default function VaccineFormScreen({
   }
 
   return (
+    <SwipeBackWrapper onBack={onCancel}>
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -215,7 +220,7 @@ export default function VaccineFormScreen({
         <TextInput
           style={styles.input}
           placeholder="Vaccine name"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.textMuted}
           value={vaccineName}
           onChangeText={setVaccineName}
         />
@@ -224,7 +229,7 @@ export default function VaccineFormScreen({
           <TextInput
             style={[styles.input, styles.dateInput]}
             placeholder="Date given (optional), YYYY-MM-DD"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={theme.textMuted}
             value={dateGivenText}
             onChangeText={setDateGivenText}
             autoCapitalize="none"
@@ -268,7 +273,7 @@ export default function VaccineFormScreen({
           <TextInput
             style={[styles.input, styles.dateInput]}
             placeholder="Next due date, YYYY-MM-DD"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={theme.textMuted}
             value={nextDueDateText}
             onChangeText={setNextDueDateText}
             autoCapitalize="none"
@@ -301,7 +306,7 @@ export default function VaccineFormScreen({
           <Switch
             value={reminderEnabled}
             onValueChange={handleToggleReminder}
-            trackColor={{ false: colors.cardBorder, true: colors.primaryGreen }}
+            trackColor={{ false: theme.border, true: theme.primary }}
             thumbColor="white"
           />
         </View>
@@ -309,7 +314,7 @@ export default function VaccineFormScreen({
         <TextInput
           style={[styles.input, styles.notesInput]}
           placeholder="Notes (optional)"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.textMuted}
           value={notes}
           onChangeText={setNotes}
           multiline
@@ -334,131 +339,134 @@ export default function VaccineFormScreen({
         ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
+    </SwipeBackWrapper>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollContent: {
-    padding: 24,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: colors.textDark,
-    marginBottom: 20,
-  },
-  error: {
-    color: colors.allergenText,
-    fontSize: 13,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  input: {
-    width: '100%',
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    padding: 16,
-    fontSize: 15,
-    color: colors.textDark,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  notesInput: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  dateRow: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  dateInput: {
-    flex: 1,
-    marginRight: 8,
-  },
-  calendarButton: {
-    width: 48,
-    height: 48,
-    borderRadius: radii.card,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  calendarButtonText: {
-    fontSize: 18,
-  },
-  quickRow: {
-    width: '100%',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 12,
-  },
-  quickChip: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  quickChipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textDark,
-  },
-  reminderRow: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  reminderLabel: {
-    fontSize: 15,
-    color: colors.textDark,
-    flexShrink: 1,
-    marginRight: 12,
-  },
-  button: {
-    width: '100%',
-    backgroundColor: colors.primaryGreen,
-    borderRadius: radii.card,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  switchRow: {
-    flexDirection: 'row',
-    marginTop: 20,
-  },
-  switchLink: {
-    color: colors.primaryGreen,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  deleteLink: {
-    color: colors.allergenText,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    scrollContent: {
+      padding: 24,
+      alignItems: 'center',
+    },
+    title: {
+      fontSize: 26,
+      fontWeight: '700',
+      color: theme.textDark,
+      marginBottom: 20,
+    },
+    error: {
+      color: theme.allergenText,
+      fontSize: 13,
+      marginBottom: 12,
+      textAlign: 'center',
+    },
+    input: {
+      width: '100%',
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      padding: 16,
+      fontSize: 15,
+      color: theme.textDark,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    notesInput: {
+      minHeight: 80,
+      textAlignVertical: 'top',
+    },
+    dateRow: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+    },
+    dateInput: {
+      flex: 1,
+      marginRight: 8,
+    },
+    calendarButton: {
+      width: 48,
+      height: 48,
+      borderRadius: theme.radiiCard,
+      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    calendarButtonText: {
+      fontSize: 18,
+    },
+    quickRow: {
+      width: '100%',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginBottom: 12,
+    },
+    quickChip: {
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.border,
+      marginRight: 8,
+      marginBottom: 8,
+    },
+    quickChipText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    reminderRow: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      padding: 16,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    reminderLabel: {
+      fontSize: 15,
+      color: theme.textDark,
+      flexShrink: 1,
+      marginRight: 12,
+    },
+    button: {
+      width: '100%',
+      backgroundColor: theme.primary,
+      borderRadius: theme.radiiCard,
+      padding: 16,
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    buttonText: {
+      color: 'white',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    switchRow: {
+      flexDirection: 'row',
+      marginTop: 20,
+    },
+    switchLink: {
+      color: theme.primary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    deleteLink: {
+      color: theme.allergenText,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+  });
+}

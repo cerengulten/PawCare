@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, ScrollView, Alert, StyleSheet, ActivityIndicator } from 'react-native';
 import { Dog, Habit, HabitType, DogMood, VaccineRecord, Allergen, HealthLog } from '../types';
 import { useHabits, getHabitTarget } from '../lib/hooks/useHabits';
@@ -18,6 +18,7 @@ import MealDetailSheet from '../components/MealDetailSheet';
 import VaccineCard from '../components/VaccineCard';
 import PoopLogCard from '../components/PoopLogCard';
 import VomitLogCard from '../components/VomitLogCard';
+import SwipeBackWrapper from '../components/SwipeBackWrapper';
 import HabitFormScreen from './HabitFormScreen';
 import HabitQuickAddScreen from './HabitQuickAddScreen';
 import HabitHistoryScreen from './HabitHistoryScreen';
@@ -28,7 +29,8 @@ import PoopFormScreen from './PoopFormScreen';
 import VomitFormScreen from './VomitFormScreen';
 import SymptomHistoryScreen from './SymptomHistoryScreen';
 import MealHistoryScreen from './MealHistoryScreen';
-import { colors, radii } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
 import { computeAge } from '../lib/petAge';
 import { shareHtmlAsPdf } from '../lib/pdfExport';
 import { buildReportHtml } from '../lib/pdfReport';
@@ -60,6 +62,8 @@ function subtitleFor(h: Habit, count: number, target: number, done: boolean): st
 }
 
 export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [mode, setMode] = useState<Mode>('detail');
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [presetType, setPresetType] = useState<HabitType | undefined>(undefined);
@@ -147,6 +151,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
     };
 
     return (
+      <SwipeBackWrapper onBack={() => setMode('detail')}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <TouchableOpacity onPress={() => setMode('detail')} style={styles.backRow}>
           <Text style={styles.backText}>‹ Back</Text>
@@ -163,7 +168,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
             disabled={exportingVaccines}
           >
             {exportingVaccines ? (
-              <ActivityIndicator size="small" color={colors.primaryGreen} />
+              <ActivityIndicator size="small" color={theme.primary} />
             ) : (
               <Text style={styles.downloadIcon}>⬇</Text>
             )}
@@ -194,6 +199,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
           <Text style={styles.vaccineLinkText}>+ Add vaccine</Text>
         </TouchableOpacity>
       </ScrollView>
+      </SwipeBackWrapper>
     );
   }
 
@@ -244,6 +250,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
 
   if (mode === 'health-list') {
     return (
+      <SwipeBackWrapper onBack={() => setMode('detail')}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <TouchableOpacity onPress={() => setMode('detail')} style={styles.backRow}>
           <Text style={styles.backText}>‹ Back</Text>
@@ -274,6 +281,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
           <Text style={styles.vaccineLinkText}>+ Add</Text>
         </TouchableOpacity>
       </ScrollView>
+      </SwipeBackWrapper>
     );
   }
 
@@ -292,6 +300,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
 
   if (mode === 'vomit-list') {
     return (
+      <SwipeBackWrapper onBack={() => setMode('detail')}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <TouchableOpacity onPress={() => setMode('detail')} style={styles.backRow}>
           <Text style={styles.backText}>‹ Back</Text>
@@ -322,6 +331,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
           <Text style={styles.vaccineLinkText}>+ Add</Text>
         </TouchableOpacity>
       </ScrollView>
+      </SwipeBackWrapper>
     );
   }
 
@@ -646,296 +656,298 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 16,
-    paddingTop: 20,
-  },
-  backRow: {
-    marginBottom: 16,
-  },
-  backText: {
-    color: colors.primaryGreen,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.textDark,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: colors.textMuted,
-    marginTop: 2,
-    marginBottom: 16,
-  },
-  listHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  listHeaderLeft: {
-    flex: 1,
-    minWidth: 0,
-  },
-  listHeaderDogName: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginBottom: 1,
-  },
-  downloadBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: colors.moodSelectedBg,
-    borderWidth: 0.5,
-    borderColor: colors.moodSelectedBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  downloadIcon: {
-    fontSize: 15,
-  },
-  heroBand: {
-    backgroundColor: colors.moodSelectedBg,
-    borderTopLeftRadius: radii.card,
-    borderTopRightRadius: radii.card,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  photo: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-  },
-  photoPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.card,
-    borderWidth: 1.5,
-    borderColor: '#A8C89A',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emoji: {
-    fontSize: 22,
-  },
-  heroInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-  name: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.textDark,
-  },
-  meta: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  streakChip: {
-    backgroundColor: colors.streakAccentBg,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  streakChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.streakAccent,
-  },
-  statStrip: {
-    flexDirection: 'row',
-    backgroundColor: colors.card,
-    borderBottomLeftRadius: radii.card,
-    borderBottomRightRadius: radii.card,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    borderTopWidth: 0,
-    marginBottom: 16,
-  },
-  statCell: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  statCellBorder: {
-    borderLeftWidth: 0.5,
-    borderRightWidth: 0.5,
-    borderColor: colors.cardBorder,
-  },
-  statValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textDark,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
-  },
-  editButton: {
-    flex: 1,
-    borderRadius: radii.card,
-    borderWidth: 1,
-    borderColor: colors.primaryGreen,
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  editButtonText: {
-    color: colors.primaryGreen,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  deleteButton: {
-    flex: 1,
-    borderRadius: radii.card,
-    borderWidth: 1,
-    borderColor: colors.allergenText,
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  deleteButtonText: {
-    color: colors.allergenText,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    padding: 12,
-  },
-  moodLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  moodLabel: {
-    fontSize: 12,
-    color: colors.textMuted,
-    fontWeight: '500',
-  },
-  moodHistoryIcon: {
-    fontSize: 14,
-    color: colors.textMuted,
-  },
-  moodGrid: {
-    flexDirection: 'row',
-    gap: 5,
-  },
-  moodBtn: {
-    flex: 1,
-    backgroundColor: colors.background,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 2,
-    alignItems: 'center',
-  },
-  moodBtnSelected: {
-    backgroundColor: colors.moodSelectedBg,
-    borderColor: colors.moodSelectedBorder,
-  },
-  moodEmoji: {
-    fontSize: 15,
-  },
-  moodBtnLabel: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: 2,
-    textAlign: 'center',
-  },
-  section: {
-    marginTop: 20,
-  },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  addIcon: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.primaryGreen,
-  },
-  addChip: {
-    backgroundColor: colors.notStartedBg,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  addChipText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: colors.notStartedText,
-  },
-  allergenRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  allergenChip: {
-    backgroundColor: colors.allergenBg,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  allergenChipText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: colors.allergenText,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: colors.textMuted,
-  },
-  seeAllRow: {
-    marginTop: 8,
-  },
-  divider: {
-    height: 0.5,
-    backgroundColor: '#EAF3E4',
-    marginVertical: 4,
-  },
-  vaccineLink: {
-    marginTop: 20,
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    padding: 14,
-    alignItems: 'center',
-  },
-  vaccineLinkText: {
-    color: colors.primaryGreen,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    content: {
+      padding: 16,
+      paddingTop: 20,
+    },
+    backRow: {
+      marginBottom: 16,
+    },
+    backText: {
+      color: theme.primary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    title: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: theme.textDark,
+    },
+    subtitle: {
+      fontSize: 13,
+      color: theme.textMuted,
+      marginTop: 2,
+      marginBottom: 16,
+    },
+    listHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+    },
+    listHeaderLeft: {
+      flex: 1,
+      minWidth: 0,
+    },
+    listHeaderDogName: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginBottom: 1,
+    },
+    downloadBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 10,
+      backgroundColor: theme.moodSelBg,
+      borderWidth: 0.5,
+      borderColor: theme.moodSelBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    downloadIcon: {
+      fontSize: 15,
+    },
+    heroBand: {
+      backgroundColor: theme.moodSelBg,
+      borderTopLeftRadius: theme.radiiCard,
+      borderTopRightRadius: theme.radiiCard,
+      padding: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    photo: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+    },
+    photoPlaceholder: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: theme.surface,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    emoji: {
+      fontSize: 22,
+    },
+    heroInfo: {
+      flex: 1,
+      minWidth: 0,
+    },
+    name: {
+      fontSize: 17,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    meta: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 2,
+    },
+    streakChip: {
+      backgroundColor: theme.streakBg,
+      borderRadius: 20,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    streakChipText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.streakBorder,
+    },
+    statStrip: {
+      flexDirection: 'row',
+      backgroundColor: theme.surface,
+      borderBottomLeftRadius: theme.radiiCard,
+      borderBottomRightRadius: theme.radiiCard,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      borderTopWidth: 0,
+      marginBottom: 16,
+    },
+    statCell: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 10,
+    },
+    statCellBorder: {
+      borderLeftWidth: 0.5,
+      borderRightWidth: 0.5,
+      borderColor: theme.border,
+    },
+    statValue: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    statLabel: {
+      fontSize: 11,
+      color: theme.textMuted,
+      marginTop: 2,
+    },
+    headerButtons: {
+      flexDirection: 'row',
+      gap: 10,
+      marginBottom: 16,
+    },
+    editButton: {
+      flex: 1,
+      borderRadius: theme.radiiCard,
+      borderWidth: 1,
+      borderColor: theme.primary,
+      paddingVertical: 8,
+      alignItems: 'center',
+    },
+    editButtonText: {
+      color: theme.primary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    deleteButton: {
+      flex: 1,
+      borderRadius: theme.radiiCard,
+      borderWidth: 1,
+      borderColor: theme.allergenText,
+      paddingVertical: 8,
+      alignItems: 'center',
+    },
+    deleteButtonText: {
+      color: theme.allergenText,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    card: {
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      padding: 12,
+    },
+    moodLabelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    moodLabel: {
+      fontSize: 12,
+      color: theme.textMuted,
+      fontWeight: '500',
+    },
+    moodHistoryIcon: {
+      fontSize: 14,
+      color: theme.textMuted,
+    },
+    moodGrid: {
+      flexDirection: 'row',
+      gap: 5,
+    },
+    moodBtn: {
+      flex: 1,
+      backgroundColor: theme.background,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      borderRadius: 8,
+      paddingVertical: 6,
+      paddingHorizontal: 2,
+      alignItems: 'center',
+    },
+    moodBtnSelected: {
+      backgroundColor: theme.moodSelBg,
+      borderColor: theme.moodSelBorder,
+    },
+    moodEmoji: {
+      fontSize: 15,
+    },
+    moodBtnLabel: {
+      fontSize: 11,
+      color: theme.textMuted,
+      marginTop: 2,
+      textAlign: 'center',
+    },
+    section: {
+      marginTop: 20,
+    },
+    sectionTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    sectionTitle: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    addIcon: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: theme.primary,
+    },
+    addChip: {
+      backgroundColor: theme.notStartedBg,
+      borderRadius: 20,
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+    },
+    addChipText: {
+      fontSize: 11,
+      fontWeight: '500',
+      color: theme.notStartedText,
+    },
+    allergenRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+    },
+    allergenChip: {
+      backgroundColor: theme.allergenBg,
+      borderRadius: 20,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+    },
+    allergenChipText: {
+      fontSize: 11,
+      fontWeight: '500',
+      color: theme.allergenText,
+    },
+    emptyText: {
+      fontSize: 13,
+      color: theme.textMuted,
+    },
+    seeAllRow: {
+      marginTop: 8,
+    },
+    divider: {
+      height: 0.5,
+      backgroundColor: theme.divider,
+      marginVertical: 4,
+    },
+    vaccineLink: {
+      marginTop: 20,
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      padding: 14,
+      alignItems: 'center',
+    },
+    vaccineLinkText: {
+      color: theme.primary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+  });
+}

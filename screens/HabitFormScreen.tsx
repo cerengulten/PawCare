@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,9 @@ import DateTimePicker, {
 } from '@react-native-community/datetimepicker';
 import { Habit, HabitType } from '../types';
 import { useHabits } from '../lib/hooks/useHabits';
-import { colors, radii } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
+import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
 type UseHabitsReturn = ReturnType<typeof useHabits>;
 
@@ -107,6 +109,8 @@ export default function HabitFormScreen({
   onDone,
   onCancel,
 }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const habitType: HabitType = habit?.habit_type ?? presetType ?? 'custom';
   const knownDosageUnits = ['mg', 'ml', 'tablet', 'drop'];
 
@@ -241,6 +245,7 @@ export default function HabitFormScreen({
   }
 
   return (
+    <SwipeBackWrapper onBack={onCancel}>
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -253,7 +258,7 @@ export default function HabitFormScreen({
         <TextInput
           style={styles.input}
           placeholder="Title"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.textMuted}
           value={title}
           onChangeText={setTitle}
         />
@@ -310,7 +315,7 @@ export default function HabitFormScreen({
             <TextInput
               style={styles.input}
               placeholder="e.g. 200"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={theme.textMuted}
               keyboardType="numeric"
               value={portionGrams}
               onChangeText={setPortionGrams}
@@ -320,7 +325,7 @@ export default function HabitFormScreen({
             <TextInput
               style={styles.input}
               placeholder="e.g. Purina"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={theme.textMuted}
               value={foodBrand}
               onChangeText={setFoodBrand}
             />
@@ -348,7 +353,7 @@ export default function HabitFormScreen({
             <TextInput
               style={styles.input}
               placeholder="e.g. 500"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={theme.textMuted}
               keyboardType="numeric"
               value={waterGoalMl}
               onChangeText={setWaterGoalMl}
@@ -362,7 +367,7 @@ export default function HabitFormScreen({
             <TextInput
               style={styles.input}
               placeholder="e.g. 30"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={theme.textMuted}
               keyboardType="numeric"
               value={walkDuration}
               onChangeText={setWalkDuration}
@@ -389,7 +394,7 @@ export default function HabitFormScreen({
             <TextInput
               style={styles.input}
               placeholder="e.g. 5"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={theme.textMuted}
               keyboardType="numeric"
               value={dosageAmount}
               onChangeText={setDosageAmount}
@@ -414,7 +419,7 @@ export default function HabitFormScreen({
               <TextInput
                 style={styles.input}
                 placeholder="Custom unit"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={customDosageUnit}
                 onChangeText={setCustomDosageUnit}
               />
@@ -508,125 +513,128 @@ export default function HabitFormScreen({
         ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
+    </SwipeBackWrapper>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollContent: {
-    padding: 24,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: colors.textDark,
-    marginBottom: 20,
-  },
-  error: {
-    color: colors.allergenText,
-    fontSize: 13,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  input: {
-    width: '100%',
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    padding: 16,
-    fontSize: 15,
-    color: colors.textDark,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  inputText: {
-    fontSize: 15,
-    color: colors.textDark,
-  },
-  placeholderText: {
-    fontSize: 15,
-    color: colors.textMuted,
-  },
-  sectionLabel: {
-    width: '100%',
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textMuted,
-    marginBottom: 8,
-  },
-  helperText: {
-    width: '100%',
-    fontSize: 12,
-    color: colors.textMuted,
-    marginBottom: 8,
-    marginTop: -4,
-  },
-  reminderRow: {
-    width: '100%',
-  },
-  reminderRowLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textMuted,
-    marginBottom: 4,
-  },
-  chipRow: {
-    width: '100%',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 12,
-  },
-  chip: {
-    borderRadius: radii.card,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    backgroundColor: colors.card,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  chipSelected: {
-    backgroundColor: colors.primaryGreen,
-    borderColor: colors.primaryGreen,
-  },
-  chipText: {
-    fontSize: 13,
-    color: colors.textDark,
-    textTransform: 'capitalize',
-  },
-  chipTextSelected: {
-    color: 'white',
-  },
-  button: {
-    width: '100%',
-    backgroundColor: colors.primaryGreen,
-    borderRadius: radii.card,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  switchRow: {
-    flexDirection: 'row',
-    marginTop: 20,
-  },
-  switchLink: {
-    color: colors.primaryGreen,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  deleteLink: {
-    color: colors.allergenText,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    scrollContent: {
+      padding: 24,
+      alignItems: 'center',
+    },
+    title: {
+      fontSize: 26,
+      fontWeight: '700',
+      color: theme.textDark,
+      marginBottom: 20,
+    },
+    error: {
+      color: theme.allergenText,
+      fontSize: 13,
+      marginBottom: 12,
+      textAlign: 'center',
+    },
+    input: {
+      width: '100%',
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      padding: 16,
+      fontSize: 15,
+      color: theme.textDark,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    inputText: {
+      fontSize: 15,
+      color: theme.textDark,
+    },
+    placeholderText: {
+      fontSize: 15,
+      color: theme.textMuted,
+    },
+    sectionLabel: {
+      width: '100%',
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.textMuted,
+      marginBottom: 8,
+    },
+    helperText: {
+      width: '100%',
+      fontSize: 12,
+      color: theme.textMuted,
+      marginBottom: 8,
+      marginTop: -4,
+    },
+    reminderRow: {
+      width: '100%',
+    },
+    reminderRowLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.textMuted,
+      marginBottom: 4,
+    },
+    chipRow: {
+      width: '100%',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginBottom: 12,
+    },
+    chip: {
+      borderRadius: theme.radiiCard,
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      marginRight: 8,
+      marginBottom: 8,
+    },
+    chipSelected: {
+      backgroundColor: theme.primary,
+      borderColor: theme.primary,
+    },
+    chipText: {
+      fontSize: 13,
+      color: theme.textDark,
+      textTransform: 'capitalize',
+    },
+    chipTextSelected: {
+      color: 'white',
+    },
+    button: {
+      width: '100%',
+      backgroundColor: theme.primary,
+      borderRadius: theme.radiiCard,
+      padding: 16,
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    buttonText: {
+      color: 'white',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    switchRow: {
+      flexDirection: 'row',
+      marginTop: 20,
+    },
+    switchLink: {
+      color: theme.primary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    deleteLink: {
+      color: theme.allergenText,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+  });
+}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,9 @@ import {
 } from 'react-native';
 import { HealthLog, VomitSeverity, VomitCause } from '../types';
 import { useVomitLogs } from '../lib/hooks/useVomitLogs';
-import { colors, radii } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
+import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
 type UseVomitLogsReturn = ReturnType<typeof useVomitLogs>;
 
@@ -48,6 +50,8 @@ export default function VomitFormScreen({
   onDone,
   onCancel,
 }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const details = log?.details as { severity: VomitSeverity; possibleCause: VomitCause; frequency: number } | undefined;
   const [severity, setSeverity] = useState<VomitSeverity>(details?.severity ?? 'mild');
   const [possibleCause, setPossibleCause] = useState<VomitCause>(details?.possibleCause ?? 'unknown');
@@ -96,6 +100,7 @@ export default function VomitFormScreen({
   }
 
   return (
+    <SwipeBackWrapper onBack={onCancel}>
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -141,7 +146,7 @@ export default function VomitFormScreen({
         <TextInput
           style={styles.input}
           placeholder="1"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.textMuted}
           value={frequencyText}
           onChangeText={setFrequencyText}
           keyboardType="number-pad"
@@ -150,7 +155,7 @@ export default function VomitFormScreen({
         <TextInput
           style={[styles.input, styles.notesInput]}
           placeholder="Notes (optional)"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.textMuted}
           value={notes}
           onChangeText={setNotes}
           multiline
@@ -175,104 +180,107 @@ export default function VomitFormScreen({
         ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
+    </SwipeBackWrapper>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollContent: {
-    padding: 24,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: colors.textDark,
-    marginBottom: 20,
-  },
-  error: {
-    color: colors.allergenText,
-    fontSize: 13,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  fieldLabel: {
-    width: '100%',
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  chipGrid: {
-    width: '100%',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 12,
-  },
-  chipBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  chipBtnSelected: {
-    backgroundColor: colors.moodSelectedBg,
-    borderColor: colors.moodSelectedBorder,
-  },
-  chipBtnLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textDark,
-  },
-  input: {
-    width: '100%',
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    padding: 16,
-    fontSize: 15,
-    color: colors.textDark,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  notesInput: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  button: {
-    width: '100%',
-    backgroundColor: colors.primaryGreen,
-    borderRadius: radii.card,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  switchRow: {
-    flexDirection: 'row',
-    marginTop: 20,
-  },
-  switchLink: {
-    color: colors.primaryGreen,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  deleteLink: {
-    color: colors.allergenText,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    scrollContent: {
+      padding: 24,
+      alignItems: 'center',
+    },
+    title: {
+      fontSize: 26,
+      fontWeight: '700',
+      color: theme.textDark,
+      marginBottom: 20,
+    },
+    error: {
+      color: theme.allergenText,
+      fontSize: 13,
+      marginBottom: 12,
+      textAlign: 'center',
+    },
+    fieldLabel: {
+      width: '100%',
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 8,
+    },
+    chipGrid: {
+      width: '100%',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginBottom: 12,
+    },
+    chipBtn: {
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.border,
+      marginRight: 8,
+      marginBottom: 8,
+    },
+    chipBtnSelected: {
+      backgroundColor: theme.moodSelBg,
+      borderColor: theme.moodSelBorder,
+    },
+    chipBtnLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    input: {
+      width: '100%',
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      padding: 16,
+      fontSize: 15,
+      color: theme.textDark,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    notesInput: {
+      minHeight: 80,
+      textAlignVertical: 'top',
+    },
+    button: {
+      width: '100%',
+      backgroundColor: theme.primary,
+      borderRadius: theme.radiiCard,
+      padding: 16,
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    buttonText: {
+      color: 'white',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    switchRow: {
+      flexDirection: 'row',
+      marginTop: 20,
+    },
+    switchLink: {
+      color: theme.primary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    deleteLink: {
+      color: theme.allergenText,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+  });
+}

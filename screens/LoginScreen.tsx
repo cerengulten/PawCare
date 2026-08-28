@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -11,13 +11,16 @@ import {
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 import SocialSignInButtons from '../components/SocialSignInButtons';
-import { colors, radii } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
 
 type Props = {
   onSwitch: () => void;
 };
 
 export default function LoginScreen({ onSwitch }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -49,7 +52,7 @@ export default function LoginScreen({ onSwitch }: Props) {
       <TextInput
         style={styles.input}
         placeholder="Email"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={theme.textMuted}
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
@@ -58,7 +61,7 @@ export default function LoginScreen({ onSwitch }: Props) {
       <TextInput
         style={styles.input}
         placeholder="Password"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={theme.textMuted}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -82,70 +85,72 @@ export default function LoginScreen({ onSwitch }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  paw: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: colors.textDark,
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textMuted,
-    marginBottom: 32,
-  },
-  error: {
-    color: colors.allergenText,
-    fontSize: 13,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  input: {
-    width: '100%',
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    padding: 16,
-    fontSize: 15,
-    color: colors.textDark,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  button: {
-    width: '100%',
-    backgroundColor: colors.primaryGreen,
-    borderRadius: radii.card,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  switchRow: {
-    flexDirection: 'row',
-    marginTop: 24,
-  },
-  switchText: {
-    color: colors.textMuted,
-    fontSize: 14,
-  },
-  switchLink: {
-    color: colors.primaryGreen,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 24,
+    },
+    paw: {
+      fontSize: 48,
+      marginBottom: 12,
+    },
+    title: {
+      fontSize: 26,
+      fontWeight: '700',
+      color: theme.textDark,
+      marginBottom: 6,
+    },
+    subtitle: {
+      fontSize: 14,
+      color: theme.textMuted,
+      marginBottom: 32,
+    },
+    error: {
+      color: theme.allergenText,
+      fontSize: 13,
+      marginBottom: 12,
+      textAlign: 'center',
+    },
+    input: {
+      width: '100%',
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      padding: 16,
+      fontSize: 15,
+      color: theme.textDark,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    button: {
+      width: '100%',
+      backgroundColor: theme.primary,
+      borderRadius: theme.radiiCard,
+      padding: 16,
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    buttonText: {
+      color: 'white',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    switchRow: {
+      flexDirection: 'row',
+      marginTop: 24,
+    },
+    switchText: {
+      color: theme.textMuted,
+      fontSize: 14,
+    },
+    switchLink: {
+      color: theme.primary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+  });
+}

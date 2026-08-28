@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,13 +12,17 @@ import {
 import { WebView } from 'react-native-webview';
 import { useNearbyVets } from '../lib/hooks/useNearbyVets';
 import { buildVetMapHtml } from '../lib/vetMapHtml';
-import { colors, radii } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
+import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
 type Props = {
   onBack: () => void;
 };
 
 export default function VetFinderScreen({ onBack }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const { vets, userLocation, loading, error, permissionDenied, searchNearMe, searchByAddress } = useNearbyVets();
   const [addressInput, setAddressInput] = useState('');
 
@@ -27,6 +31,7 @@ export default function VetFinderScreen({ onBack }: Props) {
   }, []);
 
   return (
+    <SwipeBackWrapper onBack={onBack}>
     <View style={styles.container}>
       <TouchableOpacity onPress={onBack} style={styles.backRow}>
         <Text style={styles.backText}>‹ Back</Text>
@@ -36,7 +41,7 @@ export default function VetFinderScreen({ onBack }: Props) {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primaryGreen} />
+          <ActivityIndicator size="large" color={theme.primary} />
           <Text style={styles.emptyText}>Finding vets near you…</Text>
         </View>
       ) : permissionDenied ? (
@@ -48,7 +53,7 @@ export default function VetFinderScreen({ onBack }: Props) {
             <TextInput
               style={styles.addressInput}
               placeholder="City or address"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={theme.textMuted}
               value={addressInput}
               onChangeText={setAddressInput}
               onSubmitEditing={() => searchByAddress(addressInput)}
@@ -107,145 +112,148 @@ export default function VetFinderScreen({ onBack }: Props) {
         </>
       )}
     </View>
+    </SwipeBackWrapper>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    paddingHorizontal: 16,
-  },
-  backRow: {
-    padding: 16,
-    paddingTop: 56,
-  },
-  backText: {
-    color: colors.primaryGreen,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.textDark,
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
-  errorText: {
-    fontSize: 13,
-    color: colors.allergenText,
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: colors.primaryGreen,
-    borderRadius: radii.card,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  addressRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
-  },
-  addressInput: {
-    flex: 1,
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: colors.textDark,
-  },
-  searchButton: {
-    backgroundColor: colors.primaryGreen,
-    borderRadius: radii.card,
-    paddingHorizontal: 16,
-    justifyContent: 'center',
-  },
-  searchButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  mapContainer: {
-    height: 280,
-    marginHorizontal: 16,
-    borderRadius: radii.card,
-    overflow: 'hidden',
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-  },
-  map: {
-    flex: 1,
-  },
-  list: {
-    flex: 1,
-    marginTop: 12,
-  },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 24,
-  },
-  vetRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  vetInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-  vetName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.textDark,
-  },
-  vetSubtitle: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  vetDistance: {
-    fontSize: 12,
-    color: colors.primaryGreen,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  callButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 11,
-    backgroundColor: colors.moodSelectedBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  callButtonText: {
-    fontSize: 18,
-  },
-  divider: {
-    height: 0.5,
-    backgroundColor: '#EAF3E4',
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    content: {
+      paddingHorizontal: 16,
+    },
+    backRow: {
+      padding: 16,
+      paddingTop: 56,
+    },
+    backText: {
+      color: theme.primary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    title: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: theme.textDark,
+      paddingHorizontal: 16,
+      marginBottom: 12,
+    },
+    center: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+      paddingHorizontal: 16,
+    },
+    emptyText: {
+      fontSize: 13,
+      color: theme.textMuted,
+      textAlign: 'center',
+    },
+    errorText: {
+      fontSize: 13,
+      color: theme.allergenText,
+      textAlign: 'center',
+    },
+    retryButton: {
+      backgroundColor: theme.primary,
+      borderRadius: theme.radiiCard,
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+    },
+    retryButtonText: {
+      color: 'white',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    addressRow: {
+      flexDirection: 'row',
+      gap: 8,
+      marginTop: 12,
+    },
+    addressInput: {
+      flex: 1,
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 14,
+      color: theme.textDark,
+    },
+    searchButton: {
+      backgroundColor: theme.primary,
+      borderRadius: theme.radiiCard,
+      paddingHorizontal: 16,
+      justifyContent: 'center',
+    },
+    searchButtonText: {
+      color: 'white',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    mapContainer: {
+      height: 280,
+      marginHorizontal: 16,
+      borderRadius: theme.radiiCard,
+      overflow: 'hidden',
+      borderWidth: 0.5,
+      borderColor: theme.border,
+    },
+    map: {
+      flex: 1,
+    },
+    list: {
+      flex: 1,
+      marginTop: 12,
+    },
+    listContent: {
+      paddingHorizontal: 16,
+      paddingBottom: 24,
+    },
+    vetRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+    },
+    vetInfo: {
+      flex: 1,
+      minWidth: 0,
+    },
+    vetName: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    vetSubtitle: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 2,
+    },
+    vetDistance: {
+      fontSize: 12,
+      color: theme.primary,
+      fontWeight: '500',
+      marginTop: 2,
+    },
+    callButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 11,
+      backgroundColor: theme.moodSelBg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    callButtonText: {
+      fontSize: 18,
+    },
+    divider: {
+      height: 0.5,
+      backgroundColor: theme.divider,
+    },
+  });
+}

@@ -5,7 +5,8 @@ import { Dog, DogMood, VetResult } from '../types';
 import { useMoodHistory } from '../lib/hooks/useMoodHistory';
 import { useHomeVetPreview } from '../lib/hooks/useHomeVetPreview';
 import { buildVetMapHtml } from '../lib/vetMapHtml';
-import { colors, radii } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
 
 const ALERT_MOODS: DogMood['mood'][] = ['off', 'sick'];
 const ALERT_LOOKBACK_DAYS = 7;
@@ -35,6 +36,8 @@ type Props = {
 };
 
 export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const { historyByDate } = useMoodHistory(dog?.id ?? null, ALERT_LOOKBACK_DAYS);
   const { vets, userLocation, loading, available } = useHomeVetPreview();
 
@@ -111,11 +114,11 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
           </TouchableOpacity>
 
           <View style={styles.alertVetList}>
-            <VetRow vet={nearest} primary onOpenVetFinder={onOpenVetFinder} />
+            <VetRow vet={nearest} primary onOpenVetFinder={onOpenVetFinder} styles={styles} />
             {secondNearest ? (
               <>
                 <View style={styles.alertDivider} />
-                <VetRow vet={secondNearest} primary={false} onOpenVetFinder={onOpenVetFinder} />
+                <VetRow vet={secondNearest} primary={false} onOpenVetFinder={onOpenVetFinder} styles={styles} />
               </>
             ) : null}
           </View>
@@ -170,10 +173,12 @@ function VetRow({
   vet,
   primary,
   onOpenVetFinder,
+  styles,
 }: {
   vet: VetResult;
   primary: boolean;
   onOpenVetFinder: () => void;
+  styles: ReturnType<typeof makeStyles>;
 }) {
   return (
     <TouchableOpacity style={styles.alertVetRow} onPress={onOpenVetFinder} activeOpacity={0.7}>
@@ -200,234 +205,236 @@ function VetRow({
   );
 }
 
-const styles = StyleSheet.create({
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  skeleton: {
-    height: 168,
-    borderRadius: radii.card,
-    backgroundColor: colors.notStartedBg,
-    marginBottom: 24,
-  },
-  placeholder: {
-    backgroundColor: colors.moodSelectedBg,
-    borderRadius: radii.card,
-    borderWidth: 0.5,
-    borderColor: '#A8C89A',
-    height: 110,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
-  placeholderArrow: {
-    fontSize: 22,
-    color: colors.primaryGreen,
-  },
-  placeholderText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.primaryGreen,
-    marginTop: 6,
-  },
-  alertHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  alertSectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.allergenText,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  seeAllText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.allergenText,
-  },
-  normalCard: {
-    borderRadius: radii.card,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    overflow: 'hidden',
-    marginBottom: 24,
-    backgroundColor: colors.card,
-  },
-  alertCard: {
-    borderRadius: radii.card,
-    borderWidth: 0.5,
-    borderColor: colors.alertBorder,
-    overflow: 'hidden',
-    marginBottom: 24,
-    backgroundColor: colors.alertCardBg,
-  },
-  mapTile: {
-    height: 130,
-  },
-  map: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  mapTintOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(140,26,26,0.06)',
-  },
-  nearbyBadge: {
-    position: 'absolute',
-    bottom: 8,
-    left: 10,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderRadius: 7,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-  },
-  nearbyBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textDark,
-  },
-  openMapBtn: {
-    position: 'absolute',
-    top: 8,
-    right: 10,
-    backgroundColor: colors.primaryGreen,
-    borderRadius: 7,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-  },
-  openMapBtnAlert: {
-    position: 'absolute',
-    top: 8,
-    right: 10,
-    backgroundColor: colors.allergenText,
-    borderRadius: 7,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-  },
-  openMapBtnText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  alertBanner: {
-    position: 'absolute',
-    bottom: 8,
-    left: 10,
-    right: 10,
-    backgroundColor: colors.allergenBg,
-    borderRadius: 7,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  alertBannerIcon: {
-    fontSize: 12,
-  },
-  alertBannerText: {
-    flex: 1,
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.allergenText,
-  },
-  nearestRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: 14,
-    backgroundColor: colors.card,
-  },
-  alertVetList: {
-    backgroundColor: colors.alertCardBg,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  alertVetRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 10,
-  },
-  alertDivider: {
-    height: 0.5,
-    backgroundColor: colors.alertBorder,
-  },
-  vetIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: '#EAF3E4',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  vetIconAlert: {
-    backgroundColor: colors.allergenBg,
-  },
-  vetIconText: {
-    fontSize: 16,
-  },
-  vetInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-  vetName: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textDark,
-  },
-  vetMeta: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  nearestChip: {
-    backgroundColor: colors.moodSelectedBg,
-    borderRadius: 20,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-  },
-  nearestChipText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.primaryGreen,
-  },
-  emptyRowText: {
-    fontSize: 13,
-    color: colors.textMuted,
-    padding: 14,
-    backgroundColor: colors.card,
-  },
-  callBtnPrimary: {
-    backgroundColor: colors.allergenText,
-    borderRadius: 9,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-  },
-  callBtnPrimaryText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  callBtnSecondary: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 0.5,
-    borderColor: colors.alertBorder,
-    borderRadius: 9,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-  },
-  callBtnSecondaryText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.allergenText,
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    sectionTitle: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 8,
+    },
+    skeleton: {
+      height: 168,
+      borderRadius: theme.radiiCard,
+      backgroundColor: theme.notStartedBg,
+      marginBottom: 24,
+    },
+    placeholder: {
+      backgroundColor: theme.moodSelBg,
+      borderRadius: theme.radiiCard,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      height: 110,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 24,
+    },
+    placeholderArrow: {
+      fontSize: 22,
+      color: theme.primary,
+    },
+    placeholderText: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: theme.primary,
+      marginTop: 6,
+    },
+    alertHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    alertSectionTitle: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: theme.allergenText,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    seeAllText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.allergenText,
+    },
+    normalCard: {
+      borderRadius: theme.radiiCard,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      overflow: 'hidden',
+      marginBottom: 24,
+      backgroundColor: theme.surface,
+    },
+    alertCard: {
+      borderRadius: theme.radiiCard,
+      borderWidth: 0.5,
+      borderColor: theme.alertBorder,
+      overflow: 'hidden',
+      marginBottom: 24,
+      backgroundColor: theme.alertBg,
+    },
+    mapTile: {
+      height: 130,
+    },
+    map: {
+      flex: 1,
+      backgroundColor: 'transparent',
+    },
+    mapTintOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(140,26,26,0.06)',
+    },
+    nearbyBadge: {
+      position: 'absolute',
+      bottom: 8,
+      left: 10,
+      backgroundColor: 'rgba(255,255,255,0.92)',
+      borderRadius: 7,
+      paddingHorizontal: 9,
+      paddingVertical: 4,
+    },
+    nearbyBadgeText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    openMapBtn: {
+      position: 'absolute',
+      top: 8,
+      right: 10,
+      backgroundColor: theme.primary,
+      borderRadius: 7,
+      paddingHorizontal: 9,
+      paddingVertical: 4,
+    },
+    openMapBtnAlert: {
+      position: 'absolute',
+      top: 8,
+      right: 10,
+      backgroundColor: theme.allergenText,
+      borderRadius: 7,
+      paddingHorizontal: 9,
+      paddingVertical: 4,
+    },
+    openMapBtnText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: '#FFFFFF',
+    },
+    alertBanner: {
+      position: 'absolute',
+      bottom: 8,
+      left: 10,
+      right: 10,
+      backgroundColor: theme.allergenBg,
+      borderRadius: 7,
+      paddingHorizontal: 9,
+      paddingVertical: 5,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    alertBannerIcon: {
+      fontSize: 12,
+    },
+    alertBannerText: {
+      flex: 1,
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.allergenText,
+    },
+    nearestRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      padding: 14,
+      backgroundColor: theme.surface,
+    },
+    alertVetList: {
+      backgroundColor: theme.alertBg,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+    },
+    alertVetRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 10,
+    },
+    alertDivider: {
+      height: 0.5,
+      backgroundColor: theme.alertBorder,
+    },
+    vetIcon: {
+      width: 34,
+      height: 34,
+      borderRadius: 10,
+      backgroundColor: theme.divider,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    vetIconAlert: {
+      backgroundColor: theme.allergenBg,
+    },
+    vetIconText: {
+      fontSize: 16,
+    },
+    vetInfo: {
+      flex: 1,
+      minWidth: 0,
+    },
+    vetName: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.textDark,
+    },
+    vetMeta: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 2,
+    },
+    nearestChip: {
+      backgroundColor: theme.moodSelBg,
+      borderRadius: 20,
+      paddingHorizontal: 9,
+      paddingVertical: 4,
+    },
+    nearestChipText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.primary,
+    },
+    emptyRowText: {
+      fontSize: 13,
+      color: theme.textMuted,
+      padding: 14,
+      backgroundColor: theme.surface,
+    },
+    callBtnPrimary: {
+      backgroundColor: theme.allergenText,
+      borderRadius: 9,
+      paddingHorizontal: 11,
+      paddingVertical: 6,
+    },
+    callBtnPrimaryText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: '#FFFFFF',
+    },
+    callBtnSecondary: {
+      backgroundColor: theme.surface,
+      borderWidth: 0.5,
+      borderColor: theme.alertBorder,
+      borderRadius: 9,
+      paddingHorizontal: 11,
+      paddingVertical: 6,
+    },
+    callBtnSecondaryText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.allergenText,
+    },
+  });
+}

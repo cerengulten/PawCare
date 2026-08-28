@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet, ActivityIndicator } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Dog, MealDetail, FoodType } from '../types';
@@ -8,7 +8,9 @@ import { computeAge } from '../lib/petAge';
 import { buildReportHtml } from '../lib/pdfReport';
 import { shareHtmlAsPdf } from '../lib/pdfExport';
 import MealDetailSheet from '../components/MealDetailSheet';
-import { colors, radii } from '../lib/theme';
+import SwipeBackWrapper from '../components/SwipeBackWrapper';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
 
 export function formatLongDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -36,18 +38,22 @@ export const FOOD_TYPE_LABEL: Record<FoodType, string> = {
   raw: 'Raw',
 };
 
-const FOOD_TYPE_CHIP_STYLE: Record<FoodType, { bg: string; text: string }> = {
-  wet: { bg: colors.communityBlueBg, text: colors.communityBlueText },
-  dry: { bg: colors.pendingAmberBg, text: colors.pendingAmberText },
-  mixed: { bg: colors.symptomBothBg, text: colors.symptomBothText },
-  raw: { bg: colors.moodSelectedBg, text: colors.primaryGreen },
-};
+function foodTypeChipStyle(theme: ThemeTokens): Record<FoodType, { bg: string; text: string }> {
+  return {
+    wet: { bg: theme.communityBlueBg, text: theme.communityBlueText },
+    dry: { bg: theme.pendingAmberBg, text: theme.pendingAmberText },
+    mixed: { bg: theme.symptomBothBg, text: theme.symptomBothText },
+    raw: { bg: theme.moodSelBg, text: theme.primary },
+  };
+}
 
-const FOOD_TYPE_DOT: Record<'wet' | 'dry' | 'raw', string> = {
-  wet: colors.communityBlueText,
-  dry: colors.pendingAmber,
-  raw: colors.primaryGreen,
-};
+function foodTypeDot(theme: ThemeTokens): Record<'wet' | 'dry' | 'raw', string> {
+  return {
+    wet: theme.communityBlueText,
+    dry: theme.pending,
+    raw: theme.primary,
+  };
+}
 
 const FILTER_OPTIONS: { value: FoodType | 'all'; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -82,20 +88,23 @@ export function mealNameFor(iso: string): string {
   return 'Snack';
 }
 
-type AmountPillInfo = { dotColor: string; amount: number; sub: string };
+// `sub` doubles as the key into foodTypeDot(theme) at render time — kept color-free here
+// since this pure function is shared with lib/reportBuilders.ts, which renders a fixed
+// static palette (see lib/reportTheme.ts) rather than the live in-app theme.
+type AmountPillInfo = { amount: number; sub: 'wet' | 'dry' | 'raw' };
 
 export function amountPillsFor(detail: MealDetail): AmountPillInfo[] {
   if (detail.food_type === 'mixed') {
     const pills: AmountPillInfo[] = [];
-    if (detail.wet_amount_grams) pills.push({ dotColor: FOOD_TYPE_DOT.wet, amount: detail.wet_amount_grams, sub: 'wet' });
-    if (detail.dry_amount_grams) pills.push({ dotColor: FOOD_TYPE_DOT.dry, amount: detail.dry_amount_grams, sub: 'dry' });
+    if (detail.wet_amount_grams) pills.push({ amount: detail.wet_amount_grams, sub: 'wet' });
+    if (detail.dry_amount_grams) pills.push({ amount: detail.dry_amount_grams, sub: 'dry' });
     return pills;
   }
   const amount = detail.food_type === 'wet' ? detail.wet_amount_grams
     : detail.food_type === 'dry' ? detail.dry_amount_grams
     : detail.raw_amount_grams;
   if (!amount) return [];
-  return [{ dotColor: FOOD_TYPE_DOT[detail.food_type], amount, sub: detail.food_type }];
+  return [{ amount, sub: detail.food_type as 'wet' | 'dry' | 'raw' }];
 }
 
 export function formatBrands(detail: MealDetail): { emoji: string; label: string; brand: string }[] {
@@ -133,6 +142,8 @@ type MealEntryRowProps = {
 };
 
 function MealEntryRow({ detail, onEdit, onDelete }: MealEntryRowProps) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const swipeableRef = useRef<Swipeable>(null);
 
   function confirmDelete() {
@@ -164,7 +175,8 @@ function MealEntryRow({ detail, onEdit, onDelete }: MealEntryRowProps) {
     </View>
   );
 
-  const chip = FOOD_TYPE_CHIP_STYLE[detail.food_type];
+  const chip = foodTypeChipStyle(theme)[detail.food_type];
+  const dot = foodTypeDot(theme);
   const pills = amountPillsFor(detail);
   const brandParts = formatBrands(detail);
 
@@ -187,7 +199,7 @@ function MealEntryRow({ detail, onEdit, onDelete }: MealEntryRowProps) {
           <View style={styles.amountsRow}>
             {pills.map((p, i) => (
               <View key={i} style={styles.amountPill}>
-                <View style={[styles.amountDot, { backgroundColor: p.dotColor }]} />
+                <View style={[styles.amountDot, { backgroundColor: dot[p.sub] }]} />
                 <Text style={styles.amountText}>{p.amount}g</Text>
                 <Text style={styles.amountSub}>{p.sub}</Text>
               </View>
@@ -213,6 +225,8 @@ function MealEntryRow({ detail, onEdit, onDelete }: MealEntryRowProps) {
 }
 
 export default function MealHistoryScreen({ dog, mealDetails, addMealDetail, deleteMealDetail, onBack }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const { profile } = useProfile();
   const [exporting, setExporting] = useState(false);
   const [filter, setFilter] = useState<FoodType | 'all'>('all');
@@ -344,6 +358,7 @@ export default function MealHistoryScreen({ dog, mealDetails, addMealDetail, del
   };
 
   return (
+    <SwipeBackWrapper onBack={onBack}>
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <TouchableOpacity onPress={onBack} style={styles.backRow}>
@@ -357,7 +372,7 @@ export default function MealHistoryScreen({ dog, mealDetails, addMealDetail, del
           </View>
           <TouchableOpacity style={styles.downloadBtn} onPress={handleExport} disabled={exporting}>
             {exporting ? (
-              <ActivityIndicator size="small" color={colors.primaryGreen} />
+              <ActivityIndicator size="small" color={theme.primary} />
             ) : (
               <Text style={styles.downloadIcon}>⬇</Text>
             )}
@@ -401,7 +416,7 @@ export default function MealHistoryScreen({ dog, mealDetails, addMealDetail, del
           {weekDays.map((wd, i) => {
             const total = dayTotals[i];
             const hasEntry = total > 0;
-            const barColor = !hasEntry ? colors.notStartedBg : total >= (avgDailyIntake ?? 0) ? colors.doneGreen : colors.pendingAmber;
+            const barColor = !hasEntry ? theme.notStartedBg : total >= (avgDailyIntake ?? 0) ? theme.done : theme.pending;
             const width = hasEntry ? Math.max((total / maxDayTotal) * 100, 4) : 0;
             return (
               <View key={wd.key} style={styles.barRow}>
@@ -454,305 +469,308 @@ export default function MealHistoryScreen({ dog, mealDetails, addMealDetail, del
         }}
       />
     </View>
+    </SwipeBackWrapper>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 16,
-    paddingTop: 20,
-  },
-  backRow: {
-    marginBottom: 16,
-  },
-  backText: {
-    color: colors.primaryGreen,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  headerLeft: {
-    flex: 1,
-    minWidth: 0,
-  },
-  headerDogName: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginBottom: 1,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.textDark,
-  },
-  downloadBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: colors.moodSelectedBg,
-    borderWidth: 0.5,
-    borderColor: colors.moodSelectedBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  downloadIcon: {
-    fontSize: 15,
-  },
-  filterRow: {
-    marginBottom: 14,
-  },
-  filterRowContent: {
-    gap: 8,
-  },
-  filterPill: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  filterPillSelected: {
-    backgroundColor: colors.primaryGreen,
-    borderColor: colors.primaryGreen,
-  },
-  filterPillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textDark,
-  },
-  filterPillTextSelected: {
-    color: 'white',
-  },
-  statStrip: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: colors.card,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    borderRadius: 12,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  statNum: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.textDark,
-  },
-  statNumSuffix: {
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  statNumPurple: {
-    color: colors.symptomBothText,
-    fontSize: 14,
-  },
-  statLabel: {
-    fontSize: 10,
-    color: colors.textMuted,
-    marginTop: 2,
-    textAlign: 'center',
-  },
-  barCard: {
-    backgroundColor: colors.card,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    borderRadius: radii.card,
-    padding: 13,
-    marginBottom: 16,
-  },
-  barCardTitle: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  barRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    marginBottom: 6,
-  },
-  barLabel: {
-    fontSize: 10,
-    color: colors.textMuted,
-    width: 26,
-    textAlign: 'right',
-  },
-  barTrack: {
-    flex: 1,
-    height: 6,
-    backgroundColor: colors.notStartedBg,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  barFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  barVal: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: colors.textDark,
-    width: 34,
-  },
-  barValMuted: {
-    color: colors.textMuted,
-  },
-  emptyState: {
-    paddingVertical: 40,
-    paddingHorizontal: 20,
-  },
-  emptyStateText: {
-    textAlign: 'center',
-    fontSize: 14,
-    color: colors.textMuted,
-    lineHeight: 20,
-  },
-  group: {
-    marginBottom: 14,
-  },
-  groupLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  entryCard: {
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    marginBottom: 8,
-    overflow: 'hidden',
-  },
-  entryTop: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    padding: 12,
-  },
-  entryEmoji: {
-    fontSize: 20,
-    marginTop: 1,
-  },
-  entryBody: {
-    flex: 1,
-    minWidth: 0,
-  },
-  entryName: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.textDark,
-    marginBottom: 2,
-  },
-  entryTime: {
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  entryNotes: {
-    fontSize: 11,
-    color: colors.textMuted,
-    fontStyle: 'italic',
-    marginTop: 2,
-  },
-  chip: {
-    borderRadius: 20,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-  },
-  chipText: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  amountsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingBottom: 10,
-  },
-  amountPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.background,
-    borderWidth: 0.5,
-    borderColor: colors.cardBorder,
-    borderRadius: 8,
-    paddingVertical: 5,
-    paddingHorizontal: 9,
-  },
-  amountDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  amountText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: colors.textDark,
-  },
-  amountSub: {
-    fontSize: 10,
-    color: colors.textMuted,
-  },
-  entryDivider: {
-    height: 0.5,
-    backgroundColor: '#EAF3E4',
-  },
-  brandRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  brandText: {
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  brandStrong: {
-    fontSize: 11,
-    color: colors.textDark,
-    fontWeight: '500',
-  },
-  swipeActions: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  actionButton: {
-    width: 64,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radii.card,
-    marginLeft: 4,
-  },
-  editAction: {
-    backgroundColor: colors.primaryGreen,
-  },
-  deleteAction: {
-    backgroundColor: colors.allergenText,
-  },
-  actionText: {
-    color: 'white',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    content: {
+      padding: 16,
+      paddingTop: 20,
+    },
+    backRow: {
+      marginBottom: 16,
+    },
+    backText: {
+      color: theme.primary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+    },
+    headerLeft: {
+      flex: 1,
+      minWidth: 0,
+    },
+    headerDogName: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginBottom: 1,
+    },
+    title: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    downloadBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 10,
+      backgroundColor: theme.moodSelBg,
+      borderWidth: 0.5,
+      borderColor: theme.moodSelBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    downloadIcon: {
+      fontSize: 15,
+    },
+    filterRow: {
+      marginBottom: 14,
+    },
+    filterRowContent: {
+      gap: 8,
+    },
+    filterPill: {
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 20,
+      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    filterPillSelected: {
+      backgroundColor: theme.primary,
+      borderColor: theme.primary,
+    },
+    filterPillText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    filterPillTextSelected: {
+      color: 'white',
+    },
+    statStrip: {
+      flexDirection: 'row',
+      gap: 8,
+      marginBottom: 12,
+    },
+    statBox: {
+      flex: 1,
+      backgroundColor: theme.surface,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      borderRadius: 12,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+    statNum: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: theme.textDark,
+    },
+    statNumSuffix: {
+      fontSize: 11,
+      color: theme.textMuted,
+    },
+    statNumPurple: {
+      color: theme.symptomBothText,
+      fontSize: 14,
+    },
+    statLabel: {
+      fontSize: 10,
+      color: theme.textMuted,
+      marginTop: 2,
+      textAlign: 'center',
+    },
+    barCard: {
+      backgroundColor: theme.surface,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      borderRadius: theme.radiiCard,
+      padding: 13,
+      marginBottom: 16,
+    },
+    barCardTitle: {
+      fontSize: 10,
+      fontWeight: '600',
+      color: theme.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 8,
+    },
+    barRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 7,
+      marginBottom: 6,
+    },
+    barLabel: {
+      fontSize: 10,
+      color: theme.textMuted,
+      width: 26,
+      textAlign: 'right',
+    },
+    barTrack: {
+      flex: 1,
+      height: 6,
+      backgroundColor: theme.notStartedBg,
+      borderRadius: 3,
+      overflow: 'hidden',
+    },
+    barFill: {
+      height: '100%',
+      borderRadius: 3,
+    },
+    barVal: {
+      fontSize: 10,
+      fontWeight: '500',
+      color: theme.textDark,
+      width: 34,
+    },
+    barValMuted: {
+      color: theme.textMuted,
+    },
+    emptyState: {
+      paddingVertical: 40,
+      paddingHorizontal: 20,
+    },
+    emptyStateText: {
+      textAlign: 'center',
+      fontSize: 14,
+      color: theme.textMuted,
+      lineHeight: 20,
+    },
+    group: {
+      marginBottom: 14,
+    },
+    groupLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 8,
+    },
+    entryCard: {
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      marginBottom: 8,
+      overflow: 'hidden',
+    },
+    entryTop: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 10,
+      padding: 12,
+    },
+    entryEmoji: {
+      fontSize: 20,
+      marginTop: 1,
+    },
+    entryBody: {
+      flex: 1,
+      minWidth: 0,
+    },
+    entryName: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: theme.textDark,
+      marginBottom: 2,
+    },
+    entryTime: {
+      fontSize: 11,
+      color: theme.textMuted,
+    },
+    entryNotes: {
+      fontSize: 11,
+      color: theme.textMuted,
+      fontStyle: 'italic',
+      marginTop: 2,
+    },
+    chip: {
+      borderRadius: 20,
+      paddingHorizontal: 9,
+      paddingVertical: 3,
+    },
+    chipText: {
+      fontSize: 11,
+      fontWeight: '500',
+    },
+    amountsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingBottom: 10,
+    },
+    amountPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: theme.background,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      borderRadius: 8,
+      paddingVertical: 5,
+      paddingHorizontal: 9,
+    },
+    amountDot: {
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+    },
+    amountText: {
+      fontSize: 11,
+      fontWeight: '500',
+      color: theme.textDark,
+    },
+    amountSub: {
+      fontSize: 10,
+      color: theme.textMuted,
+    },
+    entryDivider: {
+      height: 0.5,
+      backgroundColor: theme.divider,
+    },
+    brandRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    brandText: {
+      fontSize: 11,
+      color: theme.textMuted,
+    },
+    brandStrong: {
+      fontSize: 11,
+      color: theme.textDark,
+      fontWeight: '500',
+    },
+    swipeActions: {
+      flexDirection: 'row',
+      marginBottom: 8,
+    },
+    actionButton: {
+      width: 64,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: theme.radiiCard,
+      marginLeft: 4,
+    },
+    editAction: {
+      backgroundColor: theme.primary,
+    },
+    deleteAction: {
+      backgroundColor: theme.allergenText,
+    },
+    actionText: {
+      color: 'white',
+      fontSize: 13,
+      fontWeight: '600',
+    },
+  });
+}

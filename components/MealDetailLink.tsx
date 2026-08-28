@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MealDetail, FoodType } from '../types';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
 
 type Props = {
   detail: MealDetail | undefined;
@@ -22,6 +24,8 @@ const FOOD_TYPE_LABEL: Record<FoodType, string> = {
 };
 
 export default function MealDetailLink({ detail, onPress }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   if (!detail) {
     return (
       <TouchableOpacity onPress={onPress} style={styles.row}>
@@ -54,19 +58,21 @@ export default function MealDetailLink({ detail, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    paddingLeft: 34,
-    paddingBottom: 6,
-  },
-  addText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.primaryGreen,
-  },
-  summaryText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.textMuted,
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    row: {
+      paddingLeft: 34,
+      paddingBottom: 6,
+    },
+    addText: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: theme.primary,
+    },
+    summaryText: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: theme.textMuted,
+    },
+  });
+}

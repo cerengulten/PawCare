@@ -1,9 +1,10 @@
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { View, Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Habit } from '../types';
 import ProgressRing from './ProgressRing';
-import { colors } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
 
 type Props = {
   habit: Habit;
@@ -35,9 +36,11 @@ export default function HabitRow({
   onDelete,
   onViewHistory,
 }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const swipeableRef = useRef<Swipeable>(null);
   const progress = target > 0 ? count / target : 0;
-  const ringColor = done ? colors.doneGreen : inProgress ? colors.pendingAmber : colors.cardBorder;
+  const ringColor = done ? theme.done : inProgress ? theme.pending : theme.border;
   const loggable = !done && !actionDisabled;
   const undoable = done;
 
@@ -86,7 +89,7 @@ export default function HabitRow({
         strokeWidth={RING_STROKE}
         progress={progress}
         color={ringColor}
-        trackColor={colors.notStartedBg}
+        trackColor={theme.notStartedBg}
       />
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={1}>{habit.title}</Text>
@@ -115,58 +118,60 @@ export default function HabitRow({
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    backgroundColor: colors.card,
-  },
-  rowContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  info: {
-    flex: 1,
-    minWidth: 0,
-  },
-  name: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textDark,
-  },
-  subtitle: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 1,
-  },
-  checkmark: {
-    color: colors.doneGreen,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  actions: {
-    flexDirection: 'row',
-  },
-  actionButton: {
-    width: 64,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  historyAction: {
-    backgroundColor: colors.textMuted,
-  },
-  editAction: {
-    backgroundColor: colors.primaryGreen,
-  },
-  deleteAction: {
-    backgroundColor: colors.allergenText,
-  },
-  actionText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 6,
+      backgroundColor: theme.surface,
+    },
+    rowContent: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    info: {
+      flex: 1,
+      minWidth: 0,
+    },
+    name: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.textDark,
+    },
+    subtitle: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 1,
+    },
+    checkmark: {
+      color: theme.done,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    actions: {
+      flexDirection: 'row',
+    },
+    actionButton: {
+      width: 64,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    historyAction: {
+      backgroundColor: theme.textMuted,
+    },
+    editAction: {
+      backgroundColor: theme.primary,
+    },
+    deleteAction: {
+      backgroundColor: theme.allergenText,
+    },
+    actionText: {
+      color: 'white',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+  });
+}

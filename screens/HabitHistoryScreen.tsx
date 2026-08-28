@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Dog, Habit } from '../types';
 import { getHabitTarget } from '../lib/hooks/useHabits';
 import { useHabitHistory, computeStreak, computeBestStreak } from '../lib/hooks/useHabitHistory';
-import { colors, radii } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
+import { ThemeTokens } from '../lib/themes';
+import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
 type Props = {
   habit: Habit;
@@ -33,6 +35,8 @@ function toDateStr(y: number, m: number, d: number): string {
 }
 
 export default function HabitHistoryScreen({ habit, dog, onBack }: Props) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const target = getHabitTarget(habit);
   const { historyByHabit } = useHabitHistory(dog.id, [habit], HISTORY_DAYS);
   const history = historyByHabit.get(habit.id) ?? new Map<string, number>();
@@ -71,6 +75,7 @@ export default function HabitHistoryScreen({ habit, dog, onBack }: Props) {
   const habitCreatedDate = habit.created_at.split('T')[0];
 
   return (
+    <SwipeBackWrapper onBack={onBack}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <TouchableOpacity onPress={onBack} style={styles.backRow}>
         <Text style={styles.backText}>‹ Back</Text>
@@ -164,148 +169,151 @@ export default function HabitHistoryScreen({ habit, dog, onBack }: Props) {
         </View>
       </View>
     </ScrollView>
+    </SwipeBackWrapper>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 24,
-    paddingTop: 60,
-  },
-  backRow: {
-    marginBottom: 16,
-  },
-  backText: {
-    color: colors.primaryGreen,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  icon: {
-    fontSize: 32,
-    marginBottom: 6,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.textDark,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 20,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textDark,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: 4,
-  },
-  gentleCopy: {
-    fontSize: 13,
-    color: colors.textMuted,
-    textAlign: 'center',
-    marginBottom: 20,
-    fontStyle: 'italic',
-  },
-  calendarCard: {
-    backgroundColor: colors.card,
-    borderRadius: radii.card,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    padding: 14,
-  },
-  monthNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  monthNavArrow: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.textDark,
-    paddingHorizontal: 8,
-  },
-  monthNavArrowDisabled: {
-    color: colors.cardBorder,
-  },
-  monthLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.textDark,
-  },
-  weekdayRow: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  weekdayLabel: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  cell: {
-    width: `${100 / 7}%`,
-    aspectRatio: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 2,
-  },
-  dayCell: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.notStartedBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayCellDone: {
-    backgroundColor: colors.doneGreen,
-    borderColor: colors.doneGreen,
-  },
-  dayCellDisabled: {
-    borderColor: 'transparent',
-  },
-  dayNumber: {
-    fontSize: 12,
-    color: colors.textDark,
-  },
-  dayNumberDone: {
-    color: 'white',
-    fontWeight: '700',
-  },
-  dayNumberDisabled: {
-    color: colors.cardBorder,
-  },
-});
+function makeStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    content: {
+      padding: 24,
+      paddingTop: 60,
+    },
+    backRow: {
+      marginBottom: 16,
+    },
+    backText: {
+      color: theme.primary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    header: {
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    icon: {
+      fontSize: 32,
+      marginBottom: 6,
+    },
+    title: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: theme.textDark,
+    },
+    subtitle: {
+      fontSize: 13,
+      color: theme.textMuted,
+      marginTop: 2,
+    },
+    statsRow: {
+      flexDirection: 'row',
+      gap: 10,
+      marginBottom: 20,
+    },
+    statCard: {
+      flex: 1,
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      borderWidth: 1,
+      borderColor: theme.border,
+      paddingVertical: 12,
+      alignItems: 'center',
+    },
+    statValue: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: theme.textDark,
+    },
+    statLabel: {
+      fontSize: 11,
+      color: theme.textMuted,
+      marginTop: 4,
+    },
+    gentleCopy: {
+      fontSize: 13,
+      color: theme.textMuted,
+      textAlign: 'center',
+      marginBottom: 20,
+      fontStyle: 'italic',
+    },
+    calendarCard: {
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      borderWidth: 1,
+      borderColor: theme.border,
+      padding: 14,
+    },
+    monthNav: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    monthNavArrow: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: theme.textDark,
+      paddingHorizontal: 8,
+    },
+    monthNavArrowDisabled: {
+      color: theme.border,
+    },
+    monthLabel: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: theme.textDark,
+    },
+    weekdayRow: {
+      flexDirection: 'row',
+      marginBottom: 4,
+    },
+    weekdayLabel: {
+      flex: 1,
+      textAlign: 'center',
+      fontSize: 11,
+      color: theme.textMuted,
+    },
+    grid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+    },
+    cell: {
+      width: `${100 / 7}%`,
+      aspectRatio: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 2,
+    },
+    dayCell: {
+      width: '100%',
+      height: '100%',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.notStartedBg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    dayCellDone: {
+      backgroundColor: theme.done,
+      borderColor: theme.done,
+    },
+    dayCellDisabled: {
+      borderColor: 'transparent',
+    },
+    dayNumber: {
+      fontSize: 12,
+      color: theme.textDark,
+    },
+    dayNumberDone: {
+      color: 'white',
+      fontWeight: '700',
+    },
+    dayNumberDisabled: {
+      color: theme.border,
+    },
+  });
+}
