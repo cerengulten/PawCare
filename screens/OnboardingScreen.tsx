@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
+  Image,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -10,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { Session, PostgrestError } from '@supabase/supabase-js';
+import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../lib/supabase';
 import { useProfile } from '../lib/hooks/useProfile';
 import { useDogs } from '../lib/hooks/useDogs';
@@ -21,9 +23,13 @@ import { ThemeTokens } from '../lib/themes';
 import { Dog } from '../types';
 
 type DogsState = ReturnType<typeof useDogs>;
+type ProfileState = ReturnType<typeof useProfile>;
 
 type Props = {
   session: Session;
+  profile: ProfileState['profile'];
+  completeOnboarding: ProfileState['completeOnboarding'];
+  checkUsernameAvailable: ProfileState['checkUsernameAvailable'];
   dogs: Dog[];
   addDog: DogsState['addDog'];
   updateDog: DogsState['updateDog'];
@@ -33,13 +39,21 @@ type Props = {
 type Step = 'identity' | 'pet' | 'addAnother';
 type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid';
 
-export default function OnboardingScreen({ dogs, addDog, updateDog, onComplete }: Props) {
+export default function OnboardingScreen({
+  profile,
+  completeOnboarding,
+  checkUsernameAvailable,
+  dogs,
+  addDog,
+  updateDog,
+  onComplete,
+}: Props) {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  const { profile, completeOnboarding, checkUsernameAvailable } = useProfile();
   const [step, setStep] = useState<Step>('identity');
   const [fullName, setFullName] = useState(profile?.full_name ?? '');
   const [username, setUsername] = useState('');
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -83,6 +97,23 @@ export default function OnboardingScreen({ dogs, addDog, updateDog, onComplete }
     };
   }, [debouncedUsername]);
 
+  async function pickPhoto() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setError('Photo library permission is required to pick a photo.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      setPhotoUri(result.assets[0].uri);
+    }
+  }
+
   async function generateVerifiedSuggestions(base: string) {
     let verified: string[] = [];
     let attempt = 0;
@@ -116,7 +147,7 @@ export default function OnboardingScreen({ dogs, addDog, updateDog, onComplete }
     }
     setLoading(true);
     setError('');
-    const { error } = await completeOnboarding(trimmedName, trimmedUsername);
+    const { error } = await completeOnboarding(trimmedName, trimmedUsername, photoUri);
     if (error) {
       if ((error as PostgrestError).code === '23505') {
         setError('That username was just taken — try another.');
@@ -177,15 +208,24 @@ export default function OnboardingScreen({ dogs, addDog, updateDog, onComplete }
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Text style={styles.paw}>🐾</Text>
+      <TouchableOpacity onPress={pickPhoto} style={styles.photoPickerWrap}>
+        <View style={styles.photoPicker}>
+          {photoUri ? (
+            <Image source={{ uri: photoUri }} style={styles.photoPreview} />
+          ) : (
+            <Text style={styles.photoPickerText}>🐾</Text>
+          )}
+        </View>
+        <View style={styles.photoPickerBadge}>
+          <Text style={styles.photoPickerBadgeText}>{photoUri ? '✎' : '+'}</Text>
+        </View>
+      </TouchableOpacity>
+      <Text style={styles.photoCaption}>{photoUri ? 'Tap to change photo' : 'Add a photo (optional)'}</Text>
+
       <Text style={styles.title}>Tell us about you</Text>
       <Text style={styles.subtitle}>We'll use these to set up your account</Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      <TouchableOpacity onPress={() => supabase.auth.signOut()} style={styles.signOutRow}>
-        <Text style={styles.signOutText}>Not you? Sign out</Text>
-      </TouchableOpacity>
 
       <TextInput
         style={styles.input}
@@ -253,6 +293,10 @@ export default function OnboardingScreen({ dogs, addDog, updateDog, onComplete }
           <Text style={styles.buttonText}>Continue</Text>
         )}
       </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => supabase.auth.signOut()} style={styles.signOutRow}>
+        <Text style={styles.signOutText}>Not you? Sign out</Text>
+      </TouchableOpacity>
     </KeyboardAvoidingView>
   );
 }
@@ -288,6 +332,52 @@ function makeStyles(theme: ThemeTokens) {
       fontSize: 13,
       marginBottom: 12,
       textAlign: 'center',
+    },
+    photoPickerWrap: {
+      width: 92,
+      height: 92,
+      marginBottom: 8,
+    },
+    photoPicker: {
+      width: 92,
+      height: 92,
+      borderRadius: 46,
+      backgroundColor: theme.surface,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    photoPreview: {
+      width: 92,
+      height: 92,
+    },
+    photoPickerBadge: {
+      position: 'absolute',
+      right: -2,
+      bottom: -2,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: theme.primary,
+      borderWidth: 2,
+      borderColor: theme.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    photoPickerBadgeText: {
+      color: 'white',
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    photoCaption: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginBottom: 24,
+    },
+    photoPickerText: {
+      fontSize: 36,
     },
     input: {
       width: '100%',
@@ -375,7 +465,7 @@ function makeStyles(theme: ThemeTokens) {
       fontWeight: '600',
     },
     signOutRow: {
-      marginBottom: 16,
+      marginTop: 20,
     },
     signOutText: {
       color: theme.textMuted,
