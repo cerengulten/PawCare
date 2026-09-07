@@ -593,6 +593,21 @@ https://docs.expo.dev/versions/v54.0.0/ before writing Expo-related code — don
   `OnboardingScreen` entirely — it now takes them as props from `AuthedApp`'s single
   `dogsState` instance, the same pattern `PetsScreen` already uses (see "Dynamic per-pet
   theming" above). No more `useDogs()` call inside `OnboardingScreen.tsx`.
+- **Bugfix — profile photo not syncing between Home and More (2026-09-07):** same class of
+  bug as the two above, just for `useProfile()` instead of `useDogs()` — `HomeScreen.tsx`,
+  `MoreScreen.tsx`, and `OnboardingScreen.tsx` each ran their own separate `useProfile()`
+  instance, so editing the avatar/name/username via the new `ProfileScreen.tsx` (opened from
+  Home) updated Home's own copy but not More's, which only refreshed on next app restart.
+  Fixed the same way as the dogs bug: `useProfile()` is now called **only** in `AuthedApp`
+  (`App.tsx`), which passes `profile`/`updateProfile`/`checkUsernameAvailable` down through
+  `AppTabs.tsx` to `HomeScreen`/`MoreScreen`, and `profile`/`completeOnboarding`/
+  `checkUsernameAvailable` down to `OnboardingScreen`. No screen owns its own `useProfile()`
+  call anymore. Also added a photo-picker step to `OnboardingScreen.tsx`'s identity step
+  (same `expo-image-picker` pattern as `ProfileScreen.tsx`/`PetFormScreen.tsx`, optional —
+  skipping it leaves `avatar_url` unset) — `completeOnboarding(fullName, username,
+  avatarUrl?)` in `useProfile.ts` gained a third optional param, only included in the upsert
+  when actually set so skipping the photo step never nulls out a photo some other path
+  already saved.
 - **Bugfix — pet-form layout + blank-page-after-onboarding (2026-09-03):** two issues
   surfaced testing the fix above on a real iPhone via Expo Go. (1) No screen outside
   `AppTabs.tsx` sat under a `SafeAreaProvider`/safe-area insets at all (`AppTabs.tsx` wraps
@@ -707,7 +722,6 @@ diagnosis, Supabase dashboard toggles (email confirmation + leaked-password prot
 a full manual end-to-end pass, and the `v1.0` commit/tag.
 
 **Known issues:**
-- Google sign-in: has a sign-in problem, not yet diagnosed — revisit before shipping.
 - `DogDetailScreen.tsx` (Pets tab) and `components/PetSummaryCard.tsx` (one instance per dog
   on the Home tab strip) each run their own independent `useHabits`/`useDogMood` instance for
   the same dog when both tabs have been visited — mitigated with a `useIsFocused`-driven
@@ -785,6 +799,51 @@ a full manual end-to-end pass, and the `v1.0` commit/tag.
 - Google: web-redirect flow (`expo-web-browser` + `expo-auth-session`) — works in Expo Go.
 - Apple: native `expo-apple-authentication` (exception — Expo docs confirm it works in Expo Go on iOS, unlike most native modules). **Disabled** via `APPLE_SIGN_IN_ENABLED` flag in `SocialSignInButtons.tsx` pending Apple Developer Program decision + Supabase provider config.
 - Don't move Google to a native SDK without first confirming the project has moved off Expo Go (most native auth modules need a dev client).
+- **Google sign-in bug fixed (2026-09-07):** the consent screen completed against Google
+  fine (confirmed via a real sign-in attempt that fully valid tokens were issued), but the
+  browser landed on `http://localhost:3000` afterward instead of back in the app. First
+  hypothesis (a missing/stale `uri_allow_list` entry for the current dev-machine IP) turned
+  out to be incomplete — adding the exact current IP still didn't fix it. **True root
+  cause**, confirmed by inspecting the actual redirect URL: Supabase's GoTrue accepts a
+  custom-scheme `redirect_to` (`exp://<lan-ip>:<port>`) at the *start* of a flow (the
+  `/authorize` call returns a valid Google URL either way), but its *final* redirect
+  construction doesn't reliably honor non-http(s) schemes even when allowlisted — it
+  silently falls back to the project's default Site URL instead. This is a known
+  GoTrue/Supabase limitation, not something fixable purely via allowlist config.
+  **Fix**: a plain HTTPS "bridge" page that GoTrue *does* redirect to correctly, which then
+  does a client-side `window.location.replace` into the real custom-scheme target (passed
+  as a `?target=` query param) — the same pattern the now-discontinued `auth.expo.io` proxy
+  used. First attempt hosted this as a Supabase Edge Function
+  (`supabase functions deploy auth-bridge --no-verify-jwt`), but Supabase forces HTML
+  responses from Edge Functions/Storage to `text/plain` + a script-blocking
+  `content-security-policy: sandbox` on this plan tier (confirmed via response headers) —
+  serving real HTML/JS from Supabase directly needs a Pro plan + custom domain, not worth it
+  for one redirect page. **Final fix**: `docs/auth-bridge/index.html`, hosted on **GitHub
+  Pages** instead (`cerengulten/PawCare` repo, `add-auth-bridge-page` branch, Settings ▸
+  Pages ▸ Deploy from branch ▸ `/docs`) — plain static hosting, no such restriction, correct
+  `text/html` + no CSP. Live at `https://cerengulten.github.io/PawCare/auth-bridge/`. New
+  `lib/authBridge.ts` exports `AUTH_BRIDGE_URL` so both call sites share one constant. Both
+  `lib/hooks/useGoogleSignIn.ts` (OAuth) and `screens/ForgotPasswordScreen.tsx`
+  (`resetPasswordForEmail`, same custom-scheme redirect problem via `bisco://reset-password`)
+  route through this bridge instead of passing their custom-scheme URL directly to Supabase.
+  The bridge URL (`https://cerengulten.github.io/PawCare/auth-bridge/**`) is allowlisted in
+  `uri_allow_list` — the old `exp://...`/`bisco://...` entries were left in place too
+  (harmless, no longer load-bearing for these two flows). No IP-specific allowlist
+  maintenance needed going forward for Google sign-in or password reset — only the bridge
+  URL itself needs to stay allowlisted, and that never changes. **This is the real
+  production fix, not a dev-only workaround** — the same GoTrue custom-scheme limitation
+  applies to `bisco://` redirects in a shipped build, not just `exp://` in Expo Go, so this
+  bridge page stays load-bearing after launch too. The only future nicety: swap
+  `AUTH_BRIDGE_URL` to a branded domain (e.g. `auth.bisco.app`) if/when one exists — purely
+  cosmetic, not required for it to keep working.
+  Separately, `lib/hooks/useGoogleSignIn.ts` used to return `{ error: null }` when
+  `WebBrowser.openAuthSessionAsync` didn't resolve to a matching redirect — this is what let
+  the bug go undiagnosed for so long — it now returns a real error message in that case.
+- Supabase CLI is linked to this project (`npx supabase link --project-ref
+  dkccsdlbgjthcexucpeq`, auth via `SUPABASE_ACCESS_TOKEN`/`SUPABASE_DB_PASSWORD` env vars
+  set locally) — this enables direct schema/migration access and Management API calls
+  (e.g. `PATCH /v1/projects/{ref}/config/auth`) for Auth settings that used to require the
+  dashboard UI, like the redirect-URL fix above.
 
 ## V1 scope — build in this order
 1. Auth + pet profile + care tracker (meals, walks, vet visits, meds) + reminders
@@ -800,8 +859,11 @@ live schema first, per "Supabase schema gotchas" below — inferring from code h
 caused bugs twice.
 
 **Carried over from Phase 1 (unfinished):**
-1. Diagnose + fix the Google sign-in bug
-2. Enable email confirmation + leaked-password protection in the Supabase dashboard (manual, not code)
+1. ~~Diagnose + fix the Google sign-in bug~~ (2026-09-07 — see "Auth implementation
+   details" above; redirect-URL allowlist issue, fixed via the Supabase Management API)
+2. Enable email confirmation + leaked-password protection in the Supabase dashboard (now
+   also doable via the Management API now that the CLI is linked — see "Auth
+   implementation details" — but still not done)
 3. Full Phase 1 end-to-end manual test (signup → onboarding → add pet → add habit → log completion → set mood → check More tab upcoming)
 4. Commit current working tree + tag `v1.0`
 
