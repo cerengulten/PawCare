@@ -7,7 +7,15 @@
       "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"https://world.openfoodfacts.org/cgi/search.pl?search_terms=chicken&search_simple=1&json=1&page_size=1&fields=code,product_name\")",
       "PowerShell(Add-Type -AssemblyName System.Drawing; $img = [System.Drawing.Image]::FromFile\\(\"c:\\\\Users\\\\crnyl\\\\Desktop\\\\PawCare\\\\pawcare\\\\assets\\\\pawcare_logo.png\"\\); \"$\\($img.Width\\) x $\\($img.Height\\)\"; $img.Dispose\\(\\))",
       "PowerShell(npx expo install expo-file-system expo-sharing)",
-      "PowerShell(npx tsc --noEmit)"
+      "PowerShell(npx tsc --noEmit)",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(curl -s -D - \"https://cerengulten.github.io/PawCare/auth-bridge/?target=exp%3A%2F%2F192.168.1.17%3A8081\" -o /tmp/bridge_check.html)",
+      "Read(//tmp/**)",
+      "Bash(curl -s \"https://cerengulten.github.io/PawCare/auth-bridge/\")",
+      "Bash(npx supabase *)"
     ]
   },
   "enabledPlugins": {
