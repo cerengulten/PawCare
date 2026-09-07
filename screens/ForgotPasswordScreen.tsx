@@ -10,38 +10,58 @@ import {
   Platform,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
-import SocialSignInButtons from '../components/SocialSignInButtons';
-import ForgotPasswordScreen from './ForgotPasswordScreen';
 import { useTheme } from '../lib/ThemeContext';
 import { ThemeTokens } from '../lib/themes';
+import { AUTH_BRIDGE_URL } from '../lib/authBridge';
 
 type Props = {
-  onSwitch: () => void;
+  onBack: () => void;
 };
 
-export default function LoginScreen({ onSwitch }: Props) {
+export default function ForgotPasswordScreen({ onBack }: Props) {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [sent, setSent] = useState(false);
 
-  async function handleLogin() {
-    if (!email || !password) {
-      setError('Please fill in all fields.');
+  async function handleSend() {
+    if (!email.trim()) {
+      setError('Enter your email.');
       return;
     }
     setLoading(true);
     setError('');
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setError(error.message);
+    // Routed through the GitHub Pages auth-bridge page rather than passing
+    // bisco://reset-password directly — same fix as useGoogleSignIn.ts, since
+    // Supabase's final redirect doesn't reliably honor custom URL schemes even
+    // when allowlisted. See docs/auth-bridge/index.html.
+    const bridgeUrl = `${AUTH_BRIDGE_URL}?target=${encodeURIComponent('bisco://reset-password')}`;
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: bridgeUrl,
+    });
     setLoading(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setSent(true);
   }
 
-  if (showForgotPassword) {
-    return <ForgotPasswordScreen onBack={() => setShowForgotPassword(false)} />;
+  if (sent) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.paw}>📬</Text>
+        <Text style={styles.title}>Check your email</Text>
+        <Text style={styles.subtitle}>
+          We sent a password reset link to {email.trim()}. Tap it to set a new password.
+        </Text>
+        <TouchableOpacity style={styles.button} onPress={onBack}>
+          <Text style={styles.buttonText}>Back to sign in</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   return (
@@ -49,9 +69,9 @@ export default function LoginScreen({ onSwitch }: Props) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Text style={styles.paw}>🐾</Text>
-      <Text style={styles.title}>Welcome back</Text>
-      <Text style={styles.subtitle}>Sign in to care for your dog</Text>
+      <Text style={styles.paw}>🔑</Text>
+      <Text style={styles.title}>Reset password</Text>
+      <Text style={styles.subtitle}>We'll email you a link to set a new password</Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -64,32 +84,17 @@ export default function LoginScreen({ onSwitch }: Props) {
         autoCapitalize="none"
         keyboardType="email-address"
       />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor={theme.textMuted}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
 
-      <TouchableOpacity onPress={() => setShowForgotPassword(true)} style={styles.forgotRow}>
-        <Text style={styles.switchLink}>Forgot password?</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
+      <TouchableOpacity style={styles.button} onPress={handleSend} disabled={loading}>
         {loading ? (
           <ActivityIndicator color="white" />
         ) : (
-          <Text style={styles.buttonText}>Sign in</Text>
+          <Text style={styles.buttonText}>Send reset link</Text>
         )}
       </TouchableOpacity>
 
-      <SocialSignInButtons />
-
-      <TouchableOpacity onPress={onSwitch} style={styles.switchRow}>
-        <Text style={styles.switchText}>Don't have an account? </Text>
-        <Text style={styles.switchLink}>Sign up</Text>
+      <TouchableOpacity onPress={onBack} style={styles.switchRow}>
+        <Text style={styles.switchLink}>Back to sign in</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
   );
@@ -113,11 +118,13 @@ function makeStyles(theme: ThemeTokens) {
       fontWeight: '700',
       color: theme.textDark,
       marginBottom: 6,
+      textAlign: 'center',
     },
     subtitle: {
       fontSize: 14,
       color: theme.textMuted,
       marginBottom: 32,
+      textAlign: 'center',
     },
     error: {
       color: theme.allergenText,
@@ -149,18 +156,9 @@ function makeStyles(theme: ThemeTokens) {
       fontSize: 16,
       fontWeight: '600',
     },
-    forgotRow: {
-      width: '100%',
-      alignItems: 'flex-end',
-      marginBottom: 4,
-    },
     switchRow: {
       flexDirection: 'row',
       marginTop: 24,
-    },
-    switchText: {
-      color: theme.textMuted,
-      fontSize: 14,
     },
     switchLink: {
       color: theme.primary,

@@ -10,38 +10,45 @@ import {
   Platform,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
-import SocialSignInButtons from '../components/SocialSignInButtons';
-import ForgotPasswordScreen from './ForgotPasswordScreen';
+import { PASSWORD_REQUIREMENTS, isPasswordValid } from '../lib/passwordPolicy';
 import { useTheme } from '../lib/ThemeContext';
 import { ThemeTokens } from '../lib/themes';
 
 type Props = {
-  onSwitch: () => void;
+  onDone: () => void;
 };
 
-export default function LoginScreen({ onSwitch }: Props) {
+// Reached only via a password-recovery deep link (see App.tsx's Linking
+// handler) — arriving here at all already proves control of the email
+// account, so unlike ChangePasswordScreen.tsx this doesn't re-verify a
+// current password.
+export default function SetNewPasswordScreen({ onDone }: Props) {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
-  async function handleLogin() {
-    if (!email || !password) {
-      setError('Please fill in all fields.');
+  async function handleSave() {
+    if (!isPasswordValid(password)) {
+      setError('Password does not meet the requirements below.');
       return;
     }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
     setLoading(true);
     setError('');
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setError(error.message);
+    const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
-  }
-
-  if (showForgotPassword) {
-    return <ForgotPasswordScreen onBack={() => setShowForgotPassword(false)} />;
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    onDone();
   }
 
   return (
@@ -49,47 +56,45 @@ export default function LoginScreen({ onSwitch }: Props) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Text style={styles.paw}>🐾</Text>
-      <Text style={styles.title}>Welcome back</Text>
-      <Text style={styles.subtitle}>Sign in to care for your dog</Text>
+      <Text style={styles.paw}>🔑</Text>
+      <Text style={styles.title}>Set a new password</Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <TextInput
         style={styles.input}
-        placeholder="Email"
-        placeholderTextColor={theme.textMuted}
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
+        placeholder="New password"
         placeholderTextColor={theme.textMuted}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
       />
+      <TextInput
+        style={styles.input}
+        placeholder="Confirm new password"
+        placeholderTextColor={theme.textMuted}
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+        secureTextEntry
+      />
 
-      <TouchableOpacity onPress={() => setShowForgotPassword(true)} style={styles.forgotRow}>
-        <Text style={styles.switchLink}>Forgot password?</Text>
-      </TouchableOpacity>
+      <View style={styles.checklist}>
+        {PASSWORD_REQUIREMENTS.map((req) => {
+          const met = req.test(password);
+          return (
+            <Text key={req.label} style={[styles.checklistItem, met && styles.checklistItemMet]}>
+              {met ? '✓' : '○'} {req.label}
+            </Text>
+          );
+        })}
+      </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
+      <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading}>
         {loading ? (
           <ActivityIndicator color="white" />
         ) : (
-          <Text style={styles.buttonText}>Sign in</Text>
+          <Text style={styles.buttonText}>Save</Text>
         )}
-      </TouchableOpacity>
-
-      <SocialSignInButtons />
-
-      <TouchableOpacity onPress={onSwitch} style={styles.switchRow}>
-        <Text style={styles.switchText}>Don't have an account? </Text>
-        <Text style={styles.switchLink}>Sign up</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
   );
@@ -112,12 +117,8 @@ function makeStyles(theme: ThemeTokens) {
       fontSize: 26,
       fontWeight: '700',
       color: theme.textDark,
-      marginBottom: 6,
-    },
-    subtitle: {
-      fontSize: 14,
-      color: theme.textMuted,
-      marginBottom: 32,
+      marginBottom: 20,
+      textAlign: 'center',
     },
     error: {
       color: theme.allergenText,
@@ -136,6 +137,18 @@ function makeStyles(theme: ThemeTokens) {
       borderWidth: 1,
       borderColor: theme.border,
     },
+    checklist: {
+      width: '100%',
+      marginBottom: 4,
+    },
+    checklistItem: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginBottom: 2,
+    },
+    checklistItemMet: {
+      color: theme.done,
+    },
     button: {
       width: '100%',
       backgroundColor: theme.primary,
@@ -147,24 +160,6 @@ function makeStyles(theme: ThemeTokens) {
     buttonText: {
       color: 'white',
       fontSize: 16,
-      fontWeight: '600',
-    },
-    forgotRow: {
-      width: '100%',
-      alignItems: 'flex-end',
-      marginBottom: 4,
-    },
-    switchRow: {
-      flexDirection: 'row',
-      marginTop: 24,
-    },
-    switchText: {
-      color: theme.textMuted,
-      fontSize: 14,
-    },
-    switchLink: {
-      color: theme.primary,
-      fontSize: 14,
       fontWeight: '600',
     },
   });
