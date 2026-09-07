@@ -147,9 +147,11 @@ export function useHabits(dogId: string | null) {
     if (newCount <= 0) setCompletionIds(prev => { const m = new Map(prev); m.delete(habitId); return m; });
   }
 
-  async function logWaterAmount(habitId: string, amountMl: number) {
+  async function logWaterAmount(habitId: string, amountMl: number, notes?: string | null) {
     const habit = habits.find(h => h.id === habitId);
     if (!habit) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
     const { data } = await supabase.rpc('increment_habit_amount', {
       p_habit_id: habitId,
       p_completed_date: today,
@@ -158,6 +160,14 @@ export function useHabits(dogId: string | null) {
     });
     const newCount = (data as number | null) ?? 0;
     setCompletedCounts(prev => new Map(prev).set(habitId, newCount));
+    // Additive detailed ledger — separate from the capped daily total above, which the
+    // RPC call already updated. See supabase/sql/2026-09-03_water_logs.sql.
+    await supabase.from('water_logs').insert({
+      dog_id: dogId,
+      owner_id: user.id,
+      amount_ml: amountMl,
+      notes: notes ?? null,
+    });
   }
 
   async function resetWaterToday(habitId: string) {

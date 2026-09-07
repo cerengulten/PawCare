@@ -79,7 +79,7 @@ export default function ReportPickerScreen({ dog, onBack }: Props) {
       const monthAbbrev = today.toLocaleDateString('en-US', { month: 'short' });
       const filename = `${dog.name.replace(/\s+/g, '_')}_full_report_${monthAbbrev}${today.getFullYear()}.pdf`;
       const html = buildMultiSectionReportHtml({
-        title: '🐾 PawCare — Full Report',
+        title: '🐾 Bisco — Full Report',
         infoRows: buildDogInfoRows(dog, profile),
         sections: reports,
       });

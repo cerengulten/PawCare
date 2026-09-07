@@ -18,20 +18,25 @@ import { USERNAME_REQUIREMENTS, isUsernameFormatValid, suggestUsernames } from '
 import PetFormScreen from './PetFormScreen';
 import { useTheme } from '../lib/ThemeContext';
 import { ThemeTokens } from '../lib/themes';
+import { Dog } from '../types';
+
+type DogsState = ReturnType<typeof useDogs>;
 
 type Props = {
   session: Session;
+  dogs: Dog[];
+  addDog: DogsState['addDog'];
+  updateDog: DogsState['updateDog'];
   onComplete: () => void;
 };
 
 type Step = 'identity' | 'pet' | 'addAnother';
 type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid';
 
-export default function OnboardingScreen({ onComplete }: Props) {
+export default function OnboardingScreen({ dogs, addDog, updateDog, onComplete }: Props) {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { profile, completeOnboarding, checkUsernameAvailable } = useProfile();
-  const { dogs, addDog, updateDog } = useDogs();
   const [step, setStep] = useState<Step>('identity');
   const [fullName, setFullName] = useState(profile?.full_name ?? '');
   const [username, setUsername] = useState('');

@@ -19,12 +19,15 @@ import { useHabits } from '../lib/hooks/useHabits';
 import { useTheme } from '../lib/ThemeContext';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
+import { calculateWaterTargetMl } from '../lib/waterIntake';
 
 type UseHabitsReturn = ReturnType<typeof useHabits>;
 
 type Props = {
   habit: Habit | null;
   presetType?: HabitType;
+  weightKg: number | null;
+  feedingWetDryRatio: number | null;
   addHabit: UseHabitsReturn['addHabit'];
   updateHabit: UseHabitsReturn['updateHabit'];
   deleteHabit: UseHabitsReturn['deleteHabit'];
@@ -103,6 +106,8 @@ function parseNumber(s: string): number | null {
 export default function HabitFormScreen({
   habit,
   presetType,
+  weightKg,
+  feedingWetDryRatio,
   addHabit,
   updateHabit,
   deleteHabit,
@@ -146,9 +151,15 @@ export default function HabitFormScreen({
   );
   const [foodBrand, setFoodBrand] = useState(habit?.food_brand ?? '');
   const [wetDryRatio, setWetDryRatio] = useState<number | null>(habit?.wet_dry_ratio ?? null);
+  // Only suggested when creating a new water habit — an already-saved goal (edit mode)
+  // is never silently overwritten by opening the form.
+  const suggestedWaterGoalMl = !habit ? calculateWaterTargetMl(weightKg, feedingWetDryRatio) : null;
   const [waterGoalMl, setWaterGoalMl] = useState(
-    habit?.water_goal_ml != null ? String(habit.water_goal_ml) : ''
+    habit?.water_goal_ml != null
+      ? String(habit.water_goal_ml)
+      : suggestedWaterGoalMl != null ? String(suggestedWaterGoalMl) : ''
   );
+  const [waterGoalManuallyEdited, setWaterGoalManuallyEdited] = useState(false);
   const [walkDuration, setWalkDuration] = useState(
     habit?.walk_duration_minutes != null ? String(habit.walk_duration_minutes) : ''
   );
@@ -356,8 +367,11 @@ export default function HabitFormScreen({
               placeholderTextColor={theme.textMuted}
               keyboardType="numeric"
               value={waterGoalMl}
-              onChangeText={setWaterGoalMl}
+              onChangeText={(text) => { setWaterGoalMl(text); setWaterGoalManuallyEdited(true); }}
             />
+            {!waterGoalManuallyEdited && suggestedWaterGoalMl != null ? (
+              <Text style={styles.helperText}>✨ Suggested based on weight</Text>
+            ) : null}
           </>
         )}
 

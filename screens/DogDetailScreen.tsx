@@ -15,6 +15,7 @@ import HabitRow from '../components/HabitRow';
 import WaterIncrementRow from '../components/WaterIncrementRow';
 import MealDetailLink from '../components/MealDetailLink';
 import MealDetailSheet from '../components/MealDetailSheet';
+import WaterLogSheet from '../components/WaterLogSheet';
 import VaccineCard from '../components/VaccineCard';
 import PoopLogCard from '../components/PoopLogCard';
 import VomitLogCard from '../components/VomitLogCard';
@@ -74,6 +75,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
   const [editingVomitLog, setEditingVomitLog] = useState<HealthLog | null>(null);
   const [logSource, setLogSource] = useState<'list' | 'history'>('list');
   const [mealDetailHabitId, setMealDetailHabitId] = useState<string | null>(null);
+  const [waterSheetHabitId, setWaterSheetHabitId] = useState<string | null>(null);
   const [exportingVaccines, setExportingVaccines] = useState(false);
 
   const {
@@ -115,6 +117,8 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
       <HabitFormScreen
         habit={editingHabit}
         presetType={presetType}
+        weightKg={dog.weight_kg}
+        feedingWetDryRatio={habits.find(h => h.habit_type === 'feeding')?.wet_dry_ratio ?? null}
         addHabit={addHabit}
         updateHabit={updateHabit}
         deleteHabit={deleteHabit}
@@ -375,7 +379,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
 
   const sexLabel = dog.sex === 'male' ? 'Male' : dog.sex === 'female' ? 'Female' : null;
   const age = computeAge(dog.birth_date);
-  const metaLine = [dog.breed, sexLabel, age].filter(Boolean).join(' · ');
+  const metaLine = [dog.species, dog.breed, sexLabel, age].filter(Boolean).join(' · ');
   const vaccineCount = overdue.length + upcoming.length;
   const vaccineLabel = overdue.length > 0
     ? `🩺 Vaccines · ${overdue.length} overdue`
@@ -511,6 +515,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
                     <WaterIncrementRow
                       onAdd={(amount) => logWaterAmount(h.id, amount)}
                       onReset={() => resetWaterToday(h.id)}
+                      onCustom={() => setWaterSheetHabitId(h.id)}
                     />
                   ) : null}
                   {h.habit_type === 'feeding' && done && completionIds.get(h.id) ? (
@@ -650,6 +655,15 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
         const { error } = await addMealDetail(mealDetailCompletionId, dog.id, details);
         if (!error) setMealDetailHabitId(null);
         return { error };
+      }}
+    />
+    <WaterLogSheet
+      visible={waterSheetHabitId !== null}
+      onClose={() => setWaterSheetHabitId(null)}
+      onSave={async (amountMl, notes) => {
+        if (!waterSheetHabitId) return;
+        await logWaterAmount(waterSheetHabitId, amountMl, notes);
+        setWaterSheetHabitId(null);
       }}
     />
     </>

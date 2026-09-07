@@ -74,7 +74,7 @@ export default function MoreScreen({ route, navigation }: Props) {
             </View>
           )}
           <View>
-            <Text style={styles.profileName}>{profile?.full_name ?? 'PawCare user'}</Text>
+            <Text style={styles.profileName}>{profile?.full_name ?? 'Bisco user'}</Text>
             <Text style={styles.profileMeta}>
               {profile?.username ? `@${profile.username} · ` : ''}{dogs.length} pet{dogs.length === 1 ? '' : 's'}
             </Text>

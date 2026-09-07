@@ -79,7 +79,6 @@ export default function VaccineFormScreen({
   const [nextDueDateText, setNextDueDateText] = useState(vaccine?.next_due_date?.slice(0, 10) ?? '');
   const [notes, setNotes] = useState(vaccine?.notes ?? '');
   const [reminderEnabled, setReminderEnabled] = useState(vaccine?.reminder_enabled ?? false);
-  const [showIosPicker, setShowIosPicker] = useState<'given' | 'due' | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -100,35 +99,26 @@ export default function VaccineFormScreen({
     setReminderEnabled(value);
   }
 
-  function openDateGivenPicker() {
-    const current = parseUserDateInput(dateGivenText) ?? new Date();
-    if (Platform.OS === 'android') {
-      DateTimePickerAndroid.open({
-        value: current,
-        mode: 'date',
-        maximumDate: new Date(),
-        onChange: (_event: DateTimePickerEvent, selected?: Date) => {
-          if (selected) setDateGivenText(toDateOnlyString(selected));
-        },
-      });
-    } else {
-      setShowIosPicker('given');
-    }
+  function openAndroidDateGivenPicker() {
+    DateTimePickerAndroid.open({
+      value: parseUserDateInput(dateGivenText) ?? new Date(),
+      mode: 'date',
+      maximumDate: new Date(),
+      onChange: (_event: DateTimePickerEvent, selected?: Date) => {
+        if (selected) setDateGivenText(toDateOnlyString(selected));
+      },
+    });
   }
 
-  function openNextDuePicker() {
-    if (Platform.OS === 'android') {
-      DateTimePickerAndroid.open({
-        value: nextDuePickerValue,
-        mode: 'date',
-        minimumDate: minNextDueDate,
-        onChange: (_event: DateTimePickerEvent, selected?: Date) => {
-          if (selected) setNextDueDateText(toDateOnlyString(selected));
-        },
-      });
-    } else {
-      setShowIosPicker('due');
-    }
+  function openAndroidNextDuePicker() {
+    DateTimePickerAndroid.open({
+      value: nextDuePickerValue,
+      mode: 'date',
+      minimumDate: minNextDueDate,
+      onChange: (_event: DateTimePickerEvent, selected?: Date) => {
+        if (selected) setNextDueDateText(toDateOnlyString(selected));
+      },
+    });
   }
 
   function applyQuickDueDate(monthsToAdd: number) {
@@ -235,27 +225,23 @@ export default function VaccineFormScreen({
             autoCapitalize="none"
             autoCorrect={false}
           />
-          <TouchableOpacity style={styles.calendarButton} onPress={openDateGivenPicker}>
-            <Text style={styles.calendarButtonText}>📅</Text>
-          </TouchableOpacity>
-        </View>
-
-        {Platform.OS === 'ios' && showIosPicker === 'given' && (
-          <View>
+          {Platform.OS === 'ios' ? (
             <DateTimePicker
               value={parseUserDateInput(dateGivenText) ?? new Date()}
               mode="date"
-              display="spinner"
+              display="compact"
+              accentColor={theme.primary}
               maximumDate={new Date()}
               onChange={(_e: DateTimePickerEvent, selected?: Date) => {
                 if (selected) setDateGivenText(toDateOnlyString(selected));
               }}
             />
-            <TouchableOpacity onPress={() => setShowIosPicker(null)}>
-              <Text style={styles.switchLink}>Done</Text>
+          ) : (
+            <TouchableOpacity style={styles.calendarButton} onPress={openAndroidDateGivenPicker}>
+              <Text style={styles.calendarButtonText}>📅</Text>
             </TouchableOpacity>
-          </View>
-        )}
+          )}
+        </View>
 
         <View style={styles.quickRow}>
           <TouchableOpacity style={styles.quickChip} onPress={() => applyQuickDueDate(6)}>
@@ -279,27 +265,23 @@ export default function VaccineFormScreen({
             autoCapitalize="none"
             autoCorrect={false}
           />
-          <TouchableOpacity style={styles.calendarButton} onPress={openNextDuePicker}>
-            <Text style={styles.calendarButtonText}>📅</Text>
-          </TouchableOpacity>
-        </View>
-
-        {Platform.OS === 'ios' && showIosPicker === 'due' && (
-          <View>
+          {Platform.OS === 'ios' ? (
             <DateTimePicker
               value={nextDuePickerValue}
               mode="date"
-              display="spinner"
+              display="compact"
+              accentColor={theme.primary}
               minimumDate={minNextDueDate}
               onChange={(_e: DateTimePickerEvent, selected?: Date) => {
                 if (selected) setNextDueDateText(toDateOnlyString(selected));
               }}
             />
-            <TouchableOpacity onPress={() => setShowIosPicker(null)}>
-              <Text style={styles.switchLink}>Done</Text>
+          ) : (
+            <TouchableOpacity style={styles.calendarButton} onPress={openAndroidNextDuePicker}>
+              <Text style={styles.calendarButtonText}>📅</Text>
             </TouchableOpacity>
-          </View>
-        )}
+          )}
+        </View>
 
         <View style={styles.reminderRow}>
           <Text style={styles.reminderLabel}>Remind me on the due date</Text>

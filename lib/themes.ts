@@ -286,3 +286,28 @@ export const THEMES: Record<ThemeFamily, ThemeTokens> = {
     ...SEMANTIC,
   },
 };
+
+// Display metadata for the theme picker (screens/PetFormScreen.tsx). Descriptions are the
+// same taglines used as the comments above each THEMES entry, promoted to real values so
+// the picker UI can show them without duplicating the copy.
+export const THEME_LABELS: Record<ThemeFamily, string> = {
+  sage_clay: 'Sage & Clay',
+  warm_honey: 'Warm Honey',
+  cool_ash: 'Cool Ash',
+  deep_cocoa: 'Deep Cocoa',
+  cream_chalk: 'Cream Chalk',
+  midnight: 'Midnight',
+  dusty_bloom: 'Dusty Bloom',
+  quiet_tide: 'Quiet Tide',
+};
+
+export const THEME_DESCRIPTIONS: Record<ThemeFamily, string> = {
+  sage_clay: 'calm · natural · grounded',
+  warm_honey: 'golden retriever · apricot · labrador',
+  cool_ash: 'grey · silver · Weimaraner',
+  deep_cocoa: 'brown · chocolate · dark warm coats',
+  cream_chalk: 'white · cream · light coats',
+  midnight: 'black · very dark coats',
+  dusty_bloom: 'mixed · tabby · brindle',
+  quiet_tide: 'teal · blue-grey · cool coats',
+};

@@ -6,11 +6,12 @@ import { ThemeTokens } from '../lib/themes';
 type Props = {
   onAdd: (amountMl: number) => void;
   onReset: () => void;
+  onCustom: () => void;
 };
 
 const INCREMENTS = [50, 100, 250];
 
-export default function WaterIncrementRow({ onAdd, onReset }: Props) {
+export default function WaterIncrementRow({ onAdd, onReset, onCustom }: Props) {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
@@ -20,6 +21,9 @@ export default function WaterIncrementRow({ onAdd, onReset }: Props) {
           <Text style={styles.pillText}>+{amount}</Text>
         </TouchableOpacity>
       ))}
+      <TouchableOpacity style={styles.pill} onPress={onCustom}>
+        <Text style={styles.pillText}>+ Custom</Text>
+      </TouchableOpacity>
       <TouchableOpacity onPress={onReset} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
         <Text style={styles.resetText}>↺ reset</Text>
       </TouchableOpacity>

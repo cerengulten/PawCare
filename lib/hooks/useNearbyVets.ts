@@ -59,7 +59,7 @@ export async function fetchVetsNear(center: Coords): Promise<VetResult[]> {
 async function geocodeAddress(query: string): Promise<Coords | null> {
   const url = `${NOMINATIM_URL}?q=${encodeURIComponent(query)}&format=json&limit=1`;
   const response = await fetch(url, {
-    headers: { 'User-Agent': 'PawCare/1.0 (pawcare app; vet finder)' },
+    headers: { 'User-Agent': 'Bisco/1.0 (bisco app; vet finder)' },
   });
   if (!response.ok) throw new Error('Address lookup failed');
   const json = await response.json();

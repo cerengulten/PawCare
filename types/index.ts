@@ -13,6 +13,7 @@ export type Dog = {
   id: string;
   owner_id: string;
   name: string;
+  species: string | null;
   breed: string | null;
   birth_date: string | null;
   weight_kg: number | null;
@@ -139,6 +140,16 @@ export type MealDetail = {
   brand_raw: string | null;
   notes: string | null;
   logged_at: string;
+};
+
+export type WaterLog = {
+  id: string;
+  dog_id: string;
+  owner_id: string;
+  logged_at: string;
+  amount_ml: number;
+  notes: string | null;
+  created_at: string;
 };
 
 export type VetResult = {

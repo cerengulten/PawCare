@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { supabase } from './lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import LoginScreen from './screens/LoginScreen';
@@ -59,6 +60,9 @@ function AuthedApp({ session }: { session: Session }) {
     return (
       <OnboardingScreen
         session={session}
+        dogs={dogsState.dogs}
+        addDog={dogsState.addDog}
+        updateDog={dogsState.updateDog}
         onComplete={() => setOnboardingActive(false)}
       />
     );
@@ -117,9 +121,11 @@ function AppInner() {
 export default function App() {
   return (
     <GestureHandlerRootView style={styles.flex}>
-      <ThemeProvider>
-        <AppInner />
-      </ThemeProvider>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <AppInner />
+        </ThemeProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

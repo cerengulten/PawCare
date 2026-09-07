@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "pawcare",
-    "slug": "pawcare",
-    "scheme": "pawcare",
+    "name": "Bisco",
+    "slug": "bisco",
+    "scheme": "bisco",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/pawcare_logo.png",
+    "icon": "./assets/bisco_logo_v1.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/pawcare_logo.png",
+      "image": "./assets/bisco_logo_v1.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -18,7 +18,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/bisco_logo_v1.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -31,7 +31,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "PawCare uses your location to find veterinary clinics near you."
+          "locationWhenInUsePermission": "Bisco uses your location to find veterinary clinics near you."
         }
       ]
     ]

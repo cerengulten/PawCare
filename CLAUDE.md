@@ -531,10 +531,175 @@ https://docs.expo.dev/versions/v54.0.0/ before writing Expo-related code — don
     remain literal — those aren't brand colors, they're fixed print styling.
   - `lib/hooks/useDogs.ts`/`useSelectedPet.ts` were not changed — only where they're called
     from moved.
+- **Dynamic per-pet theming — theme picker UI (2026-08-27):** the follow-up to the item
+  above — a real way to set a dog's `theme_family`, since nothing could before this (
+  `PetFormScreen.tsx` used to hardcode `theme_family: 'sage_clay'` on create and never sent
+  it on update). Added a palette-swatch picker to `screens/PetFormScreen.tsx` — the one
+  form that already covers both add/edit-pet (from `PetsScreen.tsx`) and first-pet
+  creation during onboarding (`OnboardingScreen.tsx` renders the same component), so
+  building it once covers both entry points. No separate quick-access theme-change entry
+  point in `DogDetailScreen.tsx` and no live full-app theme preview while the form is
+  open — both explicitly out of scope for this pass, per product decision.
+  - `lib/themes.ts` gained `THEME_LABELS`/`THEME_DESCRIPTIONS` (`Record<ThemeFamily,
+    string>`), promoting each palette's existing descriptive comment (e.g. `warm_honey` =
+    "golden retriever · apricot · labrador") to a real value so the picker can render it
+    without duplicating the copy.
+  - New `lib/themeSuggestion.ts`: pure `suggestThemeFamily(breed: string): ThemeFamily |
+    null`, matching lowercased breed text against a per-family keyword list (deliberately
+    non-overlapping, e.g. only `quiet_tide` claims "merle"/"blue merle" rather than a bare
+    "blue", so it never collides with `cool_ash`'s "grey"/"silver"). `sage_clay` has no
+    keywords — it's the neutral default, not breed-specific.
+  - `PetFormScreen.tsx`: new `selectedTheme`/`themeManuallyPicked`/`breedTouched` state.
+    Suggestion is gated on `breedTouched` (set the moment the Breed `TextInput`'s
+    `onChangeText` fires), not on add-vs-edit mode — a `useEffect` applies
+    `suggestThemeFamily(breed)`'s result to `selectedTheme` only while `breedTouched` is
+    `true` **and** `themeManuallyPicked` is still `false`. This means typing "golden
+    retriever" pre-selects `warm_honey` with zero taps in **both** the add-pet and
+    edit-pet flows; tapping any swatch flips `themeManuallyPicked` and breed edits stop
+    moving the selection for the rest of that form session. **Fix (2026-08-27
+    follow-up):** the first version of this gated suggestion only on add-vs-edit
+    (`themeManuallyPicked` started `true` when editing, so an edited dog's breed field
+    could never trigger a suggestion at all) — reported as "editing doesn't suggest a
+    theme when I change the breed." Gating on `breedTouched` instead fixes that while
+    still never overriding an already-saved theme just from opening the edit form (the
+    pre-filled breed value doesn't set `breedTouched`; only an actual edit does), so
+    `themeManuallyPicked` no longer needs a mode-dependent initial value and always
+    starts `false`. The swatch grid itself (inserted after Breed,
+    before Weight) reuses `screens/PoopFormScreen.tsx`'s `chipBtn`/`chipBtnSelected`
+    pattern verbatim (same unselected/selected token pairing as every other chip-style
+    picker in the app) with a small color dot (that palette's `primary`) added before the
+    label, plus a "✨ Suggested" sub-label under the currently-suggested-but-not-yet-tapped
+    swatch. `handleSave`'s shared `payload` object gained `theme_family: selectedTheme`,
+    flowing into both the `addDog`/`updateDog` branches — this is what finally makes
+    editing an existing pet's theme persist (previously the update branch never touched
+    `theme_family` at all).
+  - No live preview: tapping a swatch only updates local form state, never calls
+    `useTheme()`'s `setTheme()` mid-form — the app-wide theme changes only after Save,
+    through the existing Task-1 wiring (`AuthedApp`'s effect reacting to the `dogs` array /
+    `selectedDogId`). Confirmed this already produces the right behavior with no new code:
+    saving a dog's first-ever pet applies the theme immediately (via
+    `useSelectedPet`'s existing auto-select-when-invalid effect), and editing the
+    currently-*active* pet's theme applies immediately too (since `updateDog` mutates the
+    same `dogs` array `selectedDog` is derived from); a newly added *second* pet's theme
+    only takes effect once the user switches to it in the Pets tab, matching "theme follows
+    the active pet" as already established.
+- **Bugfix — onboarding's first pet missing from Pets tab (2026-09-03):**
+  `OnboardingScreen.tsx` had its own separate `useDogs()` instance (fetched empty, before
+  any pet existed) that its `PetFormScreen` wrote into — disjoint from `AuthedApp`'s
+  `dogsState`, which is what `AppTabs`/`PetsScreen` actually render from post-onboarding.
+  So a pet added during onboarding landed in Supabase and in `OnboardingScreen`'s local
+  state, but `AuthedApp`'s `dogsState.dogs` (fetched once on mount, never refetched) stayed
+  stale/empty when onboarding completed. Fixed by lifting `dogs`/`addDog`/`updateDog` out of
+  `OnboardingScreen` entirely — it now takes them as props from `AuthedApp`'s single
+  `dogsState` instance, the same pattern `PetsScreen` already uses (see "Dynamic per-pet
+  theming" above). No more `useDogs()` call inside `OnboardingScreen.tsx`.
+- **Bugfix — pet-form layout + blank-page-after-onboarding (2026-09-03):** two issues
+  surfaced testing the fix above on a real iPhone via Expo Go. (1) No screen outside
+  `AppTabs.tsx` sat under a `SafeAreaProvider`/safe-area insets at all (`AppTabs.tsx` wraps
+  only the tab navigator) — combined with `app.json`'s `edgeToEdgeEnabled: true` on
+  Android, content on Login/Register/Onboarding/`PetFormScreen` could render under the
+  status bar/gesture bar; most visible on `PetFormScreen.tsx` since it's the tallest of
+  those screens. Fixed by hoisting a single root `<SafeAreaProvider>` into `App.tsx`
+  (wrapping `AppInner`, inside `GestureHandlerRootView`) and wrapping
+  `PetFormScreen.tsx`'s content in a `SafeAreaView` (`edges={['top', 'bottom']}`) — scoped
+  to just that screen for now; Login/Register/Onboarding's own steps have the same latent
+  gap but weren't reported as broken. (2) Tapping "No, continue to app" at the end of
+  onboarding produced a blank white page that only a full app restart recovered from (data
+  was saved correctly the whole time — restarting showed the new pet fine). Root cause:
+  `components/NearbyVetsSection.tsx` (rendered on `HomeScreen`, the first tab) mounts a
+  `react-native-webview` `WebView` on its very first render — for a fresh signup this is
+  the app's first-ever WebView mount, landing in the same commit as `AppTabs`'s entire
+  `NavigationContainer`/tab-bar tree being created for the first time (onboarding → app is
+  a full subtree swap, not a re-render), which can stall the iOS compositor. Fixed by
+  deferring the WebView mount one tick past first paint via
+  `InteractionManager.runAfterInteractions` (new `mounted` state, gates both `WebView`
+  render branches, falls back to the existing loading skeleton until true).
+- **iOS date pickers switched from spinner to calendar view, then to compact (2026-09-03):**
+  the three `mode="date"` `<DateTimePicker>`s (pet date of birth in `PetFormScreen.tsx`,
+  vaccine date given + next due date in `VaccineFormScreen.tsx`) had `display="spinner"` on
+  iOS. First changed to `display="inline"` (full calendar grid), then — after feedback that
+  the full-screen grid was too large — to `display="compact"` (the small native "tap to open
+  a calendar popover" pill, the same pattern iOS's own Health/Contacts apps use for
+  birthdates), both with `accentColor={theme.primary}` so the selected-day highlight follows
+  the active per-pet theme. This removed the old custom show/hide toggle (`showIosPicker`
+  state + a "Done" link) entirely on iOS — the compact picker is rendered directly in place
+  of the old themed placeholder row/button and manages its own popover open/close natively,
+  no wrapper state needed. `PetFormScreen.tsx`'s iOS row is a new `dateFieldRow` style
+  (label text + the compact picker side by side, same background/border/radius as `input`);
+  `VaccineFormScreen.tsx`'s two date rows keep their existing `TextInput` (manual
+  YYYY-MM-DD entry) and just swap the 📅 `TouchableOpacity` button for the compact picker on
+  iOS. Android is unchanged on both screens — `openAndroidDatePicker`/
+  `openAndroidDateGivenPicker`/`openAndroidNextDuePicker` (renamed from the old
+  platform-branching `openDatePicker`/etc. now that the iOS branch moved into JSX) still call
+  `DateTimePickerAndroid.open({ mode: 'date' })`, which is already a calendar grid by
+  default. `HabitFormScreen.tsx`'s reminder-time picker (`mode="time"`) was left as a
+  spinner — a calendar grid/compact date pill doesn't apply to picking a time of day.
+- **Rebranded "PawCare" → "Bisco" (2026-09-03):** `app.json` (`name`/`slug`/`scheme`) and
+  `package.json` name changed to `bisco`; `icon`/`splash.image`/
+  `android.adaptiveIcon.foregroundImage` all point at a single new square logo file,
+  `assets/bisco_logo_v1.png` (same one-file-for-everything pattern the old
+  `pawcare_logo.png` used). Every user-visible "PawCare" string was updated to "Bisco" —
+  the `MoreScreen.tsx` profile fallback name, the `expo-location` permission prompt text,
+  and the PDF report title/footer strings in `lib/reportBuilders.ts` and the three
+  `MealHistoryScreen.tsx`/`SymptomHistoryScreen.tsx`/`MoodHistoryScreen.tsx` inline
+  `handleExport` functions (which duplicate the same title/footer pattern rather than
+  calling the shared builders, per this app's per-domain-duplication convention) — report
+  footers now just say "Bisco" with no domain, since there's no real `bisco.app` domain.
+  Also updated the `useNearbyVets.ts` Nominatim `User-Agent` header string for consistency.
+  **Deliberately left unchanged:** the `dogs` table, `Dog` TypeScript type, `useDogs` hook,
+  `DogDetailScreen`, `dog_moods`/`dog_allergens` table names, and the `pawcare` project
+  folder/git remote — renaming those is a large, purely-internal blast radius (14+ files
+  just for the `Dog` type) with real DB-rename risk and zero user-visible benefit; nothing
+  requested it.
+- **Pet species field (2026-09-03):** new nullable `dogs.species text` column
+  (`supabase/sql/2026-09-03_dogs_species.sql`, no CHECK constraint — free text, same
+  flexibility as `breed`), added to the `Dog` type. New `lib/petSpecies.ts` exports
+  `PET_SPECIES` (Dog 🐶 / Cat 🐱 / Rabbit 🐰 / Bird 🐦 / Guinea Pig 🐹 / Cow 🐄), following
+  this app's emoji-keyed option-list convention (`MOOD_EMOJI`, `FOOD_TYPE_EMOJI`, etc.).
+  `screens/PetFormScreen.tsx` gained a "Species" chip-grid section (reusing the existing
+  Theme picker's `chipGrid`/`chipBtn` styles) between Name and Breed, plus an "Other" chip
+  that reveals a free-text `TextInput` for anything not in the list — mirrors how Breed
+  itself is unconstrained. `DogDetailScreen.tsx`'s hero meta line (breed/sex/age) now
+  prepends species when set (`[dog.species, dog.breed, sexLabel, age]`). Species is
+  optional, same as Breed/Weight/DOB — only Name is required. Not surfaced anywhere else
+  (pet-switcher pills, `PetSummaryCard`) — display was scoped to the one hero line so the
+  field isn't write-only, not a full rollout across every screen that mentions a dog.
 
-**Not built yet:** vet-visits tracking, FastAPI backend, RAG chatbot, theme-picker UI (the
-column/palette/context from the item above exist; there's no way for a user to actually set
-`theme_family` yet — that's the next task).
+- **Smart hydration tracker (2026-09-03):** the water habit type already had ml-based
+  tracking before this pass (`habits.water_goal_ml`, `increment_habit_amount` RPC into
+  `habit_completions.occurrence_count`, `WaterIncrementRow`'s +50/+100/+250/reset pills) —
+  this pass added a calculated target and a detailed intake log on top of that existing
+  system, not a replacement. New `water_logs` table
+  (`supabase/sql/2026-09-03_water_logs.sql`: `id`/`dog_id`/`owner_id`/`logged_at`/
+  `amount_ml`/`notes`/`created_at`, owner-scoped RLS) is an additive timestamped ledger —
+  every water log write (the existing pills, plus a new "+ Custom" option) inserts here in
+  addition to the existing RPC call; `habit_completions`/the RPC/`resetWaterToday` are
+  unchanged, since resetting the daily ring must not erase permanent log history. New
+  `lib/waterIntake.ts` (pure, no React): `calculateWaterTargetMl(weightKg, wetDryRatioPercent)`
+  — 55ml/kg default (docs the 50–60ml/kg range as `ML_PER_KG_MIN`/`MAX`/`DEFAULT`), reduced
+  up to 20% at 100% wet food, returns `null` when weight is unknown (`Dog.weight_kg` is
+  commonly null — every existing consumer already null-guards it). The wet/dry signal is
+  `Habit.wet_dry_ratio` (0–100, already captured once on a dog's *feeding* habit via
+  `HabitFormScreen.tsx`'s existing "Wet / dry ratio" chips) — **not** `meal_details.food_type`,
+  which was the original spec's suggestion but is sparse/optional per-log data, often absent
+  for any given dog; `wet_dry_ratio` is structured and already loaded by `useHabits(dog.id)`,
+  no new query needed. `screens/HabitFormScreen.tsx` now takes `weightKg`/
+  `feedingWetDryRatio` props (passed from `DogDetailScreen.tsx`, which already has both in
+  scope) and pre-fills a **new** water habit's "Daily goal (ml)" field with the calculated
+  value plus a "✨ Suggested based on weight" caption (reuses the existing `helperText`
+  style) — same "suggest, stay editable" convention as `PetFormScreen.tsx`'s breed→theme
+  suggestion; editing an existing water habit never touches its already-saved goal.
+  `WaterIncrementRow.tsx` gained a 4th "+ Custom" pill (new `onCustom` prop) opening a new
+  `components/WaterLogSheet.tsx` (modeled directly on `MealDetailSheet.tsx`'s
+  Modal+Animated+PanResponder drag-to-dismiss sheet pattern) for a custom ml amount +
+  optional note — both flow through the same extended `useHabits.ts`'s
+  `logWaterAmount(habitId, amountMl, notes?)`, which now does the existing RPC call *and*
+  inserts into `water_logs`, so custom entries still respect the same `p_max` cap the pills
+  already did. **Deliberately not built this pass:** a dedicated hydration history screen or
+  PDF export (`water_logs` exists and is being written to, but nothing reads it back yet
+  beyond the RPC's own running total) — a natural follow-up, not requested yet.
+
+**Not built yet:** vet-visits tracking, FastAPI backend, RAG chatbot.
 
 **Phase 1 ("Option B" redesign, 2026-08-06) is complete.** Four items carried over into
 Phase 2 rather than blocking closeout — see "Phase 2 to-do list" below: Google sign-in bug

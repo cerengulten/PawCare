@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { View, Text, TouchableOpacity, Linking, StyleSheet } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { InteractionManager, View, Text, TouchableOpacity, Linking, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Dog, DogMood, VetResult } from '../types';
 import { useMoodHistory } from '../lib/hooks/useMoodHistory';
@@ -40,6 +40,17 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { historyByDate } = useMoodHistory(dog?.id ?? null, ALERT_LOOKBACK_DAYS);
   const { vets, userLocation, loading, available } = useHomeVetPreview();
+  const [mounted, setMounted] = useState(false);
+
+  // Defers the WebView mount (this section's map tile) by one tick past Home's
+  // initial commit, so it doesn't mount in the same paint as the whole
+  // AppTabs/NavigationContainer tree being created for the first time right
+  // after onboarding — mounting a native WebView synchronously in that same
+  // large first-paint can stall the iOS compositor.
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => setMounted(true));
+    return () => task.cancel();
+  }, []);
 
   const alert = useMemo(() => {
     const streakDates = Array.from({ length: ALERT_STREAK_DAYS }, (_, i) => dateStringDaysAgo(i));
@@ -52,7 +63,7 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
     };
   }, [historyByDate]);
 
-  if (loading) {
+  if (loading || !mounted) {
     return (
       <>
         <Text style={styles.sectionTitle}>Nearby vets</Text>
