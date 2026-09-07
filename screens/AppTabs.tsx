@@ -9,6 +9,7 @@ import MoreScreen from './MoreScreen';
 import { useTheme } from '../lib/ThemeContext';
 import { useDogs } from '../lib/hooks/useDogs';
 import { useSelectedPet } from '../lib/hooks/useSelectedPet';
+import { useProfile } from '../lib/hooks/useProfile';
 
 export type RootTabParamList = {
   Home: undefined;
@@ -20,9 +21,13 @@ const Tab = createBottomTabNavigator<RootTabParamList>();
 
 type DogsState = ReturnType<typeof useDogs>;
 type SelectedPetState = ReturnType<typeof useSelectedPet>;
+type ProfileState = ReturnType<typeof useProfile>;
 
 type Props = {
   session: Session;
+  profile: ProfileState['profile'];
+  updateProfile: ProfileState['updateProfile'];
+  checkUsernameAvailable: ProfileState['checkUsernameAvailable'];
   dogs: DogsState['dogs'];
   dogsLoading: DogsState['loading'];
   addDog: DogsState['addDog'];
@@ -34,6 +39,9 @@ type Props = {
 
 export default function AppTabs({
   session,
+  profile,
+  updateProfile,
+  checkUsernameAvailable,
   dogs,
   dogsLoading,
   addDog,
@@ -58,11 +66,20 @@ export default function AppTabs({
         >
           <Tab.Screen
             name="Home"
-            component={HomeScreen}
             options={{
               tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>🏠</Text>,
             }}
-          />
+          >
+            {(props) => (
+              <HomeScreen
+                {...props}
+                dogs={dogs}
+                profile={profile}
+                updateProfile={updateProfile}
+                checkUsernameAvailable={checkUsernameAvailable}
+              />
+            )}
+          </Tab.Screen>
 
           <Tab.Screen
             name="Pets"
@@ -87,11 +104,12 @@ export default function AppTabs({
 
           <Tab.Screen
             name="More"
-            component={MoreScreen}
             options={{
               tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>✨</Text>,
             }}
-          />
+          >
+            {(props) => <MoreScreen {...props} dogs={dogs} profile={profile} />}
+          </Tab.Screen>
         </Tab.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

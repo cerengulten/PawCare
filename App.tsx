@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Linking } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { supabase } from './lib/supabase';
@@ -8,14 +8,40 @@ import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import AppTabs from './screens/AppTabs';
 import OnboardingScreen from './screens/OnboardingScreen';
+import SetNewPasswordScreen from './screens/SetNewPasswordScreen';
 import { useProfile } from './lib/hooks/useProfile';
 import { useDogs } from './lib/hooks/useDogs';
 import { useSelectedPet } from './lib/hooks/useSelectedPet';
 import { ThemeProvider, useTheme } from './lib/ThemeContext';
 
+// Parses the `bisco://reset-password#access_token=...&refresh_token=...&type=recovery`
+// deep link Supabase's password-reset email sends the user to (see
+// ForgotPasswordScreen.tsx's resetPasswordForEmail redirectTo). Manual parsing
+// mirrors useGoogleSignIn.ts's OAuth callback handling — detectSessionInUrl is
+// false in lib/supabase.ts (correct for RN, no window.location to auto-parse),
+// so nothing else in the app will pick this up on its own.
+function parseRecoveryUrl(url: string): { access_token: string; refresh_token: string } | null {
+  const hash = url.split('#')[1];
+  if (!hash) return null;
+  const params = new URLSearchParams(hash);
+  if (params.get('type') !== 'recovery') return null;
+  const access_token = params.get('access_token');
+  const refresh_token = params.get('refresh_token');
+  if (!access_token || !refresh_token) return null;
+  return { access_token, refresh_token };
+}
+
 function AuthedApp({ session }: { session: Session }) {
   const { theme, setTheme } = useTheme();
-  const { profile, loading: profileLoading } = useProfile();
+  // Lifted here (rather than let each screen own its own useProfile()
+  // instance) for the same reason as dogsState below — HomeScreen and
+  // MoreScreen each used to fetch their own copy, so editing the profile
+  // photo/name/username in one place (ProfileScreen, opened from Home)
+  // never showed up on More until the app restarted. See the "onboarding's
+  // first pet missing from Pets tab" bugfix note in CLAUDE.md for the same
+  // pattern already applied to dogs.
+  const profileState = useProfile();
+  const { profile, loading: profileLoading } = profileState;
   const [onboardingActive, setOnboardingActive] = useState(false);
 
   // Lifted here (rather than owned solely by PetsScreen) so the active theme reflects
@@ -60,6 +86,9 @@ function AuthedApp({ session }: { session: Session }) {
     return (
       <OnboardingScreen
         session={session}
+        profile={profile}
+        completeOnboarding={profileState.completeOnboarding}
+        checkUsernameAvailable={profileState.checkUsernameAvailable}
         dogs={dogsState.dogs}
         addDog={dogsState.addDog}
         updateDog={dogsState.updateDog}
@@ -71,6 +100,9 @@ function AuthedApp({ session }: { session: Session }) {
   return (
     <AppTabs
       session={session}
+      profile={profile}
+      updateProfile={profileState.updateProfile}
+      checkUsernameAvailable={profileState.checkUsernameAvailable}
       dogs={dogsState.dogs}
       dogsLoading={dogsState.loading}
       addDog={dogsState.addDog}
@@ -87,6 +119,7 @@ function AppInner() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [showRegister, setShowRegister] = useState(false);
+  const [recoveryActive, setRecoveryActive] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -99,12 +132,31 @@ function AppInner() {
     });
   }, []);
 
+  useEffect(() => {
+    async function handleUrl(url: string) {
+      const tokens = parseRecoveryUrl(url);
+      if (!tokens) return;
+      const { error } = await supabase.auth.setSession(tokens);
+      if (!error) setRecoveryActive(true);
+    }
+
+    Linking.getInitialURL().then((url) => {
+      if (url) handleUrl(url);
+    });
+    const subscription = Linking.addEventListener('url', ({ url }) => handleUrl(url));
+    return () => subscription.remove();
+  }, []);
+
   if (loading) {
     return (
       <View style={[styles.loading, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
+  }
+
+  if (recoveryActive) {
+    return <SetNewPasswordScreen onDone={() => setRecoveryActive(false)} />;
   }
 
   if (!session) {
