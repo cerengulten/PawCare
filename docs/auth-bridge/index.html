@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bisco Sign-in Bridge</title>
+<meta name="robots" content="noindex, nofollow" />
+<style>
+  :root {
+    --bg: #FBF8F1;
+    --text: #2B2B26;
+    --muted: #7A7563;
+    --accent: #4C7A56;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1C1D18;
+      --text: #EFEDE4;
+      --muted: #9C9987;
+      --accent: #7FB58A;
+    }
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 1.1s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.35; transform: scale(0.85); }
+    50% { opacity: 1; transform: scale(1); }
+  }
+  p { margin: 0; font-size: 15px; color: var(--muted); }
+  @media (prefers-reduced-motion: reduce) {
+    .dot { animation: none; opacity: 0.8; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="dot"></div>
+  <p id="msg">Taking you back to the app&hellip;</p>
+</div>
+<script>
+  var params = new URLSearchParams(window.location.search);
+  var target = params.get('target');
+  if (target) {
+    window.location.replace(target + window.location.hash);
+  } else {
+    document.getElementById('msg').textContent =
+      'Missing redirect target — open this link from the app, not directly.';
+  }
+</script>
+</body>
+</html>
