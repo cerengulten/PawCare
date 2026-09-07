@@ -1,16 +1,24 @@
-import { useMemo } from 'react';
-import { View, Text, Image, ScrollView, StyleSheet } from 'react-native';
+import { useMemo, useState } from 'react';
+import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useProfile } from '../lib/hooks/useProfile';
 import { useDogs } from '../lib/hooks/useDogs';
 import { useOverallStreak } from '../lib/hooks/useOverallStreak';
 import PetSummaryCard from '../components/PetSummaryCard';
 import NearbyVetsSection from '../components/NearbyVetsSection';
+import ProfileScreen from './ProfileScreen';
 import { RootTabParamList } from './AppTabs';
 import { useTheme } from '../lib/ThemeContext';
 import { ThemeTokens } from '../lib/themes';
 
-type Props = BottomTabScreenProps<RootTabParamList, 'Home'>;
+type ProfileState = ReturnType<typeof useProfile>;
+
+type Props = BottomTabScreenProps<RootTabParamList, 'Home'> & {
+  dogs: ReturnType<typeof useDogs>['dogs'];
+  profile: ProfileState['profile'];
+  updateProfile: ProfileState['updateProfile'];
+  checkUsernameAvailable: ProfileState['checkUsernameAvailable'];
+};
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -19,15 +27,26 @@ function greeting(): string {
   return 'Good evening';
 }
 
-export default function HomeScreen({ navigation }: Props) {
+export default function HomeScreen({ navigation, dogs, profile, updateProfile, checkUsernameAvailable }: Props) {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  const { profile } = useProfile();
-  const { dogs } = useDogs();
   const { streak } = useOverallStreak();
+  const [showProfile, setShowProfile] = useState(false);
 
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there';
   const firstDogName = dogs[0]?.name ?? 'your pet';
+
+  if (showProfile) {
+    return (
+      <ProfileScreen
+        profile={profile}
+        updateProfile={updateProfile}
+        checkUsernameAvailable={checkUsernameAvailable}
+        onDone={() => setShowProfile(false)}
+        onCancel={() => setShowProfile(false)}
+      />
+    );
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -36,13 +55,15 @@ export default function HomeScreen({ navigation }: Props) {
           <Text style={styles.greetingLabel}>{greeting()}</Text>
           <Text style={styles.greetingName}>{firstName} 👋</Text>
         </View>
-        {profile?.avatar_url ? (
-          <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
-        ) : (
-          <View style={styles.avatarPlaceholder}>
-            <Text style={styles.avatarEmoji}>🐾</Text>
-          </View>
-        )}
+        <TouchableOpacity onPress={() => setShowProfile(true)}>
+          {profile?.avatar_url ? (
+            <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarEmoji}>🐾</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       {dogs.length > 0 ? (

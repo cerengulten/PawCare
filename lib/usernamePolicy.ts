@@ -31,3 +31,14 @@ export function suggestUsernames(base: string, count = 3): string[] {
   }
   return Array.from(out);
 }
+
+export const USERNAME_COOLDOWN_DAYS = 30;
+
+// Mirrors the `profiles_username_cooldown` trigger (see
+// supabase/sql/2026-09-07_account_settings.sql) so the UI can gate the field
+// before a save round-trip, not just react to the server rejecting it.
+export function usernameCooldown(changedAt: string | null): { active: boolean; unlockDate: Date | null } {
+  if (!changedAt) return { active: false, unlockDate: null };
+  const unlockDate = new Date(new Date(changedAt).getTime() + USERNAME_COOLDOWN_DAYS * 24 * 60 * 60 * 1000);
+  return { active: unlockDate.getTime() > Date.now(), unlockDate };
+}

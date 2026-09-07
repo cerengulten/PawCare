@@ -27,7 +27,7 @@ export function useProfile() {
     setLoading(false);
   }
 
-  async function completeOnboarding(fullName: string, username: string) {
+  async function completeOnboarding(fullName: string, username: string, avatarUrl?: string | null) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { data: null, error: new Error('Not authenticated') };
     // Upsert, not insert: a `profiles` row is already auto-created by the
@@ -35,10 +35,13 @@ export function useProfile() {
     // null), so this needs to update that existing row for new users, while
     // still working for legacy users who signed up before the trigger
     // existed. full_name and username are saved together so a user can never
-    // end up with one set and not the other from this flow.
+    // end up with one set and not the other from this flow. avatarUrl is
+    // optional (the onboarding photo picker step is skippable) and only
+    // included in the upsert when actually set, so skipping it never nulls
+    // out a photo some other path already saved.
     const { data, error } = await supabase
       .from('profiles')
-      .upsert({ id: user.id, full_name: fullName, username })
+      .upsert({ id: user.id, full_name: fullName, username, ...(avatarUrl ? { avatar_url: avatarUrl } : {}) })
       .select()
       .single();
     if (!error && data) setProfile(data);
@@ -53,5 +56,19 @@ export function useProfile() {
     return { available: Boolean(data), error: null };
   }
 
-  return { profile, loading, completeOnboarding, checkUsernameAvailable, refetch: fetchProfile };
+  async function updateProfile(updates: Partial<Pick<Profile, 'full_name' | 'username' | 'avatar_url'>>) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: new Error('Not authenticated') };
+    // Upsert, not update: a `profiles` row always exists via the signup trigger,
+    // but upsert keeps this consistent with completeOnboarding above.
+    const { data, error } = await supabase
+      .from('profiles')
+      .upsert({ id: user.id, ...updates })
+      .select()
+      .single();
+    if (!error && data) setProfile(data);
+    return { error };
+  }
+
+  return { profile, loading, completeOnboarding, checkUsernameAvailable, updateProfile, refetch: fetchProfile };
 }

@@ -4,6 +4,7 @@ export type Profile = {
   id: string;
   full_name: string | null;
   username: string | null;
+  username_changed_at: string | null;
   avatar_url: string | null;
   push_token: string | null;
   created_at: string;

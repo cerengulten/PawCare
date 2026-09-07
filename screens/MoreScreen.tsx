@@ -9,22 +9,29 @@ import { useAllVaccines } from '../lib/hooks/useAllVaccines';
 import VaccineCard from '../components/VaccineCard';
 import ReportPickerScreen from './ReportPickerScreen';
 import VetFinderScreen from './VetFinderScreen';
+import ChangePasswordScreen from './ChangePasswordScreen';
+import ChangeEmailScreen from './ChangeEmailScreen';
+import DeleteAccountScreen from './DeleteAccountScreen';
 import { RootTabParamList } from './AppTabs';
 import { useTheme } from '../lib/ThemeContext';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
-type Props = BottomTabScreenProps<RootTabParamList, 'More'>;
+type Props = BottomTabScreenProps<RootTabParamList, 'More'> & {
+  dogs: ReturnType<typeof useDogs>['dogs'];
+  profile: ReturnType<typeof useProfile>['profile'];
+};
 
-export default function MoreScreen({ route, navigation }: Props) {
+export default function MoreScreen({ route, navigation, dogs, profile }: Props) {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  const { profile } = useProfile();
-  const { dogs } = useDogs();
   const { upcoming, overdue } = useAllVaccines();
   const [showNotifPlaceholder, setShowNotifPlaceholder] = useState(false);
   const [reportDog, setReportDog] = useState<Dog | null>(null);
   const [showVetFinder, setShowVetFinder] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showChangeEmail, setShowChangeEmail] = useState(false);
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
 
   useEffect(() => {
     if (route.params?.openVetFinder) {
@@ -39,6 +46,18 @@ export default function MoreScreen({ route, navigation }: Props) {
 
   if (showVetFinder) {
     return <VetFinderScreen onBack={() => setShowVetFinder(false)} />;
+  }
+
+  if (showChangePassword) {
+    return <ChangePasswordScreen onDone={() => setShowChangePassword(false)} onCancel={() => setShowChangePassword(false)} />;
+  }
+
+  if (showChangeEmail) {
+    return <ChangeEmailScreen onDone={() => setShowChangeEmail(false)} onCancel={() => setShowChangeEmail(false)} />;
+  }
+
+  if (showDeleteAccount) {
+    return <DeleteAccountScreen onCancel={() => setShowDeleteAccount(false)} />;
   }
 
   if (showNotifPlaceholder) {
@@ -173,11 +192,39 @@ export default function MoreScreen({ route, navigation }: Props) {
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
         <View style={styles.divider} />
+        <TouchableOpacity style={styles.row} onPress={() => setShowChangePassword(true)}>
+          <View style={styles.iconBox}><Text style={styles.iconText}>🔒</Text></View>
+          <View style={styles.rowInfo}>
+            <Text style={styles.rowTitle}>Change password</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
+        <View style={styles.divider} />
+        <TouchableOpacity style={styles.row} onPress={() => setShowChangeEmail(true)}>
+          <View style={styles.iconBox}><Text style={styles.iconText}>✉️</Text></View>
+          <View style={styles.rowInfo}>
+            <Text style={styles.rowTitle}>Change email</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
+        <View style={styles.divider} />
         <TouchableOpacity style={styles.row} onPress={() => supabase.auth.signOut()}>
           <View style={styles.iconBox}><Text style={styles.iconText}>🚪</Text></View>
           <View style={styles.rowInfo}>
             <Text style={styles.signOutTitle}>Sign out</Text>
           </View>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.sectionTitle}>Danger zone</Text>
+      <View style={styles.card}>
+        <TouchableOpacity style={styles.row} onPress={() => setShowDeleteAccount(true)}>
+          <View style={styles.iconBox}><Text style={styles.iconText}>⚠️</Text></View>
+          <View style={styles.rowInfo}>
+            <Text style={styles.rowTitleDanger}>Delete account</Text>
+            <Text style={styles.rowSubtitle}>Permanently delete your account and all data</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -328,6 +375,11 @@ function makeStyles(theme: ThemeTokens) {
       fontSize: 14,
       fontWeight: '500',
       color: theme.pendingAmberText,
+    },
+    rowTitleDanger: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.allergenText,
     },
     grayChip: {
       backgroundColor: theme.notStartedBg,
