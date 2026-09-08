@@ -15,7 +15,8 @@
       "Bash(curl -s -D - \"https://cerengulten.github.io/PawCare/auth-bridge/?target=exp%3A%2F%2F192.168.1.17%3A8081\" -o /tmp/bridge_check.html)",
       "Read(//tmp/**)",
       "Bash(curl -s \"https://cerengulten.github.io/PawCare/auth-bridge/\")",
-      "Bash(npx supabase *)"
+      "Bash(npx supabase *)",
+      "Bash(git check-ignore *)"
     ]
   },
   "enabledPlugins": {

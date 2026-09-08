@@ -12,7 +12,8 @@ export function useProfile() {
 
   async function fetchProfile() {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) {
       setProfile(null);
       setLoading(false);
@@ -28,7 +29,8 @@ export function useProfile() {
   }
 
   async function completeOnboarding(fullName: string, username: string, avatarUrl?: string | null) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return { data: null, error: new Error('Not authenticated') };
     // Upsert, not insert: a `profiles` row is already auto-created by the
     // `on_auth_user_created` DB trigger at signup (with full_name/username
@@ -57,7 +59,8 @@ export function useProfile() {
   }
 
   async function updateProfile(updates: Partial<Pick<Profile, 'full_name' | 'username' | 'avatar_url'>>) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return { error: new Error('Not authenticated') };
     // Upsert, not update: a `profiles` row always exists via the signup trigger,
     // but upsert keeps this consistent with completeOnboarding above.

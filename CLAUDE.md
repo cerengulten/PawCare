@@ -414,10 +414,23 @@ https://docs.expo.dev/versions/v54.0.0/ before writing Expo-related code — don
   `PetSummaryCard` taps. `MoreScreen.tsx` gained `route`/`navigation` props for this (was
   previously prop-less, registered via `component={MoreScreen}` in `AppTabs.tsx` — that
   registration didn't need to change, `component=` already passes them automatically).
+  **Bugfix (2026-09-08):** entering Vet Finder this way (cross-tab into More) and then
+  tapping back left you sitting on the More tab's own screen instead of returning to Home —
+  `VetFinderScreen`'s `onBack` only closed `MoreScreen`'s `showVetFinder` mode-swap, it never
+  knew the tab had been switched to get there in the first place. `MoreScreen.tsx` now tracks
+  a `vetFinderFromHome` flag (set alongside `showVetFinder` when opened via the
+  `openVetFinder` param) and, if set, `onBack` calls `navigation.navigate('Home')` in
+  addition to closing the mode-swap. Opening Vet Finder directly from More's own "Vet Finder"
+  row is unaffected — back still just closes back to More's main view, since that flag is
+  never set on that path.
 - **Phase 2 item 21 follow-up — Home "Nearby vets" two-state preview (2026-08-25):** the
   simple link above was replaced with a real preview, new `components/NearbyVetsSection.tsx`
   (`{ dog, onOpenVetFinder }` props), rendered on `HomeScreen.tsx` for the first dog
-  (`dogs[0]`). Four render states: **loading** (a gray skeleton block, no spinner — spinners
+  (`dogs[0]`) — **changed 2026-09-08** to the same "active dog" (`selectedDogId`, falling
+  back to `dogs[0]`) the rest of the app uses for theming/chat, after a bug report that the
+  Home "Ask about {dog}'s nutrition..." bar (and by extension this section) never reflected
+  the pet actually selected on the Pets tab; `HomeScreen.tsx` now takes a `selectedDogId`
+  prop threaded through `AppTabs.tsx`, same as the Chat tab. Four render states: **loading** (a gray skeleton block, no spinner — spinners
   read as "blocking" for a dashboard preview), **placeholder** ("Tap to find vets near you",
   shown whenever there's no cached/fetched result yet or location permission was denied —
   `lib/hooks/useHomeVetPreview.ts` calls `Location.requestForegroundPermissionsAsync()` on
@@ -714,7 +727,67 @@ https://docs.expo.dev/versions/v54.0.0/ before writing Expo-related code — don
   PDF export (`water_logs` exists and is being written to, but nothing reads it back yet
   beyond the RPC's own running total) — a natural follow-up, not requested yet.
 
-**Not built yet:** vet-visits tracking, FastAPI backend, RAG chatbot.
+- **Phase 3 item 1 — AI Care Chatbot, client-side Gemini (2026-09-08):** first Phase 3
+  feature — a client-only chat integration (originally targeted Gemini 1.5 Flash free tier,
+  but that model, then `gemini-2.5-flash`, were both already retired/closed to new users by
+  the time this shipped — confirmed live via the `ListModels` endpoint and by hitting
+  `generateContent` directly; landed on `gemini-3.6-flash`, same free-tier eligibility.
+  **If this integration ever breaks again with a 404 on the model name, don't guess a
+  replacement from training data — call `GET
+  https://generativelanguage.googleapis.com/v1beta/models?key=<key>` to see what's actually
+  live for the key first.** `gemini-3.6-flash` runs an internal "thinking" pass by default
+  (hundreds of hidden tokens even for a one-line answer — confirmed via direct API calls),
+  which made first-pass replies noticeably slow; `lib/gemini.ts`'s request body sets
+  `generationConfig.thinkingConfig.thinkingBudget: 1` (0 is rejected by this model as
+  invalid; 1 is the practical minimum), which removed the latency while keeping answers
+  complete (`finishReason: STOP`, not truncated). `ChatScreen.tsx`'s system instruction also
+  tells the model to reply in plain text with no markdown, since the chat bubbles render raw
+  text and asterisks/lists were rendering as literal characters.), no FastAPI backend
+  yet (that move, plus RAG over a canine nutrition corpus via Chroma, is still future work —
+  see "Not built yet" below). Shipped as its **own bottom tab** (`screens/AppTabs.tsx`
+  gained a 4th `Chat` tab between Pets and More, icon 💬, rendering new
+  `screens/ChatScreen.tsx`), not a modal/mode-swap off an existing tab — the existing
+  "Soon"-chip placeholder this replaces was `HomeScreen.tsx`'s `aiBar` ("Ask about {dog}'s
+  nutrition..."), which now just taps through to the new tab
+  (`navigation.navigate('Chat')`) instead of showing a static "Soon" chip.
+  `ChatScreen.tsx` takes the same `dogs`/`selectedDogId` props already threaded through
+  `AppTabs.tsx` and derives the same "active dog" the rest of the app already uses for
+  theming (`dogs.find(d => d.id === selectedDogId) ?? dogs[0] ?? null`) — no new dog-picker
+  UI. It owns its own scoped instances of `useAllergens`/`useMealDetails`/
+  `useMoodHistory(id, 7)`/`useHealthLogs`/`useVomitLogs`/new `useWaterLogs(id, 7)` (modeled
+  on `ReportPickerScreen.tsx`'s pattern of a screen owning per-dog hook instances to build a
+  summary from data), and feeds them through a new pure `lib/dogContextSummary.ts` ->
+  `buildDogContextSummary(dog, ctx)` that renders profile fields (species/breed/sex/age via
+  `lib/petAge.ts`'s `computeAge`/weight), allergens, most recent logged food type/amount,
+  last-7-days mood-by-date, last-7-days poop/vomit entries, and last-7-days total water
+  intake into a plain-text block — missing data renders as "none logged" rather than being
+  silently omitted, so the model can't infer a false negative. New `lib/hooks/useWaterLogs.ts`
+  is the first hook to *read* `water_logs` (only `useHabits.ts`'s `logWaterAmount` wrote to
+  it before this).
+  New `lib/gemini.ts` (`sendChatMessage(history, systemInstruction)`, `hasGeminiApiKey()`)
+  calls Gemini's `generateContent` REST endpoint via plain `fetch` (no axios anywhere in this
+  codebase), modeled on `useNearbyVets.ts`'s try/`response.ok`/finally pattern. The system
+  instruction is rebuilt on every send from a fixed scope block (food amounts, safe/toxic
+  foods, hydration, poop/vomit triage, hypoallergenic diet questions, general symptom
+  guidance **only** — the model is told to decline anything else) plus the dog context
+  summary; the scope block also requires a "see your vet" note on any symptom/triage
+  response. A persistent, always-visible "⚠️ Not a substitute for veterinary care" banner
+  sits above the message list regardless of what the model outputs, since prompt compliance
+  alone isn't guaranteed. If `EXPO_PUBLIC_GEMINI_API_KEY` is unset, the tab shows a friendly
+  inline message instead of attempting a call. **Bugfix:** since tab screens stay mounted in
+  the background (React Navigation doesn't unmount an unfocused tab), switching the active
+  pet elsewhere in the app re-rendered `ChatScreen.tsx` with a new `activeDog` but left the
+  greeting/conversation `messages` state referencing the previous dog — the `useState`
+  initializer only ran once, at first mount. Fixed with a `useEffect` keyed on
+  `activeDog?.id` that resets `messages` to a fresh greeting whenever the active dog actually
+  changes.
+  **Architecture note for Phase 3's later FastAPI move:** when the backend exists, move the
+  Gemini call server-side (this key is currently client-exposed — acceptable for prototype
+  phase only, per explicit product decision, but must not ship publicly as-is) and add RAG
+  over a canine nutrition knowledge base (Chroma) grounding answers beyond just the dog's own
+  logged data.
+
+**Not built yet:** vet-visits tracking, FastAPI backend, RAG-grounded chatbot answers.
 
 **Phase 1 ("Option B" redesign, 2026-08-06) is complete.** Four items carried over into
 Phase 2 rather than blocking closeout — see "Phase 2 to-do list" below: Google sign-in bug
@@ -799,6 +872,25 @@ a full manual end-to-end pass, and the `v1.0` commit/tag.
 - Google: web-redirect flow (`expo-web-browser` + `expo-auth-session`) — works in Expo Go.
 - Apple: native `expo-apple-authentication` (exception — Expo docs confirm it works in Expo Go on iOS, unlike most native modules). **Disabled** via `APPLE_SIGN_IN_ENABLED` flag in `SocialSignInButtons.tsx` pending Apple Developer Program decision + Supabase provider config.
 - Don't move Google to a native SDK without first confirming the project has moved off Expo Go (most native auth modules need a dev client).
+- **Bugfix — pets not showing on cold app reopen while already signed in (2026-09-08):**
+  `lib/hooks/useDogs.ts` (and `lib/hooks/useProfile.ts`, same vulnerability) resolved the
+  current user via `supabase.auth.getUser()`, which — unlike `getSession()` — always makes a
+  live network round-trip to re-verify the JWT with Supabase's servers. On a cold app launch
+  this call can race ahead of the network actually being ready (or ahead of the auth
+  client's own session restore), returning no user even though a valid session is genuinely
+  persisted; since each hook only fetches once on mount with no retry, the dog list (or
+  profile) then stayed empty for the rest of that app session — nothing short of a full
+  reload recovered it. `App.tsx`'s own login gate already relies on `getSession()` (not
+  `getUser()`) and reliably works, precisely because `getSession()` reads the already-
+  resolved local session instead of re-hitting the network. Fixed both hooks' every
+  `getUser()` call site to use `getSession()` + `session?.user` instead — by the time
+  `AuthedApp` (and these hooks) mount, `App.tsx`'s own `getSession()` call has already
+  resolved once, so this is strictly more reliable, not just faster. **If other hooks
+  surface the same "works most of the time, occasionally empty after a cold start" symptom,
+  the fix is the same swap** — every hook in `lib/hooks/` still uses the `getUser()` pattern
+  otherwise (it's fine for one-off write calls triggered by a user action, where the app has
+  been running for a while already; the risk is specifically hooks that fetch immediately on
+  mount, right at app cold-start).
 - **Google sign-in bug fixed (2026-09-07):** the consent screen completed against Google
   fine (confirmed via a real sign-in attempt that fully valid tokens were issued), but the
   browser landed on `http://localhost:3000` afterward instead of back in the app. First
@@ -931,6 +1023,9 @@ caused bugs twice.
 
 ## Environment
 - `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` in `.env` (gitignored), read in `lib/supabase.ts`
+- `EXPO_PUBLIC_GEMINI_API_KEY` in `.env` (gitignored), read in `lib/gemini.ts` — powers the
+  AI Care Chat tab. Client-exposed by design for the prototype phase only (see Phase 3 item
+  1 above); move server-side before public launch.
 - New client-exposed env vars must be prefixed `EXPO_PUBLIC_` or they won't inline into the RN bundle
 
 ## Dependencies

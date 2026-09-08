@@ -11,7 +11,8 @@ export function useDogs() {
   }, []);
 
   async function fetchDogs() {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) {
       setDogs([]);
       setLoading(false);
@@ -27,7 +28,8 @@ export function useDogs() {
   }
 
   async function addDog(dog: Omit<Dog, 'id' | 'owner_id' | 'created_at' | 'updated_at'>) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return { data: null, error: new Error('Not authenticated') };
     const { data, error } = await supabase
       .from('dogs')
@@ -39,7 +41,8 @@ export function useDogs() {
   }
 
   async function updateDog(id: string, updates: Partial<Omit<Dog, 'id' | 'owner_id' | 'created_at' | 'updated_at'>>) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return { error: new Error('Not authenticated') };
     const { error } = await supabase
       .from('dogs')
@@ -51,7 +54,8 @@ export function useDogs() {
   }
 
   async function deleteDog(id: string) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return { error: new Error('Not authenticated') };
     const { error } = await supabase
       .from('dogs')

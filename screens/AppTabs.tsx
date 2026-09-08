@@ -5,6 +5,7 @@ import { Text } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import HomeScreen from './HomeScreen';
 import PetsScreen from './PetsScreen';
+import ChatScreen from './ChatScreen';
 import MoreScreen from './MoreScreen';
 import { useTheme } from '../lib/ThemeContext';
 import { useDogs } from '../lib/hooks/useDogs';
@@ -14,6 +15,7 @@ import { useProfile } from '../lib/hooks/useProfile';
 export type RootTabParamList = {
   Home: undefined;
   Pets: { dogId?: string } | undefined;
+  Chat: undefined;
   More: { openVetFinder?: boolean } | undefined;
 };
 
@@ -74,6 +76,7 @@ export default function AppTabs({
               <HomeScreen
                 {...props}
                 dogs={dogs}
+                selectedDogId={selectedDogId}
                 profile={profile}
                 updateProfile={updateProfile}
                 checkUsernameAvailable={checkUsernameAvailable}
@@ -100,6 +103,15 @@ export default function AppTabs({
                 selectDog={selectDog}
               />
             )}
+          </Tab.Screen>
+
+          <Tab.Screen
+            name="Chat"
+            options={{
+              tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>💬</Text>,
+            }}
+          >
+            {(props) => <ChatScreen {...props} dogs={dogs} selectedDogId={selectedDogId} />}
           </Tab.Screen>
 
           <Tab.Screen

@@ -3,6 +3,7 @@ import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet } from 'rea
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useProfile } from '../lib/hooks/useProfile';
 import { useDogs } from '../lib/hooks/useDogs';
+import { useSelectedPet } from '../lib/hooks/useSelectedPet';
 import { useOverallStreak } from '../lib/hooks/useOverallStreak';
 import PetSummaryCard from '../components/PetSummaryCard';
 import NearbyVetsSection from '../components/NearbyVetsSection';
@@ -12,9 +13,11 @@ import { useTheme } from '../lib/ThemeContext';
 import { ThemeTokens } from '../lib/themes';
 
 type ProfileState = ReturnType<typeof useProfile>;
+type SelectedPetState = ReturnType<typeof useSelectedPet>;
 
 type Props = BottomTabScreenProps<RootTabParamList, 'Home'> & {
   dogs: ReturnType<typeof useDogs>['dogs'];
+  selectedDogId: SelectedPetState['selectedDogId'];
   profile: ProfileState['profile'];
   updateProfile: ProfileState['updateProfile'];
   checkUsernameAvailable: ProfileState['checkUsernameAvailable'];
@@ -27,14 +30,15 @@ function greeting(): string {
   return 'Good evening';
 }
 
-export default function HomeScreen({ navigation, dogs, profile, updateProfile, checkUsernameAvailable }: Props) {
+export default function HomeScreen({ navigation, dogs, selectedDogId, profile, updateProfile, checkUsernameAvailable }: Props) {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { streak } = useOverallStreak();
   const [showProfile, setShowProfile] = useState(false);
 
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there';
-  const firstDogName = dogs[0]?.name ?? 'your pet';
+  const activeDog = dogs.find(d => d.id === selectedDogId) ?? dogs[0] ?? null;
+  const activeDogName = activeDog?.name ?? 'your pet';
 
   if (showProfile) {
     return (
@@ -92,15 +96,15 @@ export default function HomeScreen({ navigation, dogs, profile, updateProfile, c
       ) : null}
 
       <NearbyVetsSection
-        dog={dogs[0] ?? null}
+        dog={activeDog}
         onOpenVetFinder={() => navigation.navigate('More', { openVetFinder: true })}
       />
 
-      <View style={styles.aiBar}>
+      <TouchableOpacity style={styles.aiBar} onPress={() => navigation.navigate('Chat')}>
         <Text style={styles.aiIcon}>💬</Text>
-        <Text style={styles.aiText} numberOfLines={1}>Ask about {firstDogName}'s nutrition...</Text>
-        <View style={styles.grayChip}><Text style={styles.grayChipText}>Soon</Text></View>
-      </View>
+        <Text style={styles.aiText} numberOfLines={1}>Ask about {activeDogName}'s nutrition...</Text>
+        <Text style={styles.chevron}>›</Text>
+      </TouchableOpacity>
 
       <Text style={styles.sectionTitle}>Community tip</Text>
       <View style={styles.tipCard}>
@@ -225,6 +229,10 @@ function makeStyles(theme: ThemeTokens) {
     aiText: {
       flex: 1,
       fontSize: 14,
+      color: theme.textMuted,
+    },
+    chevron: {
+      fontSize: 20,
       color: theme.textMuted,
     },
     tipCard: {

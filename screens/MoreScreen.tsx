@@ -29,6 +29,7 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
   const [showNotifPlaceholder, setShowNotifPlaceholder] = useState(false);
   const [reportDog, setReportDog] = useState<Dog | null>(null);
   const [showVetFinder, setShowVetFinder] = useState(false);
+  const [vetFinderFromHome, setVetFinderFromHome] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showChangeEmail, setShowChangeEmail] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
@@ -36,6 +37,7 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
   useEffect(() => {
     if (route.params?.openVetFinder) {
       setShowVetFinder(true);
+      setVetFinderFromHome(true);
       navigation.setParams({ openVetFinder: undefined });
     }
   }, [route.params?.openVetFinder]);
@@ -45,7 +47,17 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
   }
 
   if (showVetFinder) {
-    return <VetFinderScreen onBack={() => setShowVetFinder(false)} />;
+    return (
+      <VetFinderScreen
+        onBack={() => {
+          setShowVetFinder(false);
+          if (vetFinderFromHome) {
+            setVetFinderFromHome(false);
+            navigation.navigate('Home');
+          }
+        }}
+      />
+    );
   }
 
   if (showChangePassword) {
