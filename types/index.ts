@@ -18,7 +18,8 @@ export type Dog = {
   breed: string | null;
   birth_date: string | null;
   weight_kg: number | null;
-  sex: 'male' | 'female' | null;
+  sex: 'male' | 'female' | 'unknown';
+  is_sterilized: boolean;
   photo_url: string | null;
   notes: string | null;
   theme_family: ThemeFamily | null;

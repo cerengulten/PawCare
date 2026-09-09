@@ -378,8 +378,11 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
   }
 
   const sexLabel = dog.sex === 'male' ? 'Male' : dog.sex === 'female' ? 'Female' : null;
+  const sterilizedLabel = dog.sex === 'male'
+    ? (dog.is_sterilized ? 'Neutered' : 'Not neutered')
+    : (dog.is_sterilized ? 'Sterilized' : 'Not sterilized');
   const age = computeAge(dog.birth_date);
-  const metaLine = [dog.species, dog.breed, sexLabel, age].filter(Boolean).join(' · ');
+  const metaLine = [dog.species, dog.breed, sexLabel, sterilizedLabel, age].filter(Boolean).join(' · ');
   const vaccineCount = overdue.length + upcoming.length;
   const vaccineLabel = overdue.length > 0
     ? `🩺 Vaccines · ${overdue.length} overdue`

@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from 'react-native';
 import DateTimePicker, {
   DateTimePickerAndroid,
@@ -23,6 +24,7 @@ import { useTheme } from '../lib/ThemeContext';
 import { THEMES, THEME_LABELS, ThemeFamily, ThemeTokens } from '../lib/themes';
 import { suggestThemeFamily } from '../lib/themeSuggestion';
 import { PET_SPECIES } from '../lib/petSpecies';
+import { PET_SEX } from '../lib/petSex';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
 type UseDogsReturn = ReturnType<typeof useDogs>;
@@ -59,6 +61,8 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
     dog?.species && !matchedSpecies ? dog.species : ''
   );
   const [breed, setBreed] = useState(dog?.breed ?? '');
+  const [sex, setSex] = useState<'male' | 'female' | 'unknown'>(dog?.sex ?? 'unknown');
+  const [isSterilized, setIsSterilized] = useState(dog?.is_sterilized ?? false);
   const [weightText, setWeightText] = useState(dog?.weight_kg?.toString() ?? '');
   const [birthDate, setBirthDate] = useState<Date | null>(
     dog?.birth_date ? parseDateOnly(dog.birth_date) : null
@@ -135,11 +139,13 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
       weight_kg: weightValue,
       photo_url: photoUri,
       theme_family: selectedTheme,
+      sex,
+      is_sterilized: isSterilized,
     };
 
     const { error } = dog
       ? await updateDog(dog.id, payload)
-      : await addDog({ ...payload, sex: null, notes: null });
+      : await addDog({ ...payload, notes: null });
 
     setLoading(false);
     if (error) {
@@ -218,6 +224,36 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
           value={breed}
           onChangeText={(text) => { setBreed(text); setBreedTouched(true); }}
         />
+
+        <Text style={styles.sectionLabel}>Sex</Text>
+        <View style={styles.chipGrid}>
+          {PET_SEX.map(({ value, emoji, label }) => {
+            const selected = value === sex;
+            return (
+              <TouchableOpacity
+                key={value}
+                style={[styles.chipBtn, selected && styles.chipBtnSelected]}
+                onPress={() => setSex(value)}
+              >
+                <View style={styles.chipRow}>
+                  <Text>{emoji}</Text>
+                  <Text style={styles.chipBtnLabel}>{label}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <View style={styles.reminderRow}>
+          <Text style={styles.reminderLabel}>{sex === 'male' ? 'Neutered?' : 'Sterilized?'}</Text>
+          <Switch
+            value={isSterilized}
+            onValueChange={setIsSterilized}
+            trackColor={{ false: theme.border, true: theme.primary }}
+            thumbColor="white"
+          />
+        </View>
+
         <Text style={styles.sectionLabel}>Theme</Text>
         <View style={styles.chipGrid}>
           {(Object.keys(THEMES) as ThemeFamily[]).map(family => {
@@ -392,6 +428,24 @@ function makeStyles(theme: ThemeTokens) {
       marginBottom: 12,
       borderWidth: 0.5,
       borderColor: theme.border,
+    },
+    reminderRow: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      padding: 16,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    reminderLabel: {
+      fontSize: 15,
+      color: theme.textDark,
+      flexShrink: 1,
+      marginRight: 12,
     },
     dateFieldRow: {
       width: '100%',
