@@ -154,6 +154,33 @@ export type WaterLog = {
   created_at: string;
 };
 
+export type CycleSpecies = 'dog' | 'cat' | 'rabbit' | 'guinea_pig';
+
+export type CycleRecord = {
+  id: string;
+  dog_id: string;
+  owner_id: string;
+  species: CycleSpecies;
+  start_date: string;
+  end_date: string | null;
+  notes: string | null;
+  created_at: string;
+};
+
+export type CycleIntensity = 'mild' | 'moderate' | 'severe';
+
+export type CycleSymptom = {
+  id: string;
+  cycle_id: string;
+  dog_id: string;
+  owner_id: string;
+  logged_date: string;
+  symptoms: string[];
+  intensity: CycleIntensity | null;
+  notes: string | null;
+  created_at: string;
+};
+
 export type VetResult = {
   id: string;
   name: string;

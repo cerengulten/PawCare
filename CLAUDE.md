@@ -866,6 +866,33 @@ a full manual end-to-end pass, and the `v1.0` commit/tag.
   or dry's. Owner-scoped RLS, same `auth.uid() = owner_id` pattern as every other table.
   Since `habit_completions` is one row per day regardless of `times_per_day` (see above), one
   `meal_details` row per completion — not per occurrence — is the right granularity.
+- `cycle_records`/`cycle_symptoms` tables (estrus/heat cycle tracking, data layer only —
+  no UI yet, see "Not built yet"; `supabase/sql/2026-09-09_cycle_tracking.sql`):
+  `cycle_records` is `id`/`dog_id`/`owner_id`/`species` (check-constrained
+  `'dog' | 'cat' | 'rabbit' | 'guinea_pig'`)/`start_date`/`end_date` (nullable — null means
+  the cycle is still open)/`notes`/`created_at`; a partial unique index
+  (`cycle_records_one_open_per_dog`, `where end_date is null`) enforces at most one open
+  cycle per dog at the DB level. `cycle_symptoms` is `id`/`cycle_id`/`dog_id`/`owner_id`/
+  `logged_date`/`symptoms text[]`/`intensity` (nullable, check-constrained
+  `'mild' | 'moderate' | 'severe'`)/`notes`/`created_at`, unique on
+  `(cycle_id, logged_date)` — one symptom-log row per cycle per day, upserted via
+  `useCycleTracking.ts`'s `logSymptoms`. Both tables use `dog_id` (this app's convention,
+  not `pet_id`) and the same idempotent `do $$ ... exception when duplicate_object`
+  owner-scoped RLS style as `health_logs`. New `lib/cycleLogic.ts` (pure, no React, modeled
+  on `lib/petAge.ts`) holds species-specific phase-timing constants (`CYCLE_PARAMS`, for
+  dog/cat/rabbit/guinea_pig) and `predictPhases`/`getCurrentPhase`/`predictNextCycleStart`
+  — `getCurrentPhase` clamps to the last modeled phase if the owner hasn't ended a cycle by
+  the time its phases "should" be over, rather than erroring. `dogs.species` is free text
+  from `lib/petSpecies.ts` (`'Dog'`/`'Cat'`/`'Rabbit'`/`'Bird'`/`'Guinea Pig'`/`'Cow'`/
+  custom text/`null`) and only 4 of those map to a cycle-trackable species —
+  `mapDogSpeciesToCycleSpecies()` in `lib/cycleLogic.ts` does that mapping, returning
+  `null` for Bird/Cow/custom/unset species; **any future cycle-tracking UI must gate on
+  this mapping being non-null, in addition to sex/sterilization.** New
+  `lib/hooks/useCycleTracking.ts(dogId)` fetches all of a dog's cycles + symptoms once
+  (via `getSession()`, not `getUser()` — the documented correct pattern for mount-fetching
+  hooks) and exposes `activeCycle`/`mostRecentCycle`/`currentPhase`/`predictedPhases`/
+  `nextCycleDate` as derived `useMemo` values, plus `startCycle`/`endCycle`/`logSymptoms`/
+  `deleteSymptomLog`.
 
 **Auth implementation details:**
 - `lib/supabase.ts` doesn't set `flowType` -> defaults to `'implicit'`, not `'pkce'` (confirmed from `@supabase/auth-js` source). OAuth redirect returns tokens in the URL **fragment**, not `?code=` — `useGoogleSignIn.ts` uses `setSession()`, not `exchangeCodeForSession()`. Don't switch to PKCE without changing both together.
