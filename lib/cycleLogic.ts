@@ -246,6 +246,21 @@ export const SYMPTOMS_BY_SPECIES: Record<CycleSpecies, string[]> = {
   guinea_pig: GUINEA_PIG_SYMPTOMS,
 };
 
+export const CYCLE_START_TIPS: Record<CycleSpecies, string> = {
+  dog: 'Look for bleeding/discharge and swelling as signs',
+  cat: 'Vocalization and restlessness are the main signs',
+  rabbit: 'Chin rubbing and nesting are common early signs',
+  guinea_pig: 'Restlessness and vocalization are common signs',
+};
+
+export function phaseColorToken(phase: CyclePhaseName): 'phaseProestrus' | 'phaseEstrus' | 'phaseDiestrus' | 'phaseAnestrus' {
+  if (phase === 'proestrus') return 'phaseProestrus';
+  if (phase === 'estrus') return 'phaseEstrus';
+  if (phase === 'anestrus') return 'phaseAnestrus';
+  // 'diestrus' and 'interestrus' (cat) both share the non-fertile post-estrus color.
+  return 'phaseDiestrus';
+}
+
 export const SYMPTOM_LABELS: Record<string, string> = {
   bleeding: 'Bleeding',
   discharge: 'Discharge',

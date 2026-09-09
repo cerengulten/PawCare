@@ -30,6 +30,12 @@ import PoopFormScreen from './PoopFormScreen';
 import VomitFormScreen from './VomitFormScreen';
 import SymptomHistoryScreen from './SymptomHistoryScreen';
 import MealHistoryScreen from './MealHistoryScreen';
+import CycleHistoryScreen from './CycleHistoryScreen';
+import HeatCycleSection from '../components/HeatCycleSection';
+import CycleStartSheet from '../components/CycleStartSheet';
+import SymptomLogSheet from '../components/SymptomLogSheet';
+import { useCycleTracking } from '../lib/hooks/useCycleTracking';
+import { mapDogSpeciesToCycleSpecies } from '../lib/cycleLogic';
 import { useTheme } from '../lib/ThemeContext';
 import { ThemeTokens } from '../lib/themes';
 import { computeAge } from '../lib/petAge';
@@ -44,7 +50,7 @@ type Props = {
   onDelete: () => void;
 };
 
-type Mode = 'detail' | 'habit-quick-add' | 'habit-form' | 'vaccine-list' | 'vaccine-form' | 'history' | 'mood-history' | 'allergen-form' | 'health-list' | 'poop-form' | 'vomit-list' | 'vomit-form' | 'symptom-history' | 'meal-history';
+type Mode = 'detail' | 'habit-quick-add' | 'habit-form' | 'vaccine-list' | 'vaccine-form' | 'history' | 'mood-history' | 'allergen-form' | 'health-list' | 'poop-form' | 'vomit-list' | 'vomit-form' | 'symptom-history' | 'meal-history' | 'cycle-history';
 
 const MOOD_OPTIONS: { value: DogMood['mood']; emoji: string; label: string }[] = [
   { value: 'sleepy', emoji: '😴', label: 'Sleepy' },
@@ -77,6 +83,8 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
   const [mealDetailHabitId, setMealDetailHabitId] = useState<string | null>(null);
   const [waterSheetHabitId, setWaterSheetHabitId] = useState<string | null>(null);
   const [exportingVaccines, setExportingVaccines] = useState(false);
+  const [cycleStartSheetVisible, setCycleStartSheetVisible] = useState(false);
+  const [symptomLogSheetVisible, setSymptomLogSheetVisible] = useState(false);
 
   const {
     habits,
@@ -99,6 +107,15 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
   const { mood, setTodayMood } = useDogMood(dog.id);
   const { streak } = usePetStreak(dog.id, habits.map(h => h.id));
   const { profile } = useProfile();
+  const cycleTracking = useCycleTracking(dog.id);
+
+  const cycleSpecies = mapDogSpeciesToCycleSpecies(dog.species);
+  const showHeatCycle = dog.sex === 'female' && !dog.is_sterilized && cycleSpecies !== null;
+  const todaySymptomLog = cycleTracking.activeCycle
+    ? cycleTracking.symptoms.find(
+        s => s.cycle_id === cycleTracking.activeCycle!.id && s.logged_date === new Date().toISOString().split('T')[0]
+      ) ?? null
+    : null;
 
   const mealDetailCompletionId = mealDetailHabitId ? completionIds.get(mealDetailHabitId) ?? null : null;
   const mealDetailInitial = mealDetailCompletionId ? getMealDetail(mealDetailCompletionId) ?? null : null;
@@ -377,6 +394,17 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
     );
   }
 
+  if (mode === 'cycle-history') {
+    return (
+      <CycleHistoryScreen
+        dog={dog}
+        tracking={cycleTracking}
+        onBack={() => setMode('detail')}
+        onStartCycle={() => setCycleStartSheetVisible(true)}
+      />
+    );
+  }
+
   const sexLabel = dog.sex === 'male' ? 'Male' : dog.sex === 'female' ? 'Female' : null;
   const sterilizedLabel = dog.sex === 'male'
     ? (dog.is_sterilized ? 'Neutered' : 'Not neutered')
@@ -571,6 +599,16 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
         )}
       </View>
 
+      {showHeatCycle && cycleSpecies ? (
+        <HeatCycleSection
+          dog={dog}
+          tracking={cycleTracking}
+          onStartCycle={() => setCycleStartSheetVisible(true)}
+          onLogSymptoms={() => setSymptomLogSheetVisible(true)}
+          onViewHistory={() => setMode('cycle-history')}
+        />
+      ) : null}
+
       <View style={styles.section}>
         <View style={styles.sectionTitleRow}>
           <Text style={styles.sectionTitle}>Poop Tracker</Text>
@@ -669,6 +707,40 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
         setWaterSheetHabitId(null);
       }}
     />
+    {cycleSpecies ? (
+      <CycleStartSheet
+        visible={cycleStartSheetVisible}
+        species={cycleSpecies}
+        onClose={() => setCycleStartSheetVisible(false)}
+        onSave={async (startDate, notes) => {
+          await cycleTracking.startCycle(cycleSpecies, startDate, notes ?? undefined);
+          setCycleStartSheetVisible(false);
+        }}
+      />
+    ) : null}
+    {cycleSpecies ? (
+      <SymptomLogSheet
+        visible={symptomLogSheetVisible}
+        species={cycleSpecies}
+        dogName={dog.name}
+        dayOfCycle={cycleTracking.currentPhase?.dayOfCycle ?? null}
+        initial={todaySymptomLog}
+        onClose={() => setSymptomLogSheetVisible(false)}
+        onSave={async (syms, intensity, notes) => {
+          if (!cycleTracking.activeCycle) return { error: new Error('No active cycle') };
+          const { error } = await cycleTracking.logSymptoms(
+            cycleTracking.activeCycle.id,
+            dog.id,
+            new Date(),
+            syms,
+            intensity,
+            notes ?? undefined
+          );
+          if (!error) setSymptomLogSheetVisible(false);
+          return { error };
+        }}
+      />
+    ) : null}
     </>
   );
 }

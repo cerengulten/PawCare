@@ -54,6 +54,12 @@ export type ThemeTokens = {
   notStartedBg: string;
   notStartedText: string;
 
+  // fixed heat-cycle phase colors — same value in every palette (not brand colors)
+  phaseProestrus: string;
+  phaseEstrus: string;
+  phaseDiestrus: string;
+  phaseAnestrus: string;
+
   // structural constant — same in every palette
   radiiCard: number;
 };
@@ -70,6 +76,10 @@ const SEMANTIC: Pick<
   | 'pendingAmberText'
   | 'notStartedBg'
   | 'notStartedText'
+  | 'phaseProestrus'
+  | 'phaseEstrus'
+  | 'phaseDiestrus'
+  | 'phaseAnestrus'
   | 'radiiCard'
 > = {
   allergenBg: '#FDE8E8',
@@ -82,6 +92,10 @@ const SEMANTIC: Pick<
   pendingAmberText: '#8A5A0A',
   notStartedBg: '#EDF0EA',
   notStartedText: '#5A6A50',
+  phaseProestrus: '#E8B870',
+  phaseEstrus: '#D4607A',
+  phaseDiestrus: '#A597B5',
+  phaseAnestrus: '#D0D0DC',
   radiiCard: 14,
 };
 

@@ -866,8 +866,8 @@ a full manual end-to-end pass, and the `v1.0` commit/tag.
   or dry's. Owner-scoped RLS, same `auth.uid() = owner_id` pattern as every other table.
   Since `habit_completions` is one row per day regardless of `times_per_day` (see above), one
   `meal_details` row per completion — not per occurrence — is the right granularity.
-- `cycle_records`/`cycle_symptoms` tables (estrus/heat cycle tracking, data layer only —
-  no UI yet, see "Not built yet"; `supabase/sql/2026-09-09_cycle_tracking.sql`):
+- `cycle_records`/`cycle_symptoms` tables (estrus/heat cycle tracking — data layer +
+  UI both shipped now, see "Done" below; `supabase/sql/2026-09-09_cycle_tracking.sql`):
   `cycle_records` is `id`/`dog_id`/`owner_id`/`species` (check-constrained
   `'dog' | 'cat' | 'rabbit' | 'guinea_pig'`)/`start_date`/`end_date` (nullable — null means
   the cycle is still open)/`notes`/`created_at`; a partial unique index
@@ -893,6 +893,38 @@ a full manual end-to-end pass, and the `v1.0` commit/tag.
   hooks) and exposes `activeCycle`/`mostRecentCycle`/`currentPhase`/`predictedPhases`/
   `nextCycleDate` as derived `useMemo` values, plus `startCycle`/`endCycle`/`logSymptoms`/
   `deleteSymptomLog`.
+- **Cycle tracking UI (2026-09-09):** the "Heat Cycle" section on `DogDetailScreen.tsx`
+  (inserted between "Food sensitivities" and "Poop Tracker") is gated on `dog.sex ===
+  'female' && !dog.is_sterilized && mapDogSpeciesToCycleSpecies(dog.species) !== null` —
+  fully hidden (no empty state) for male/sterilized/unknown-sex/unsupported-species pets,
+  per product decision. New self-contained `components/HeatCycleSection.tsx` (modeled on
+  `components/NearbyVetsSection.tsx`'s "own its own state, take data+callbacks as props"
+  pattern rather than growing the already-971-line `DogDetailScreen.tsx` further inline)
+  renders the three states: no-cycle CTA, active-cycle (phase name/day, a horizontal
+  phase-timeline bar built from `predictedPhases` with a "today" position marker, "Fertile
+  window" label, "Log today's symptoms", "End cycle" with an `Alert.alert` confirm), and
+  between-cycles (`nextCycleDate`'s predicted date + days-away + confidence label, "View
+  cycle history →", "Cycle started early?"). New `components/CycleStartSheet.tsx` (modeled
+  on `components/WaterLogSheet.tsx`'s simpler two-field bottom-sheet shape, swapping in the
+  compact-`DateTimePicker` pattern from `PetFormScreen.tsx`) and
+  `components/SymptomLogSheet.tsx` (modeled on `components/MealDetailSheet.tsx`'s
+  chip-grid scaffold) are rendered as unconditional siblings at the bottom of
+  `DogDetailScreen.tsx`, same non-mode-driven pattern as the existing meal/water sheets.
+  `SymptomLogSheet.tsx` introduced this app's **first multi-select chip grid** — no prior
+  screen had one (every existing chip picker, e.g. `PoopFormScreen.tsx`'s consistency/
+  color chips, is single-select) — via a plain `selected: string[]` + `includes()`-toggle,
+  reusing the existing single-select `chipBtn`/`chipBtnSelected` visual styles. New
+  `screens/CycleHistoryScreen.tsx` (modeled on `MoodHistoryScreen.tsx`'s Sunday-first
+  month-grid + `SymptomHistoryScreen.tsx`'s per-day color-coding/tap-to-expand pattern)
+  lists closed cycles as cards (range/duration/top symptoms) and expands a tapped card into
+  a calendar bounded to that cycle's date span, colored per day by that day's logged
+  `intensity`. No PDF export on this screen (not requested, unlike the other four report
+  types). `lib/themes.ts` gained 4 new **fixed** (not per-palette) tokens in its shared
+  `SEMANTIC` const — `phaseProestrus`/`phaseEstrus`/`phaseDiestrus`/`phaseAnestrus` — plus
+  `lib/cycleLogic.ts`'s `phaseColorToken(phase)` mapping helper; cat's `'interestrus'`
+  phase (not one of the 4 named phases) reuses `phaseDiestrus`'s color rather than getting
+  a 5th one-off hex. Intensity coloring in `CycleHistoryScreen` reuses existing semantic
+  tokens instead of adding new ones: mild → amber, moderate → blue, severe → red.
 
 **Auth implementation details:**
 - `lib/supabase.ts` doesn't set `flowType` -> defaults to `'implicit'`, not `'pkce'` (confirmed from `@supabase/auth-js` source). OAuth redirect returns tokens in the URL **fragment**, not `?code=` — `useGoogleSignIn.ts` uses `setSession()`, not `exchangeCodeForSession()`. Don't switch to PKCE without changing both together.
