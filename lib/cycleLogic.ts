@@ -116,9 +116,70 @@ export function predictPhases(
   return result;
 }
 
+// Breed-aware interval adjustment — dogs only. Small/toy breeds cycle noticeably more
+// often (~4-6mo) than giant breeds (~8-12mo+); cat/rabbit/guinea_pig have no comparably
+// documented breed-size cycle variance, so they always use CYCLE_PARAMS[species].avgIntervalDays.
+// Only affects the single-cycle "estimated" fallback in predictNextCycleStart below — once
+// 2+ real cycles are recorded, the dog's own history is used instead and breed is ignored.
+export type BreedSizeTier = 'toy' | 'small' | 'medium' | 'large' | 'giant';
+
+const BREED_SIZE_KEYWORDS: Record<BreedSizeTier, string[]> = {
+  toy: [
+    'chihuahua', 'yorkshire terrier', 'yorkie', 'toy poodle', 'pomeranian', 'maltese',
+    'papillon', 'shih tzu', 'pug', 'miniature pinscher', 'japanese chin',
+  ],
+  small: [
+    'dachshund', 'beagle', 'french bulldog', 'frenchie', 'boston terrier', 'jack russell',
+    'cavalier king charles spaniel', 'cavalier', 'corgi', 'pembroke welsh corgi',
+    'miniature schnauzer', 'west highland', 'westie', 'cocker spaniel', 'cocker',
+  ],
+  medium: [
+    'border collie', 'bulldog', 'basset hound', 'australian shepherd', 'aussie',
+    'standard poodle', 'whippet', 'shiba inu', 'shiba', 'brittany',
+  ],
+  large: [
+    'labrador', 'golden retriever', 'german shepherd', 'gsd', 'doberman', 'boxer', 'husky',
+    'siberian husky', 'rottweiler', 'weimaraner', 'vizsla', 'standard schnauzer',
+  ],
+  giant: [
+    'great dane', 'saint bernard', 'st bernard', 'mastiff', 'newfoundland',
+    'irish wolfhound', 'bernese mountain dog', 'leonberger', 'anatolian shepherd',
+    'giant schnauzer',
+  ],
+};
+
+const BREED_SIZE_INTERVAL_DAYS: Record<BreedSizeTier, number> = {
+  toy: 150, // ~5 months
+  small: 180, // ~6 months
+  medium: 210, // ~7 months — matches the flat dog species default
+  large: 240, // ~8 months
+  giant: 300, // ~10 months
+};
+
+// Flattened and sorted longest-keyword-first, same technique as lib/themeSuggestion.ts's
+// suggestThemeFamily(), so a more specific phrase always wins over a shorter generic one.
+const ALL_BREED_SIZE_KEYWORDS: { keyword: string; tier: BreedSizeTier }[] = Object.entries(BREED_SIZE_KEYWORDS)
+  .flatMap(([tier, keywords]) => keywords.map(keyword => ({ keyword, tier: tier as BreedSizeTier })))
+  .sort((a, b) => b.keyword.length - a.keyword.length);
+
+export function matchBreedSizeTier(breed: string | null | undefined): BreedSizeTier | null {
+  if (!breed) return null;
+  const trimmed = breed.trim().toLowerCase();
+  if (!trimmed) return null;
+  const match = ALL_BREED_SIZE_KEYWORDS.find(({ keyword }) => trimmed.includes(keyword));
+  return match?.tier ?? null;
+}
+
+function estimatedIntervalDays(species: CycleSpecies, breed?: string | null): number {
+  if (species !== 'dog') return CYCLE_PARAMS[species].avgIntervalDays;
+  const tier = matchBreedSizeTier(breed);
+  return tier ? BREED_SIZE_INTERVAL_DAYS[tier] : CYCLE_PARAMS.dog.avgIntervalDays;
+}
+
 export function predictNextCycleStart(
   pastCycles: { start_date: string; end_date?: string | null }[],
-  species: CycleSpecies
+  species: CycleSpecies,
+  breed?: string | null
 ): { predictedDate: Date; confidenceLevel: 'estimated' | 'predicted' } {
   const sorted = [...pastCycles].sort((a, b) => a.start_date.localeCompare(b.start_date));
 
@@ -139,7 +200,7 @@ export function predictNextCycleStart(
 
   const lastStart = parseDateOnly(sorted[sorted.length - 1].start_date);
   return {
-    predictedDate: addDays(lastStart, CYCLE_PARAMS[species].avgIntervalDays),
+    predictedDate: addDays(lastStart, estimatedIntervalDays(species, breed)),
     confidenceLevel: 'estimated',
   };
 }

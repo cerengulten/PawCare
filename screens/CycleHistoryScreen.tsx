@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { Dog, CycleIntensity } from '../types';
 import { useCycleTracking } from '../lib/hooks/useCycleTracking';
 import { useTheme } from '../lib/ThemeContext';
 import { ThemeTokens } from '../lib/themes';
-import { SYMPTOM_LABELS } from '../lib/cycleLogic';
+import { SYMPTOM_LABELS, predictPhases, phaseColorToken, matchBreedSizeTier, CyclePhaseName } from '../lib/cycleLogic';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
+import CycleEditSheet from '../components/CycleEditSheet';
+import SymptomLogSheet from '../components/SymptomLogSheet';
 
 type Props = {
   dog: Dog;
@@ -24,8 +26,21 @@ function toDateStr(y: number, m: number, d: number): string {
   return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
+function parseDateOnly(s: string): Date {
+  const [y, m, day] = s.split('-').map(Number);
+  return new Date(y, m - 1, day);
+}
+
 function formatLongDate(dateStr: string): string {
   return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function shortDate(d: Date): string {
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function phaseLabel(phase: CyclePhaseName): string {
+  return phase.charAt(0).toUpperCase() + phase.slice(1);
 }
 
 function intensityBg(theme: ThemeTokens, intensity: CycleIntensity | null): { bg: string; text: string } {
@@ -38,15 +53,21 @@ function intensityBg(theme: ThemeTokens, intensity: CycleIntensity | null): { bg
 export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle }: Props) {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  const { cycles, symptoms, activeCycle } = tracking;
+  const {
+    cycles, symptoms, activeCycle, currentPhase, predictedPhases, nextCycleDate,
+    updateCycle, deleteCycle, endCycle, logSymptoms, deleteSymptomLog,
+  } = tracking;
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null);
   const [viewYear, setViewYear] = useState<number | null>(null);
   const [viewMonth, setViewMonth] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [editSheetVisible, setEditSheetVisible] = useState(false);
+  const [symptomEditVisible, setSymptomEditVisible] = useState(false);
+  const [todaySymptomSheetVisible, setTodaySymptomSheetVisible] = useState(false);
 
   const closedCycles = cycles.filter(c => c.end_date);
 
-  function selectCycle(cycleId: string, startDateStr: string) {
+  function toggleCalendar(cycleId: string, startDateStr: string) {
     if (selectedCycleId === cycleId) {
       setSelectedCycleId(null);
       return;
@@ -86,6 +107,37 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
   }
 
   const selectedEntry = selectedDate ? symptomsByDate.get(selectedDate) ?? null : null;
+  const selectedDayOfCycle = selectedCycle && selectedDate
+    ? Math.floor((parseDateOnly(selectedDate).getTime() - parseDateOnly(selectedCycle.start_date).getTime()) / 86400000) + 1
+    : null;
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todaySymptomLog = activeCycle
+    ? symptoms.find(s => s.cycle_id === activeCycle.id && s.logged_date === todayStr) ?? null
+    : null;
+
+  const avgDurationDays = closedCycles.length > 0
+    ? Math.round(
+        closedCycles.reduce((sum, c) => sum + (Math.round((parseDateOnly(c.end_date!).getTime() - parseDateOnly(c.start_date).getTime()) / 86400000) + 1), 0)
+        / closedCycles.length
+      )
+    : null;
+
+  function handleEndCycle() {
+    if (!activeCycle) return;
+    Alert.alert('End cycle?', `This marks ${dog.name}'s current cycle as finished today.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'End cycle', style: 'destructive', onPress: () => endCycle(activeCycle.id, new Date()) },
+    ]);
+  }
+
+  const activeSegments = activeCycle && predictedPhases
+    ? predictedPhases.map(p => ({
+        phase: p.phase,
+        days: Math.max(1, Math.round((p.endDate.getTime() - p.startDate.getTime()) / 86400000)),
+      }))
+    : [];
+  const activeTotalDays = activeSegments.reduce((sum, s) => sum + s.days, 0);
 
   return (
     <SwipeBackWrapper onBack={onBack}>
@@ -99,11 +151,52 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
           <Text style={styles.title}>Cycle History</Text>
         </View>
 
+        <View style={styles.statStrip}>
+          <View style={styles.statBox}>
+            <Text style={styles.statNum}>{cycles.length}</Text>
+            <Text style={styles.statLabel}>{cycles.length === 1 ? 'Cycle logged' : 'Cycles logged'}</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statNum}>{avgDurationDays != null ? `${avgDurationDays}d` : '—'}</Text>
+            <Text style={styles.statLabel}>Avg duration</Text>
+          </View>
+          <View style={[styles.statBox, styles.statBoxAccent]}>
+            <Text style={[styles.statNum, styles.statNumAccent]}>{nextCycleDate ? shortDate(nextCycleDate.predictedDate) : '—'}</Text>
+            <Text style={styles.statLabel}>Next est.</Text>
+          </View>
+        </View>
+
+        {activeCycle && currentPhase && predictedPhases ? (
+          <View style={styles.activeCard}>
+            <Text style={styles.activeHeading}>
+              {phaseLabel(currentPhase.phaseName)} · Day {currentPhase.dayOfPhase}
+            </Text>
+            <Text style={styles.activeSubtext}>
+              Started {formatLongDate(activeCycle.start_date)} · ends ~{shortDate(currentPhase.phaseEndDate)}
+            </Text>
+            <View style={styles.timelineBar}>
+              {activeSegments.map((seg, i) => (
+                <View key={`${seg.phase}-${i}`} style={[styles.timelineSegment, { flex: seg.days, backgroundColor: theme[phaseColorToken(seg.phase)] }]} />
+              ))}
+            </View>
+            <Text style={styles.timelineCaption}>▲ Today · Day {currentPhase.dayOfCycle} of {activeTotalDays}</Text>
+
+            <TouchableOpacity style={styles.primaryBtn} onPress={() => setTodaySymptomSheetVisible(true)}>
+              <Text style={styles.primaryBtnText}>Log today's symptoms</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleEndCycle} style={styles.endCycleRow}>
+              <Text style={styles.endCycleText}>End cycle</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         {!activeCycle ? (
           <TouchableOpacity style={styles.startBtn} onPress={onStartCycle}>
             <Text style={styles.startBtnText}>+ Start new cycle</Text>
           </TouchableOpacity>
         ) : null}
+
+        <Text style={styles.sectionLabel}>Past cycles</Text>
 
         {closedCycles.length === 0 ? (
           <Text style={styles.gentleCopy}>No completed cycles yet.</Text>
@@ -117,28 +210,72 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
             for (const row of cycleSymptomRows) {
               for (const key of row.symptoms) tally.set(key, (tally.get(key) ?? 0) + 1);
             }
-            const topSymptoms = Array.from(tally.entries())
-              .sort((a, b) => b[1] - a[1])
-              .slice(0, 3)
-              .map(([key]) => SYMPTOM_LABELS[key] ?? key);
+            const sortedKeys = Array.from(tally.keys()).sort((a, b) => (tally.get(b) ?? 0) - (tally.get(a) ?? 0));
+            const shownSymptoms = sortedKeys.slice(0, 3).map(key => SYMPTOM_LABELS[key] ?? key);
+            const moreCount = sortedKeys.length - shownSymptoms.length;
+            const cycleSegments = predictPhases(parseDateOnly(cycle.start_date), cycle.species).map(p => ({
+              phase: p.phase,
+              days: Math.max(1, Math.round((p.endDate.getTime() - p.startDate.getTime()) / 86400000)),
+            }));
             const expanded = selectedCycleId === cycle.id;
 
             return (
               <View key={cycle.id} style={styles.cycleCardWrapper}>
-                <TouchableOpacity style={styles.cycleCard} onPress={() => selectCycle(cycle.id, cycle.start_date)}>
-                  <Text style={styles.cycleRange}>
-                    {formatLongDate(cycle.start_date)} → {cycle.end_date ? formatLongDate(cycle.end_date) : '—'}
-                  </Text>
-                  <Text style={styles.cycleMeta}>
-                    {durationDays != null ? `${durationDays} days` : ''}
-                    {topSymptoms.length > 0 ? ` · ${topSymptoms.join(', ')}` : ''}
-                  </Text>
-                </TouchableOpacity>
+                <View style={styles.cycleCard}>
+                  <View style={styles.cycleCardTopRow}>
+                    <Text style={styles.cycleRange}>
+                      {formatLongDate(cycle.start_date)} → {cycle.end_date ? formatLongDate(cycle.end_date) : '—'}
+                    </Text>
+                    <View style={styles.completeBadge}>
+                      <Text style={styles.completeBadgeText}>Complete</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.cycleMeta}>{durationDays != null ? `${durationDays} days total` : ''}</Text>
+
+                  <View style={styles.timelineBar}>
+                    {cycleSegments.map((seg, i) => (
+                      <View key={`${seg.phase}-${i}`} style={[styles.timelineSegment, { flex: seg.days, backgroundColor: theme[phaseColorToken(seg.phase)] }]} />
+                    ))}
+                  </View>
+                  <View style={styles.legendRow}>
+                    {cycleSegments.map((seg, i) => (
+                      <View key={`${seg.phase}-legend-${i}`} style={styles.legendItem}>
+                        <View style={[styles.legendDot, { backgroundColor: theme[phaseColorToken(seg.phase)] }]} />
+                        <Text style={styles.legendText}>{phaseLabel(seg.phase)} {seg.days}d</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {shownSymptoms.length > 0 ? (
+                    <>
+                      <Text style={styles.symptomsLabel}>Symptoms logged</Text>
+                      <View style={styles.symptomChipRow}>
+                        {shownSymptoms.map(label => (
+                          <View key={label} style={styles.symptomChip}>
+                            <Text style={styles.symptomChipText}>{label}</Text>
+                          </View>
+                        ))}
+                        {moreCount > 0 ? (
+                          <View style={styles.symptomChip}>
+                            <Text style={styles.symptomChipText}>+{moreCount} more</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    </>
+                  ) : null}
+
+                  <TouchableOpacity onPress={() => toggleCalendar(cycle.id, cycle.start_date)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Text style={styles.dayByDayLink}>{expanded ? 'Hide day-by-day log' : 'View day-by-day log →'}</Text>
+                  </TouchableOpacity>
+                </View>
 
                 {expanded && selectedCycle && viewYear != null && viewMonth != null ? (
                   <View style={styles.calendarCard}>
                     <View style={styles.monthNav}>
                       <Text style={styles.monthLabel}>{MONTH_NAMES[viewMonth]} {viewYear}</Text>
+                      <TouchableOpacity onPress={() => setEditSheetVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Text style={styles.editDatesLink}>Edit dates</Text>
+                      </TouchableOpacity>
                     </View>
                     <View style={styles.weekdayRow}>
                       {DAY_LABELS.map((label, i) => (
@@ -189,6 +326,28 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
                             {selectedEntry.notes ? (
                               <Text style={styles.dayDetailNotes}>{selectedEntry.notes}</Text>
                             ) : null}
+                            <View style={styles.dayDetailActionsRow}>
+                              <TouchableOpacity onPress={() => setSymptomEditVisible(true)}>
+                                <Text style={styles.dayDetailActionText}>Edit</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                onPress={() => {
+                                  Alert.alert('Delete this entry?', 'This removes the symptom log for this day.', [
+                                    { text: 'Cancel', style: 'cancel' },
+                                    {
+                                      text: 'Delete',
+                                      style: 'destructive',
+                                      onPress: async () => {
+                                        await deleteSymptomLog(selectedEntry.id);
+                                        setSelectedDate(null);
+                                      },
+                                    },
+                                  ]);
+                                }}
+                              >
+                                <Text style={[styles.dayDetailActionText, styles.dayDetailActionDelete]}>Delete</Text>
+                              </TouchableOpacity>
+                            </View>
                           </>
                         ) : (
                           <Text style={styles.emptyDayText}>No symptoms logged this day</Text>
@@ -201,7 +360,75 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
             );
           })
         )}
+
+        {cycles.length === 1 ? (
+          <View style={styles.tipCard}>
+            <Text style={styles.tipText}>
+              💡 Did you know? With only 1 cycle recorded, predictions are estimated using{' '}
+              {matchBreedSizeTier(dog.breed) ? 'breed averages' : 'species averages'}. Log more
+              cycles for personalized predictions.
+            </Text>
+          </View>
+        ) : null}
       </ScrollView>
+      <CycleEditSheet
+        visible={editSheetVisible}
+        cycle={selectedCycle}
+        onClose={() => setEditSheetVisible(false)}
+        onSave={async (startDate, endDate, notes) => {
+          if (!selectedCycle) return;
+          const { error } = await updateCycle(selectedCycle.id, {
+            start_date: toDateStr(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()),
+            end_date: toDateStr(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()),
+            notes,
+          });
+          if (!error) setEditSheetVisible(false);
+        }}
+        onDelete={async () => {
+          if (!selectedCycle) return;
+          await deleteCycle(selectedCycle.id);
+          setEditSheetVisible(false);
+          setSelectedCycleId(null);
+        }}
+      />
+      {selectedCycle ? (
+        <SymptomLogSheet
+          visible={symptomEditVisible}
+          species={selectedCycle.species}
+          dogName={dog.name}
+          dayOfCycle={selectedDayOfCycle}
+          initial={selectedEntry}
+          onClose={() => setSymptomEditVisible(false)}
+          onSave={async (syms, intensity, notes) => {
+            if (!selectedDate) return { error: new Error('No day selected') };
+            const { error } = await logSymptoms(
+              selectedCycle.id,
+              dog.id,
+              parseDateOnly(selectedDate),
+              syms,
+              intensity,
+              notes ?? undefined
+            );
+            if (!error) setSymptomEditVisible(false);
+            return { error };
+          }}
+        />
+      ) : null}
+      {activeCycle ? (
+        <SymptomLogSheet
+          visible={todaySymptomSheetVisible}
+          species={activeCycle.species}
+          dogName={dog.name}
+          dayOfCycle={currentPhase?.dayOfCycle ?? null}
+          initial={todaySymptomLog}
+          onClose={() => setTodaySymptomSheetVisible(false)}
+          onSave={async (syms, intensity, notes) => {
+            const { error } = await logSymptoms(activeCycle.id, dog.id, new Date(), syms, intensity, notes ?? undefined);
+            if (!error) setTodaySymptomSheetVisible(false);
+            return { error };
+          }}
+        />
+      ) : null}
     </SwipeBackWrapper>
   );
 }
@@ -237,6 +464,91 @@ function makeStyles(theme: ThemeTokens) {
       fontWeight: '600',
       color: theme.textDark,
     },
+    statStrip: {
+      flexDirection: 'row',
+      gap: 8,
+      marginBottom: 16,
+    },
+    statBox: {
+      flex: 1,
+      backgroundColor: theme.surface,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      borderRadius: 12,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+    statBoxAccent: {
+      borderColor: theme.primary,
+    },
+    statNum: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    statNumAccent: {
+      color: theme.primary,
+    },
+    statLabel: {
+      fontSize: 10,
+      color: theme.textMuted,
+      marginTop: 2,
+      textAlign: 'center',
+    },
+    activeCard: {
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      padding: 16,
+      marginBottom: 16,
+    },
+    activeHeading: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: theme.textDark,
+      marginBottom: 2,
+    },
+    activeSubtext: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginBottom: 12,
+    },
+    timelineBar: {
+      flexDirection: 'row',
+      height: 8,
+      borderRadius: 4,
+      overflow: 'hidden',
+    },
+    timelineSegment: {
+      height: 8,
+    },
+    timelineCaption: {
+      fontSize: 11,
+      color: theme.textMuted,
+      marginTop: 6,
+    },
+    primaryBtn: {
+      backgroundColor: theme.primary,
+      borderRadius: theme.radiiCard,
+      paddingVertical: 12,
+      alignItems: 'center',
+      marginTop: 14,
+    },
+    primaryBtnText: {
+      color: 'white',
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    endCycleRow: {
+      alignItems: 'center',
+      marginTop: 10,
+    },
+    endCycleText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.textMuted,
+    },
     startBtn: {
       backgroundColor: theme.primary,
       borderRadius: theme.radiiCard,
@@ -248,6 +560,14 @@ function makeStyles(theme: ThemeTokens) {
       color: 'white',
       fontSize: 14,
       fontWeight: '700',
+    },
+    sectionLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 8,
     },
     gentleCopy: {
       fontSize: 13,
@@ -266,15 +586,85 @@ function makeStyles(theme: ThemeTokens) {
       borderColor: theme.border,
       padding: 14,
     },
+    cycleCardTopRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+    },
     cycleRange: {
       fontSize: 14,
       fontWeight: '600',
       color: theme.textDark,
       marginBottom: 4,
+      flex: 1,
+      marginRight: 8,
+    },
+    completeBadge: {
+      backgroundColor: theme.primaryLight,
+      borderRadius: 20,
+      paddingHorizontal: 9,
+      paddingVertical: 3,
+    },
+    completeBadgeText: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: theme.primaryDark,
     },
     cycleMeta: {
       fontSize: 12,
       color: theme.textMuted,
+      marginBottom: 10,
+    },
+    legendRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+      marginTop: 8,
+    },
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    legendDot: {
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+    },
+    legendText: {
+      fontSize: 11,
+      color: theme.textMuted,
+    },
+    symptomsLabel: {
+      fontSize: 10,
+      fontWeight: '600',
+      color: theme.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginTop: 12,
+      marginBottom: 6,
+    },
+    symptomChipRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+    },
+    symptomChip: {
+      backgroundColor: theme.moodSelBg,
+      borderRadius: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+    },
+    symptomChipText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    dayByDayLink: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.primary,
+      marginTop: 12,
     },
     calendarCard: {
       backgroundColor: theme.surface,
@@ -285,13 +675,20 @@ function makeStyles(theme: ThemeTokens) {
       marginTop: 8,
     },
     monthNav: {
+      flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
       marginBottom: 12,
     },
     monthLabel: {
       fontSize: 14,
       fontWeight: '700',
       color: theme.textDark,
+    },
+    editDatesLink: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.primary,
     },
     weekdayRow: {
       flexDirection: 'row',
@@ -367,11 +764,35 @@ function makeStyles(theme: ThemeTokens) {
       color: theme.textMuted,
       fontStyle: 'italic',
     },
+    dayDetailActionsRow: {
+      flexDirection: 'row',
+      gap: 16,
+      marginTop: 8,
+    },
+    dayDetailActionText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.primary,
+    },
+    dayDetailActionDelete: {
+      color: theme.allergenText,
+    },
     emptyDayText: {
       textAlign: 'center',
       fontSize: 13,
       color: theme.textMuted,
       paddingVertical: 8,
+    },
+    tipCard: {
+      backgroundColor: theme.moodSelBg,
+      borderRadius: theme.radiiCard,
+      padding: 14,
+      marginTop: 8,
+    },
+    tipText: {
+      fontSize: 12,
+      color: theme.textDark,
+      lineHeight: 18,
     },
   });
 }

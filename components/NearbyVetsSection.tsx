@@ -41,6 +41,7 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
   const { historyByDate } = useMoodHistory(dog?.id ?? null, ALERT_LOOKBACK_DAYS);
   const { vets, userLocation, loading, available } = useHomeVetPreview();
   const [mounted, setMounted] = useState(false);
+  const [mapFailed, setMapFailed] = useState(false);
 
   // Defers the WebView mount (this section's map tile) by one tick past Home's
   // initial commit, so it doesn't mount in the same paint as the whole
@@ -100,17 +101,25 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
         <View style={styles.alertCard}>
           <TouchableOpacity style={styles.mapTile} onPress={onOpenVetFinder} activeOpacity={0.85}>
             <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
-              <WebView
-                originWhitelist={['*']}
-                source={{
-                  html: buildVetMapHtml(userLocation, vets, {
-                    interactive: false,
-                    variant: 'alert',
-                    highlightVetId: nearest.id,
-                  }),
-                }}
-                style={styles.map}
-              />
+              {mapFailed ? (
+                <View style={styles.mapFallback}>
+                  <Text style={styles.mapFallbackIcon}>🗺️</Text>
+                </View>
+              ) : (
+                <WebView
+                  originWhitelist={['*']}
+                  source={{
+                    html: buildVetMapHtml(userLocation, vets, {
+                      interactive: false,
+                      variant: 'alert',
+                      highlightVetId: nearest.id,
+                    }),
+                  }}
+                  style={styles.map}
+                  onError={() => setMapFailed(true)}
+                  onHttpError={() => setMapFailed(true)}
+                />
+              )}
               <View style={styles.mapTintOverlay} />
             </View>
             <View style={styles.openMapBtnAlert}>
@@ -144,11 +153,19 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
       <TouchableOpacity style={styles.normalCard} onPress={onOpenVetFinder} activeOpacity={0.85}>
         <View style={styles.mapTile}>
           <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
-            <WebView
-              originWhitelist={['*']}
-              source={{ html: buildVetMapHtml(userLocation, vets, { interactive: false }) }}
-              style={styles.map}
-            />
+            {mapFailed ? (
+              <View style={styles.mapFallback}>
+                <Text style={styles.mapFallbackIcon}>🗺️</Text>
+              </View>
+            ) : (
+              <WebView
+                originWhitelist={['*']}
+                source={{ html: buildVetMapHtml(userLocation, vets, { interactive: false }) }}
+                style={styles.map}
+                onError={() => setMapFailed(true)}
+                onHttpError={() => setMapFailed(true)}
+              />
+            )}
           </View>
           <View style={styles.nearbyBadge}>
             <Text style={styles.nearbyBadgeText}>
@@ -292,6 +309,16 @@ function makeStyles(theme: ThemeTokens) {
     map: {
       flex: 1,
       backgroundColor: 'transparent',
+    },
+    mapFallback: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.divider,
+    },
+    mapFallbackIcon: {
+      fontSize: 28,
+      opacity: 0.5,
     },
     mapTintOverlay: {
       ...StyleSheet.absoluteFillObject,

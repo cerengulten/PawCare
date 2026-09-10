@@ -15,7 +15,7 @@ function parseDateOnly(s: string): Date {
   return new Date(y, m - 1, day);
 }
 
-export function useCycleTracking(dogId: string | null) {
+export function useCycleTracking(dogId: string | null, breed?: string | null) {
   const [cycles, setCycles] = useState<CycleRecord[]>([]);
   const [symptoms, setSymptoms] = useState<CycleSymptom[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,6 +94,40 @@ export function useCycleTracking(dogId: string | null) {
     return { error };
   }
 
+  async function updateCycle(
+    cycleId: string,
+    updates: { start_date?: string; end_date?: string; notes?: string | null }
+  ) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
+    if (!user) return { error: new Error('Not authenticated') };
+    const { error } = await supabase
+      .from('cycle_records')
+      .update(updates)
+      .eq('id', cycleId)
+      .eq('owner_id', user.id);
+    if (!error) {
+      setCycles(prev => prev.map(c => (c.id === cycleId ? { ...c, ...updates } : c)));
+    }
+    return { error };
+  }
+
+  async function deleteCycle(cycleId: string) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
+    if (!user) return { error: new Error('Not authenticated') };
+    const { error } = await supabase
+      .from('cycle_records')
+      .delete()
+      .eq('id', cycleId)
+      .eq('owner_id', user.id);
+    if (!error) {
+      setCycles(prev => prev.filter(c => c.id !== cycleId));
+      setSymptoms(prev => prev.filter(s => s.cycle_id !== cycleId));
+    }
+    return { error };
+  }
+
   async function logSymptoms(
     cycleId: string,
     dogIdParam: string,
@@ -161,12 +195,14 @@ export function useCycleTracking(dogId: string | null) {
     return predictPhases(parseDateOnly(activeCycle.start_date), activeCycle.species);
   }, [activeCycle]);
 
+  // Predicts the next cycle after the most recent one, whether or not that most recent
+  // cycle is still open — this is what powers both the active-cycle stat row ("Next cycle")
+  // and the between-cycles state, using every recorded cycle's start_date (not just closed
+  // ones) as interval data.
   const nextCycleDate = useMemo(() => {
-    if (activeCycle || !mostRecentCycle) return null;
-    const closedCycles = cycles.filter(c => c.end_date);
-    if (closedCycles.length === 0) return null;
-    return predictNextCycleStart(closedCycles, mostRecentCycle.species);
-  }, [cycles, activeCycle, mostRecentCycle]);
+    if (!mostRecentCycle) return null;
+    return predictNextCycleStart(cycles, mostRecentCycle.species, breed);
+  }, [cycles, mostRecentCycle, breed]);
 
   return {
     cycles,
@@ -176,6 +212,8 @@ export function useCycleTracking(dogId: string | null) {
     activeCycle,
     startCycle,
     endCycle,
+    updateCycle,
+    deleteCycle,
     logSymptoms,
     deleteSymptomLog,
     currentPhase,

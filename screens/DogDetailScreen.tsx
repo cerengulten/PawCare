@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, Image, ScrollView, Alert, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ScrollView, Alert, StyleSheet } from 'react-native';
 import { Dog, Habit, HabitType, DogMood, VaccineRecord, Allergen, HealthLog } from '../types';
 import { useHabits, getHabitTarget } from '../lib/hooks/useHabits';
 import { useVaccines } from '../lib/hooks/useVaccines';
@@ -10,7 +10,6 @@ import { useVomitLogs } from '../lib/hooks/useVomitLogs';
 import { useMealDetails } from '../lib/hooks/useMealDetails';
 import { usePetStreak } from '../lib/hooks/usePetStreak';
 import { useDogs } from '../lib/hooks/useDogs';
-import { useProfile } from '../lib/hooks/useProfile';
 import HabitRow from '../components/HabitRow';
 import WaterIncrementRow from '../components/WaterIncrementRow';
 import MealDetailLink from '../components/MealDetailLink';
@@ -28,20 +27,15 @@ import AllergenFormScreen from './AllergenFormScreen';
 import MoodHistoryScreen from './MoodHistoryScreen';
 import PoopFormScreen from './PoopFormScreen';
 import VomitFormScreen from './VomitFormScreen';
-import SymptomHistoryScreen from './SymptomHistoryScreen';
 import MealHistoryScreen from './MealHistoryScreen';
 import CycleHistoryScreen from './CycleHistoryScreen';
 import HeatCycleSection from '../components/HeatCycleSection';
 import CycleStartSheet from '../components/CycleStartSheet';
-import SymptomLogSheet from '../components/SymptomLogSheet';
 import { useCycleTracking } from '../lib/hooks/useCycleTracking';
 import { mapDogSpeciesToCycleSpecies } from '../lib/cycleLogic';
 import { useTheme } from '../lib/ThemeContext';
 import { ThemeTokens } from '../lib/themes';
 import { computeAge } from '../lib/petAge';
-import { shareHtmlAsPdf } from '../lib/pdfExport';
-import { buildReportHtml } from '../lib/pdfReport';
-import { buildDogInfoRows, buildVaccineReport } from '../lib/reportBuilders';
 
 type Props = {
   dog: Dog;
@@ -50,7 +44,7 @@ type Props = {
   onDelete: () => void;
 };
 
-type Mode = 'detail' | 'habit-quick-add' | 'habit-form' | 'vaccine-list' | 'vaccine-form' | 'history' | 'mood-history' | 'allergen-form' | 'health-list' | 'poop-form' | 'vomit-list' | 'vomit-form' | 'symptom-history' | 'meal-history' | 'cycle-history';
+type Mode = 'detail' | 'habit-quick-add' | 'habit-form' | 'vaccine-list' | 'vaccine-form' | 'history' | 'mood-history' | 'allergen-form' | 'health-list' | 'poop-form' | 'vomit-list' | 'vomit-form' | 'meal-history' | 'cycle-history';
 
 const MOOD_OPTIONS: { value: DogMood['mood']; emoji: string; label: string }[] = [
   { value: 'sleepy', emoji: '😴', label: 'Sleepy' },
@@ -79,12 +73,9 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
   const [editingAllergen, setEditingAllergen] = useState<Allergen | null>(null);
   const [editingLog, setEditingLog] = useState<HealthLog | null>(null);
   const [editingVomitLog, setEditingVomitLog] = useState<HealthLog | null>(null);
-  const [logSource, setLogSource] = useState<'list' | 'history'>('list');
   const [mealDetailHabitId, setMealDetailHabitId] = useState<string | null>(null);
   const [waterSheetHabitId, setWaterSheetHabitId] = useState<string | null>(null);
-  const [exportingVaccines, setExportingVaccines] = useState(false);
   const [cycleStartSheetVisible, setCycleStartSheetVisible] = useState(false);
-  const [symptomLogSheetVisible, setSymptomLogSheetVisible] = useState(false);
 
   const {
     habits,
@@ -106,16 +97,10 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
   const { mealDetails, getMealDetail, addMealDetail, deleteMealDetail } = useMealDetails(dog.id);
   const { mood, setTodayMood } = useDogMood(dog.id);
   const { streak } = usePetStreak(dog.id, habits.map(h => h.id));
-  const { profile } = useProfile();
-  const cycleTracking = useCycleTracking(dog.id);
+  const cycleTracking = useCycleTracking(dog.id, dog.breed);
 
   const cycleSpecies = mapDogSpeciesToCycleSpecies(dog.species);
   const showHeatCycle = dog.sex === 'female' && !dog.is_sterilized && cycleSpecies !== null;
-  const todaySymptomLog = cycleTracking.activeCycle
-    ? cycleTracking.symptoms.find(
-        s => s.cycle_id === cycleTracking.activeCycle!.id && s.logged_date === new Date().toISOString().split('T')[0]
-      ) ?? null
-    : null;
 
   const mealDetailCompletionId = mealDetailHabitId ? completionIds.get(mealDetailHabitId) ?? null : null;
   const mealDetailInitial = mealDetailCompletionId ? getMealDetail(mealDetailCompletionId) ?? null : null;
@@ -148,29 +133,6 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
   if (mode === 'vaccine-list') {
     const allVaccines = [...overdue, ...upcoming];
 
-    const handleExportVaccines = async () => {
-      const report = buildVaccineReport(dog, overdue, upcoming);
-      if (!report) {
-        Alert.alert('No Data', 'No vaccines to export yet.');
-        return;
-      }
-      setExportingVaccines(true);
-      try {
-        const html = buildReportHtml({
-          title: report.title,
-          infoRows: buildDogInfoRows(dog, profile),
-          tableHeaders: report.tableHeaders,
-          tableRowsHtml: report.tableRowsHtml,
-          summaryRows: report.summaryRows,
-        });
-        await shareHtmlAsPdf(report.filename, html);
-      } catch {
-        Alert.alert('Export Failed', 'Could not export vaccine history. Please try again.');
-      } finally {
-        setExportingVaccines(false);
-      }
-    };
-
     return (
       <SwipeBackWrapper onBack={() => setMode('detail')}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -183,17 +145,6 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
             <Text style={styles.listHeaderDogName}>{dog.name}</Text>
             <Text style={styles.title}>Vaccines</Text>
           </View>
-          <TouchableOpacity
-            style={styles.downloadBtn}
-            onPress={handleExportVaccines}
-            disabled={exportingVaccines}
-          >
-            {exportingVaccines ? (
-              <ActivityIndicator size="small" color={theme.primary} />
-            ) : (
-              <Text style={styles.downloadIcon}>⬇</Text>
-            )}
-          </TouchableOpacity>
         </View>
 
         {allVaccines.length === 0 ? (
@@ -313,8 +264,8 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
         addLog={addLog}
         updateLog={updateLog}
         deleteLog={deleteLog}
-        onDone={() => { setMode(logSource === 'history' ? 'symptom-history' : 'health-list'); setEditingLog(null); setLogSource('list'); }}
-        onCancel={() => { setMode(logSource === 'history' ? 'symptom-history' : 'health-list'); setEditingLog(null); setLogSource('list'); }}
+        onDone={() => { setMode('health-list'); setEditingLog(null); }}
+        onCancel={() => { setMode('health-list'); setEditingLog(null); }}
       />
     );
   }
@@ -363,21 +314,8 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
         addLog={addVomitLog}
         updateLog={updateVomitLog}
         deleteLog={deleteVomitLog}
-        onDone={() => { setMode(logSource === 'history' ? 'symptom-history' : 'vomit-list'); setEditingVomitLog(null); setLogSource('list'); }}
-        onCancel={() => { setMode(logSource === 'history' ? 'symptom-history' : 'vomit-list'); setEditingVomitLog(null); setLogSource('list'); }}
-      />
-    );
-  }
-
-  if (mode === 'symptom-history') {
-    return (
-      <SymptomHistoryScreen
-        dog={dog}
-        logs={logs}
-        vomitLogs={vomitLogs}
-        onSelectPoop={(l) => { setLogSource('history'); setEditingLog(l); setMode('poop-form'); }}
-        onSelectVomit={(l) => { setLogSource('history'); setEditingVomitLog(l); setMode('vomit-form'); }}
-        onBack={() => setMode('detail')}
+        onDone={() => { setMode('vomit-list'); setEditingVomitLog(null); }}
+        onCancel={() => { setMode('vomit-list'); setEditingVomitLog(null); }}
       />
     );
   }
@@ -604,7 +542,6 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
           dog={dog}
           tracking={cycleTracking}
           onStartCycle={() => setCycleStartSheetVisible(true)}
-          onLogSymptoms={() => setSymptomLogSheetVisible(true)}
           onViewHistory={() => setMode('cycle-history')}
         />
       ) : null}
@@ -675,13 +612,6 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
 
       <TouchableOpacity
         style={styles.vaccineLink}
-        onPress={() => setMode('symptom-history')}
-      >
-        <Text style={styles.vaccineLinkText}>🕒 Symptom History</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.vaccineLink}
         onPress={() => setMode('vaccine-list')}
       >
         <Text style={styles.vaccineLinkText}>{vaccineLabel}</Text>
@@ -715,29 +645,6 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
         onSave={async (startDate, notes) => {
           await cycleTracking.startCycle(cycleSpecies, startDate, notes ?? undefined);
           setCycleStartSheetVisible(false);
-        }}
-      />
-    ) : null}
-    {cycleSpecies ? (
-      <SymptomLogSheet
-        visible={symptomLogSheetVisible}
-        species={cycleSpecies}
-        dogName={dog.name}
-        dayOfCycle={cycleTracking.currentPhase?.dayOfCycle ?? null}
-        initial={todaySymptomLog}
-        onClose={() => setSymptomLogSheetVisible(false)}
-        onSave={async (syms, intensity, notes) => {
-          if (!cycleTracking.activeCycle) return { error: new Error('No active cycle') };
-          const { error } = await cycleTracking.logSymptoms(
-            cycleTracking.activeCycle.id,
-            dog.id,
-            new Date(),
-            syms,
-            intensity,
-            notes ?? undefined
-          );
-          if (!error) setSymptomLogSheetVisible(false);
-          return { error };
         }}
       />
     ) : null}

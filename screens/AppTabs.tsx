@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -15,7 +16,7 @@ import { useProfile } from '../lib/hooks/useProfile';
 export type RootTabParamList = {
   Home: undefined;
   Pets: { dogId?: string } | undefined;
-  Chat: undefined;
+  Chat: { fromLink?: boolean } | undefined;
   More: { openVetFinder?: boolean } | undefined;
 };
 
@@ -53,6 +54,13 @@ export default function AppTabs({
   selectDog,
 }: Props) {
   const { theme } = useTheme();
+  const [petsResetKey, setPetsResetKey] = useState(0);
+  const [moreResetKey, setMoreResetKey] = useState(0);
+
+  // Tracks the previously-focused tab so ChatScreen's edge-swipe-back gesture can return to
+  // wherever the user actually came from (e.g. Home's "Ask about..." bar), not a fixed tab.
+  const currentTabRef = useRef<keyof RootTabParamList>('Home');
+  const previousTabRef = useRef<keyof RootTabParamList>('Home');
 
   return (
     <SafeAreaProvider>
@@ -64,6 +72,17 @@ export default function AppTabs({
             tabBarActiveTintColor: theme.primary,
             tabBarInactiveTintColor: theme.notStartedText,
             tabBarStyle: { backgroundColor: theme.background, borderTopColor: theme.border },
+          }}
+          screenListeners={{
+            state: (e) => {
+              const state = (e.data as { state?: { routes: { name: string }[]; index: number } }).state;
+              if (!state) return;
+              const activeRoute = state.routes[state.index].name as keyof RootTabParamList;
+              if (activeRoute !== currentTabRef.current) {
+                previousTabRef.current = currentTabRef.current;
+                currentTabRef.current = activeRoute;
+              }
+            },
           }}
         >
           <Tab.Screen
@@ -89,9 +108,15 @@ export default function AppTabs({
             options={{
               tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>🐾</Text>,
             }}
+            listeners={({ navigation }) => ({
+              tabPress: () => {
+                if (navigation.isFocused()) setPetsResetKey(k => k + 1);
+              },
+            })}
           >
             {(props) => (
               <PetsScreen
+                key={petsResetKey}
                 {...props}
                 session={session}
                 dogs={dogs}
@@ -111,7 +136,14 @@ export default function AppTabs({
               tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>💬</Text>,
             }}
           >
-            {(props) => <ChatScreen {...props} dogs={dogs} selectedDogId={selectedDogId} />}
+            {(props) => (
+              <ChatScreen
+                {...props}
+                dogs={dogs}
+                selectedDogId={selectedDogId}
+                onSwipeBack={() => props.navigation.navigate(previousTabRef.current)}
+              />
+            )}
           </Tab.Screen>
 
           <Tab.Screen
@@ -119,8 +151,13 @@ export default function AppTabs({
             options={{
               tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>✨</Text>,
             }}
+            listeners={({ navigation }) => ({
+              tabPress: () => {
+                if (navigation.isFocused()) setMoreResetKey(k => k + 1);
+              },
+            })}
           >
-            {(props) => <MoreScreen {...props} dogs={dogs} profile={profile} />}
+            {(props) => <MoreScreen key={moreResetKey} {...props} dogs={dogs} profile={profile} />}
           </Tab.Screen>
         </Tab.Navigator>
       </NavigationContainer>

@@ -100,7 +100,7 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
         onOpenVetFinder={() => navigation.navigate('More', { openVetFinder: true })}
       />
 
-      <TouchableOpacity style={styles.aiBar} onPress={() => navigation.navigate('Chat')}>
+      <TouchableOpacity style={styles.aiBar} onPress={() => navigation.navigate('Chat', { fromLink: true })}>
         <Text style={styles.aiIcon}>💬</Text>
         <Text style={styles.aiText} numberOfLines={1}>Ask about {activeDogName}'s nutrition...</Text>
         <Text style={styles.chevron}>›</Text>

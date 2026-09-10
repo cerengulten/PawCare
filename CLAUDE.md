@@ -925,6 +925,115 @@ a full manual end-to-end pass, and the `v1.0` commit/tag.
   phase (not one of the 4 named phases) reuses `phaseDiestrus`'s color rather than getting
   a 5th one-off hex. Intensity coloring in `CycleHistoryScreen` reuses existing semantic
   tokens instead of adding new ones: mild → amber, moderate → blue, severe → red.
+- **Follow-up fixes (2026-09-09):** (1) `HeatCycleSection.tsx`'s outer wrapper had no
+  `marginTop` (it inherited none from "Food sensitivities" either, which only has
+  `marginTop:20` like every section — so the two sections sat flush against each other);
+  changed to `marginTop: 20` to match the standard section-spacing convention used
+  throughout `DogDetailScreen.tsx`. (2) Removed the Pets-tab "🕒 Symptom History" entry
+  point entirely (`DogDetailScreen.tsx`'s link row + `'symptom-history'` mode block +
+  the now-unused `logSource` state, which existed only to route poop/vomit form
+  save/cancel back to that screen) — `screens/SymptomHistoryScreen.tsx` itself was **not**
+  deleted, since `lib/reportBuilders.ts` still imports its exported label maps/helpers for
+  the More tab's "All Reports" export; it's just no longer a navigable screen. (3) Removed
+  the individual PDF-export download buttons (and their `handleExport` functions) from
+  `MoodHistoryScreen.tsx`, `MealHistoryScreen.tsx`, and `DogDetailScreen.tsx`'s
+  `'vaccine-list'` mode — all three screens are reachable **only** from the Pets tab, and
+  per product decision, downloadable reports now live exclusively under the More tab's
+  consolidated "Download report" → `ReportPickerScreen.tsx` flow (`lib/reportBuilders.ts`),
+  which was already unaffected by (and independent of) these three inline export paths.
+  Each screen's exported pure helpers/label maps that `reportBuilders.ts` depends on
+  (`MOOD_LABEL`/`MOOD_COLOR`/etc., `mealNameFor`/`amountPillsFor`/etc.) were left intact —
+  only the button JSX, `handleExport`/`handleExportVaccines`, and now-unused local state/
+  imports (`exporting`, `ActivityIndicator`, `buildReportHtml`, `shareHtmlAsPdf`,
+  `useProfile`, `computeAge`) were removed per screen. (4) Added edge-swipe-to-go-back to
+  the Chat tab — `screens/ChatScreen.tsx` now wraps its content in
+  `components/SwipeBackWrapper.tsx` (previously used only for stack-like mode-swap screens,
+  never a bottom tab) with a new required `onSwipeBack` prop. Since tabs are peers, not a
+  stack, "back" means "whichever tab was focused before Chat" — `AppTabs.tsx` tracks this
+  via a `screenListeners: { state }` listener on `Tab.Navigator` updating a
+  `previousTabRef`/`currentTabRef` pair (plain `useRef`s, not state — no re-render needed),
+  and passes `onSwipeBack={() => navigation.navigate(previousTabRef.current)}` to
+  `ChatScreen`. (5) Re-tapping an already-focused tab did nothing before this — most
+  noticeable on More, where drilling into a sub-view (Vet Finder, a report picker, Change
+  Password, etc.) and tapping "More" again left you stuck on that sub-view instead of
+  returning to More's root. Fixed for both **Pets** and **More** (the two tabs with
+  internal mode-swap state) the same way: a `listeners={({ navigation }) => ({ tabPress: ()
+  => { if (navigation.isFocused()) setXResetKey(k => k + 1) } } })}` on each `Tab.Screen`,
+  with `petsResetKey`/`moreResetKey` passed as the screen's `key` prop — remounting the
+  screen is what resets all of its internal `useState` mode-swap flags back to defaults,
+  rather than manually clearing each one (`MoreScreen.tsx` alone has 7:
+  `showNotifPlaceholder`/`reportDog`/`showVetFinder`/`vetFinderFromHome`/
+  `showChangePassword`/`showChangeEmail`/`showDeleteAccount`). Home and Chat weren't given
+  this treatment — neither has internal nested-mode state to reset.
+- **Follow-up fix — Chat swipe-back scoped to link-entry only (2026-09-09):** the swipe-back
+  added above enabled swiping on the Chat tab unconditionally any time it had focus — wrong,
+  since Chat is a peer tab (like Pets/Home/More), not a drill-in screen, so it shouldn't
+  swipe when just sitting on it normally. `RootTabParamList`'s `Chat` route gained
+  `{ fromLink?: boolean }`; `HomeScreen.tsx`'s "Ask about..." bar (the only other call site
+  of `navigate('Chat'...)`) now passes `{ fromLink: true }`. `ChatScreen.tsx` tracks a
+  `swipeEnabled` state via `navigation.addListener('focus', ...)` (not the
+  `useEffect(() => {...}, [route.params?.x])` pattern `PetsScreen`/`MoreScreen` use for
+  their own params — that only reacts to the param *changing*, so it would leave
+  `swipeEnabled` stuck `true` after a later plain tab tap since the param is `undefined`
+  both before and after being cleared): the `focus` listener fires on every visit
+  regardless, sets `swipeEnabled: true` + clears the param when `fromLink` was set,
+  otherwise `false`. The screen's three return branches were collapsed into one `content`
+  variable, conditionally wrapped once in `SwipeBackWrapper` at the end rather than
+  repeating the conditional three times.
+- **Past-cycle editing (2026-09-09):** `HeatCycleSection.tsx` (the main card) stays
+  simple/current-state-only per product decision; `CycleHistoryScreen.tsx` (already the
+  dedicated past-cycle screen) gained edit/delete, previously read-only. `useCycleTracking.ts`
+  gained `updateCycle(cycleId, { start_date?, end_date?, notes? })` and
+  `deleteCycle(cycleId)` (same plain-update/delete-plus-local-state-patch pattern as
+  `endCycle`/`deleteSymptomLog`; `cycle_symptoms` rows cascade-delete via the existing FK,
+  no manual cleanup). New `components/CycleEditSheet.tsx` (modeled on
+  `CycleStartSheet.tsx`, but two date rows instead of one, plus a "Delete cycle" link)
+  opens from an "Edit dates" link inside a cycle's expanded calendar (deliberately not on
+  the card's own tap target, which toggles expand/collapse). The per-day detail panel
+  reuses the already-built `SymptomLogSheet` for editing a past day's entry (pre-filled via
+  its existing `initial` prop — the `(cycle_id, logged_date)` upsert already overwrites a
+  historical day with no hook changes needed) plus a `deleteSymptomLog` "Delete" action with
+  an `Alert.alert` confirm.
+- **Breed-aware next-cycle prediction — reversed into a real feature (2026-09-10):**
+  originally proposed and explicitly declined, then reversed a round later when the user
+  asked for it after all. Dogs only — cat/rabbit/guinea_pig have no comparably documented
+  breed-size cycle variance, so they always use `CYCLE_PARAMS[species].avgIntervalDays`
+  unchanged. New `lib/cycleLogic.ts` keyword-list matching (`matchBreedSizeTier`,
+  `BREED_SIZE_KEYWORDS`/`BREED_SIZE_INTERVAL_DAYS`, 5 tiers toy→giant, 150-300 days),
+  modeled on `lib/themeSuggestion.ts`'s longest-keyword-first matching technique. Only
+  affects `predictNextCycleStart`'s single-cycle **`'estimated'`** fallback branch (an
+  optional 3rd `breed` param) — once 2+ real cycles exist, the dog's own recorded history
+  drives the `'predicted'` branch and breed is ignored entirely. `useCycleTracking.ts`
+  gained a second `breed?: string | null` param (`DogDetailScreen.tsx`'s only call site now
+  passes `dog.breed`); its `nextCycleDate` also changed from "only computed between
+  cycles" to **always computed from every recorded cycle's `start_date`** (open or closed)
+  once any cycle exists — this is what lets the redesigned dashboard tile (next bullet) show
+  a "next cycle" stat even while a cycle is currently active.
+- **Cycle tracking visual redesign (2026-09-10):** two supplied mockups replaced the
+  original card/history designs. `components/HeatCycleSection.tsx`'s active/between-cycles
+  states (3a "no cycle yet" is unchanged) **collapsed into one pure tap-through summary
+  tile** — no inline buttons anymore, the whole card calls `onViewHistory()`. It shows a
+  phase-colored circular icon badge, a phase/day (or "Between cycles") heading + subtext, a
+  slimmer phase-segmented timeline bar with a "▲ Today · Day X of Y" text caption, and a
+  3-box stat row (Next cycle date / days-until-next / cycles logged) — modeled on the
+  `statStrip`/`statBox` pattern already established in `MoodHistoryScreen.tsx`/
+  `MealHistoryScreen.tsx`, not copied pixel-for-pixel from the mockup. "Log today's
+  symptoms" and "End cycle" **moved to `screens/CycleHistoryScreen.tsx`**, in a new
+  active-cycle block shown above "+ Start new cycle" only while a cycle is open (its own
+  phase heading/timeline, plus a new `todaySymptomSheetVisible`-gated `SymptomLogSheet`
+  instance, distinct from the screen's existing past-day-edit sheet). `CycleHistoryScreen`
+  also gained: a matching top 3-box stat row (Cycles logged / Avg duration of closed cycles
+  / Next est., the last one visually accented); each past-cycle card now **always** shows
+  its full summary (previously gated behind a tap-to-expand) — a "Complete" badge, a
+  phase-segmented bar **with a colored-dot legend underneath** (computed via
+  `predictPhases(cycle.start_date, cycle.species)` — modeled phase timing overlaid on the
+  real recorded date range, since actual per-phase boundaries aren't independently logged,
+  only the cycle's overall start/end) — and a symptom-chip summary with a trailing "+N
+  more" chip; only the day-by-day **calendar** is still gated, now behind an explicit "View
+  day-by-day log →" link instead of the old whole-card tap. A new tip card, shown only when
+  exactly 1 cycle is logged, reads "predictions are estimated using breed averages" or
+  "...species averages" depending on whether `matchBreedSizeTier(dog.breed)` actually
+  matched for that dog — not hardcoded to either word.
 
 **Auth implementation details:**
 - `lib/supabase.ts` doesn't set `flowType` -> defaults to `'implicit'`, not `'pkce'` (confirmed from `@supabase/auth-js` source). OAuth redirect returns tokens in the URL **fragment**, not `?code=` — `useGoogleSignIn.ts` uses `setSession()`, not `exchangeCodeForSession()`. Don't switch to PKCE without changing both together.

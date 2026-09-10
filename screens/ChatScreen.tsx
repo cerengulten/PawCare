@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { Dog } from '../types';
+import SwipeBackWrapper from '../components/SwipeBackWrapper';
 import { useAllergens } from '../lib/hooks/useAllergens';
 import { useMealDetails } from '../lib/hooks/useMealDetails';
 import { useMoodHistory } from '../lib/hooks/useMoodHistory';
@@ -27,6 +28,7 @@ import { ThemeTokens } from '../lib/themes';
 type Props = BottomTabScreenProps<RootTabParamList, 'Chat'> & {
   dogs: Dog[];
   selectedDogId: string | null;
+  onSwipeBack: () => void;
 };
 
 const SCOPE_INSTRUCTION = `You are a friendly, careful pet-care assistant inside the Bisco app.
@@ -44,7 +46,7 @@ function buildGreeting(dogName: string): ChatTurn {
   return { role: 'model', text: `Hi! Ask me about ${dogName}'s food, hydration, or symptoms.` };
 }
 
-export default function ChatScreen({ dogs, selectedDogId }: Props) {
+export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigation, route }: Props) {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const activeDog = dogs.find(d => d.id === selectedDogId) ?? dogs[0] ?? null;
@@ -61,6 +63,7 @@ export default function ChatScreen({ dogs, selectedDogId }: Props) {
   );
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [swipeEnabled, setSwipeEnabled] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
   // Tab screens stay mounted in the background (React Navigation doesn't unmount an
@@ -72,27 +75,22 @@ export default function ChatScreen({ dogs, selectedDogId }: Props) {
     if (activeDog) setMessages([buildGreeting(activeDog.name)]);
   }, [activeDog?.id]);
 
-  if (!activeDog) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.center}>
-          <Text style={styles.emptyText}>Add a pet first to start chatting.</Text>
-        </View>
-      </View>
-    );
-  }
-
-  if (!hasGeminiApiKey()) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.center}>
-          <Text style={styles.emptyText}>
-            AI Care Chat isn't set up yet — missing EXPO_PUBLIC_GEMINI_API_KEY.
-          </Text>
-        </View>
-      </View>
-    );
-  }
+  // Swipe-back is only meaningful when Chat was entered via a drill-in link (Home's "Ask
+  // about..." bar) — sitting on the Chat tab normally (like Pets/More/Home) shouldn't swipe.
+  // A plain `useEffect` keyed on `route.params?.fromLink` only reacts to the param
+  // *changing*, so after we clear it below it would never re-fire on a later plain tab
+  // press (param stays `undefined` both before and after) and `swipeEnabled` would stay
+  // stuck `true`. Listening to `focus` instead re-evaluates on every visit, param-driven or not.
+  useEffect(() => {
+    return navigation.addListener('focus', () => {
+      if (route.params?.fromLink) {
+        setSwipeEnabled(true);
+        navigation.setParams({ fromLink: undefined });
+      } else {
+        setSwipeEnabled(false);
+      }
+    });
+  }, [navigation, route.params?.fromLink]);
 
   async function handleSend() {
     const text = input.trim();
@@ -120,59 +118,82 @@ export default function ChatScreen({ dogs, selectedDogId }: Props) {
     }
   }
 
-  return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
-    >
-      <View style={styles.disclaimerBar}>
-        <Text style={styles.disclaimerText}>⚠️ Not a substitute for veterinary care</Text>
+  let content;
+  if (!activeDog) {
+    content = (
+      <View style={styles.container}>
+        <View style={styles.center}>
+          <Text style={styles.emptyText}>Add a pet first to start chatting.</Text>
+        </View>
       </View>
-
-      <ScrollView
-        ref={scrollRef}
-        style={styles.messages}
-        contentContainerStyle={styles.messagesContent}
-        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+    );
+  } else if (!hasGeminiApiKey()) {
+    content = (
+      <View style={styles.container}>
+        <View style={styles.center}>
+          <Text style={styles.emptyText}>
+            AI Care Chat isn't set up yet — missing EXPO_PUBLIC_GEMINI_API_KEY.
+          </Text>
+        </View>
+      </View>
+    );
+  } else {
+    content = (
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
       >
-        {messages.map((m, i) => (
-          <View
-            key={i}
-            style={[styles.bubble, m.role === 'user' ? styles.bubbleUser : styles.bubbleModel]}
-          >
-            <Text style={m.role === 'user' ? styles.bubbleTextUser : styles.bubbleTextModel}>
-              {m.text}
-            </Text>
-          </View>
-        ))}
-        {sending ? (
-          <View style={[styles.bubble, styles.bubbleModel]}>
-            <ActivityIndicator size="small" color={theme.primary} />
-          </View>
-        ) : null}
-      </ScrollView>
+        <View style={styles.disclaimerBar}>
+          <Text style={styles.disclaimerText}>⚠️ Not a substitute for veterinary care</Text>
+        </View>
 
-      <View style={styles.composerRow}>
-        <TextInput
-          style={styles.input}
-          placeholder={`Ask about ${activeDog.name}...`}
-          placeholderTextColor={theme.textMuted}
-          value={input}
-          onChangeText={setInput}
-          multiline
-          editable={!sending}
-        />
-        <TouchableOpacity
-          style={[styles.sendBtn, (sending || !input.trim()) && styles.sendBtnDisabled]}
-          onPress={handleSend}
-          disabled={sending || !input.trim()}
+        <ScrollView
+          ref={scrollRef}
+          style={styles.messages}
+          contentContainerStyle={styles.messagesContent}
+          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
         >
-          <Text style={styles.sendBtnText}>➤</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
-  );
+          {messages.map((m, i) => (
+            <View
+              key={i}
+              style={[styles.bubble, m.role === 'user' ? styles.bubbleUser : styles.bubbleModel]}
+            >
+              <Text style={m.role === 'user' ? styles.bubbleTextUser : styles.bubbleTextModel}>
+                {m.text}
+              </Text>
+            </View>
+          ))}
+          {sending ? (
+            <View style={[styles.bubble, styles.bubbleModel]}>
+              <ActivityIndicator size="small" color={theme.primary} />
+            </View>
+          ) : null}
+        </ScrollView>
+
+        <View style={styles.composerRow}>
+          <TextInput
+            style={styles.input}
+            placeholder={`Ask about ${activeDog.name}...`}
+            placeholderTextColor={theme.textMuted}
+            value={input}
+            onChangeText={setInput}
+            multiline
+            editable={!sending}
+          />
+          <TouchableOpacity
+            style={[styles.sendBtn, (sending || !input.trim()) && styles.sendBtnDisabled]}
+            onPress={handleSend}
+            disabled={sending || !input.trim()}
+          >
+            <Text style={styles.sendBtnText}>➤</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    );
+  }
+
+  return swipeEnabled ? <SwipeBackWrapper onBack={onSwipeBack}>{content}</SwipeBackWrapper> : content;
 }
 
 function makeStyles(theme: ThemeTokens) {

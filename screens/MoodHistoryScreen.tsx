@@ -1,17 +1,15 @@
 import { useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Dog, DogMood } from '../types';
 import { useMoodHistory } from '../lib/hooks/useMoodHistory';
-import { useProfile } from '../lib/hooks/useProfile';
-import { computeAge } from '../lib/petAge';
 import { useTheme } from '../lib/ThemeContext';
 import { ThemeTokens } from '../lib/themes';
-// Report export always renders in the fixed sage_clay palette regardless of the
-// active in-app theme (see lib/reportTheme.ts) — reports are documents, not live UI.
+// MOOD_COLOR below always uses the fixed sage_clay-derived report palette (see
+// lib/reportTheme.ts), not the active in-app theme — it's exported for lib/reportBuilders.ts's
+// PDF report use, which stays fixed regardless of live theme, even though this screen no
+// longer builds its own report here (export moved to the More tab, see CLAUDE.md).
 import { colors as reportColors } from '../lib/reportTheme';
-import { shareHtmlAsPdf } from '../lib/pdfExport';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
-import { buildReportHtml } from '../lib/pdfReport';
 
 type Props = {
   dog: Dog;
@@ -65,8 +63,6 @@ export default function MoodHistoryScreen({ dog, onBack }: Props) {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { historyByDate } = useMoodHistory(dog.id, HISTORY_DAYS);
-  const { profile } = useProfile();
-  const [exporting, setExporting] = useState(false);
 
   const now = new Date();
   const today = now.toISOString().split('T')[0];
@@ -141,85 +137,6 @@ export default function MoodHistoryScreen({ dog, onBack }: Props) {
 
   const hasAnyHistory = historyByDate.size > 0;
 
-  const handleExport = async () => {
-    if (historyByDate.size === 0) {
-      Alert.alert('No Data', 'No mood history to export yet.');
-      return;
-    }
-    setExporting(true);
-    try {
-      const entriesNewestFirst = Array.from(historyByDate.entries())
-        .sort(([a], [b]) => b.localeCompare(a));
-      const dates = entriesNewestFirst.map(([date]) => date);
-      const newestDate = dates[0];
-      const oldestDate = dates[dates.length - 1];
-
-      const totalDaysInPeriod = Math.round(
-        (new Date(newestDate).getTime() - new Date(oldestDate).getTime()) / 86400000
-      ) + 1;
-
-      const moodCounts = new Map<DogMood['mood'], number>();
-      let concerningDays = 0;
-      for (const [, mood] of entriesNewestFirst) {
-        moodCounts.set(mood, (moodCounts.get(mood) ?? 0) + 1);
-        if (mood === 'off' || mood === 'sick') concerningDays += 1;
-      }
-      let mostCommonMood: DogMood['mood'] | null = null;
-      let mostCommonCount = 0;
-      for (const [mood, count] of moodCounts) {
-        if (count > mostCommonCount) { mostCommonMood = mood; mostCommonCount = count; }
-      }
-
-      const sexLabel = dog.sex === 'male' ? 'Male' : dog.sex === 'female' ? 'Female' : 'Unknown';
-      const ageLabel = computeAge(dog.birth_date) || 'Unknown';
-      const weightLabel = dog.weight_kg != null ? `${dog.weight_kg} kg` : 'Unknown';
-      const ownerLabel = `${profile?.full_name ?? 'Unknown'}${profile?.username ? ` (@${profile.username})` : ''}`;
-      const periodLabel = oldestDate === newestDate
-        ? formatLongDate(newestDate)
-        : `${formatLongDate(oldestDate)} – ${formatLongDate(newestDate)}`;
-      const exportedLabel = `${formatLongDate(now.toISOString().split('T')[0])} · Bisco app`;
-
-      const tableRows = entriesNewestFirst.map(([date, mood], i) => `
-        <tr style="background:${i % 2 === 1 ? '#F8FCF6' : '#FFFFFF'};">
-          <td>${formatLongDate(date)}</td>
-          <td>${formatWeekday(date)}</td>
-          <td style="color:${MOOD_COLOR[mood]};font-weight:600;">${MOOD_LABEL[mood]}</td>
-          <td>${MOOD_EMOJI[mood]}</td>
-        </tr>
-      `).join('');
-
-      const html = buildReportHtml({
-        title: '🐾 Bisco — Mood History Report',
-        infoRows: [
-          { key: 'Dog name:', value: dog.name },
-          { key: 'Breed:', value: `${dog.breed ?? 'Unknown'} · ${sexLabel}` },
-          { key: 'Age / Weight:', value: `${ageLabel} · ${weightLabel}` },
-          { key: 'Owner:', value: ownerLabel },
-          { key: 'Period:', value: periodLabel },
-          { key: 'Exported:', value: exportedLabel },
-        ],
-        tableHeaders: ['Date', 'Day', 'Mood', 'Emoji'],
-        tableRowsHtml: tableRows,
-        summaryRows: [
-          { key: 'Most common mood:', value: mostCommonMood ? `${MOOD_LABEL[mostCommonMood]} (${mostCommonCount} days)` : '—' },
-          { key: 'Days logged:', value: `${historyByDate.size} of ${totalDaysInPeriod} days` },
-          { key: 'Concerning days:', value: `${concerningDays}` },
-          { key: 'Generated by:', value: 'Bisco' },
-        ],
-      });
-
-      const newest = new Date(newestDate);
-      const monthAbbrev = newest.toLocaleDateString('en-US', { month: 'short' });
-      const filename = `${dog.name.replace(/\s+/g, '_')}_mood_history_${monthAbbrev}${newest.getFullYear()}.pdf`;
-
-      await shareHtmlAsPdf(filename, html);
-    } catch {
-      Alert.alert('Export Failed', 'Could not export mood history. Please try again.');
-    } finally {
-      setExporting(false);
-    }
-  };
-
   return (
     <SwipeBackWrapper onBack={onBack}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -232,17 +149,6 @@ export default function MoodHistoryScreen({ dog, onBack }: Props) {
           <Text style={styles.headerDogName}>{dog.name}</Text>
           <Text style={styles.title}>Mood History</Text>
         </View>
-        <TouchableOpacity
-          style={styles.downloadBtn}
-          onPress={handleExport}
-          disabled={exporting}
-        >
-          {exporting ? (
-            <ActivityIndicator size="small" color={theme.primary} />
-          ) : (
-            <Text style={styles.downloadIcon}>⬇</Text>
-          )}
-        </TouchableOpacity>
       </View>
 
       {!hasAnyHistory ? (
@@ -386,19 +292,6 @@ function makeStyles(theme: ThemeTokens) {
       fontSize: 20,
       fontWeight: '600',
       color: theme.textDark,
-    },
-    downloadBtn: {
-      width: 34,
-      height: 34,
-      borderRadius: 10,
-      backgroundColor: theme.moodSelBg,
-      borderWidth: 0.5,
-      borderColor: theme.moodSelBorder,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    downloadIcon: {
-      fontSize: 15,
     },
     gentleCopy: {
       fontSize: 13,
