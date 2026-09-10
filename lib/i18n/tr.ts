@@ -683,6 +683,35 @@ const tr: typeof en = {
     yesAddAnother: 'Evet, başka ekle',
     noContinue: 'Hayır, uygulamaya devam et',
   },
+  tour: {
+    stepCounter: '%{step} / %{total}',
+    skip: 'Turu atla',
+    next: 'İleri →',
+    gotIt: 'Anladım ✓',
+    replay: 'Uygulama turunu tekrar oynat',
+    replayDoneTitle: 'Tur sıfırlandı',
+    replayDoneBody: 'Tur sıfırlandı — rehberleri tekrar görmek için sekmeler arasında geçiş yap.',
+    home: {
+      s1Title: 'Evcil hayvanların bir bakışta',
+      s1Body: 'Her evcil hayvanın günlük ilerlemesine ve ruh hâline hızlı bir bakış. Doğrudan o hayvana gitmek için bir karta dokun.',
+      s2Title: 'Serini oluştur',
+      s2Body: 'Serini sürdürmek için her gün en az bir alışkanlığı tamamla. En uzun serin de kaydedilir.',
+    },
+    pets: {
+      s1Title: 'Evcil hayvanların arasında geçiş yap',
+      s1Body: 'Geçiş yapmak için bir evcil hayvanın adına dokun — uygulamayı yeniden açtığında son baktığın hayvan hatırlanır.',
+      s2Title: 'Günlük alışkanlık kaydın',
+      s2Body: 'Tüm geçmişini görmek için bir alışkanlık satırına dokun. Düzenlemek veya silmek için sola kaydır.',
+      s3Title: 'Yeni alışkanlıklar ekle',
+      s3Body: 'Bu evcil hayvan için yeni bir alışkanlık eklemek üzere + simgesine dokun — besleme, yürüyüş, ilaç, vitamin ve daha fazlası.',
+    },
+    more: {
+      s1Title: 'Veteriner ziyaretini kaçırma',
+      s1Body: 'Tüm evcil hayvanların için aşılar ve planlanan etkinlikler, hiçbir şey gözden kaçmasın diye tarihe göre sıralı.',
+      s2Title: 'Daha fazla özellik geliyor',
+      s2Body: 'Yapay zekâ bakım sohbeti ve veteriner bulucu yolda — Bisco için neler planlandığını görmek için bir satıra dokun.',
+    },
+  },
 };
 
 export default tr;

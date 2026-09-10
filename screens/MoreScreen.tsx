@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, Image, ScrollView, StyleSheet } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, Image, ScrollView, Alert, StyleSheet } from 'react-native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { supabase } from '../lib/supabase';
 import { Dog } from '../types';
@@ -18,6 +18,8 @@ import { useT } from '../lib/LanguageContext';
 import { SUPPORTED_LANGS, LANG_LABELS } from '../lib/i18n';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
+import TabTour from '../components/TabTour';
+import { resetAllTours } from '../lib/hooks/useTourState';
 
 type Props = BottomTabScreenProps<RootTabParamList, 'More'> & {
   dogs: ReturnType<typeof useDogs>['dogs'];
@@ -37,6 +39,8 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showChangeEmail, setShowChangeEmail] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const upcomingRef = useRef<View>(null);
+  const comingSoonRef = useRef<View>(null);
 
   useEffect(() => {
     if (route.params?.openVetFinder) {
@@ -148,7 +152,7 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
       </View>
 
       <Text style={styles.sectionTitle}>{t('more.upcoming')}</Text>
-      <View style={styles.card}>
+      <View ref={upcomingRef} collapsable={false} style={styles.card}>
         {allUpcoming.length === 0 ? (
           <Text style={styles.emptyText}>{t('more.noVaccinesTracked')}</Text>
         ) : (
@@ -199,7 +203,7 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
       </View>
 
       <Text style={styles.sectionTitle}>{t('more.comingSoonSection')}</Text>
-      <View style={styles.card}>
+      <View ref={comingSoonRef} collapsable={false} style={styles.card}>
         <View style={[styles.row, styles.rowDisabled]}>
           <View style={styles.iconBox}><Text style={styles.iconText}>💬</Text></View>
           <View style={styles.rowInfo}>
@@ -234,6 +238,20 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
           <View style={styles.iconBox}><Text style={styles.iconText}>🔔</Text></View>
           <View style={styles.rowInfo}>
             <Text style={styles.rowTitle}>{t('settings.notifications')}</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
+        <View style={styles.divider} />
+        <TouchableOpacity
+          style={styles.row}
+          onPress={async () => {
+            await resetAllTours();
+            Alert.alert(t('tour.replayDoneTitle'), t('tour.replayDoneBody'));
+          }}
+        >
+          <View style={styles.iconBox}><Text style={styles.iconText}>🎯</Text></View>
+          <View style={styles.rowInfo}>
+            <Text style={styles.rowTitle}>{t('tour.replay')}</Text>
           </View>
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
@@ -282,6 +300,15 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
       </View>
+
+      <TabTour
+        tab="more"
+        enabled
+        steps={[
+          { targetRef: upcomingRef, position: 'bottom', title: t('tour.more.s1Title'), body: t('tour.more.s1Body') },
+          { targetRef: comingSoonRef, position: 'top', title: t('tour.more.s2Title'), body: t('tour.more.s2Body') },
+        ]}
+      />
     </ScrollView>
   );
 }

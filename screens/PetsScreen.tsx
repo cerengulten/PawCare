@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -7,6 +7,7 @@ import { useSelectedPet } from '../lib/hooks/useSelectedPet';
 import { Dog } from '../types';
 import PetFormScreen from './PetFormScreen';
 import DogDetailScreen from './DogDetailScreen';
+import TabTour from '../components/TabTour';
 import { RootTabParamList } from './AppTabs';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
@@ -42,6 +43,9 @@ export default function PetsScreen({
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [mode, setMode] = useState<'switch' | 'form'>('switch');
   const [editingDog, setEditingDog] = useState<Dog | null>(null);
+  const switcherRef = useRef<View>(null);
+  const habitsSectionRef = useRef<View>(null);
+  const addHabitRef = useRef<View>(null);
 
   useEffect(() => {
     const paramDogId = route.params?.dogId;
@@ -67,7 +71,7 @@ export default function PetsScreen({
 
   return (
     <View style={styles.container}>
-      <View style={styles.switcherRow}>
+      <View ref={switcherRef} collapsable={false} style={styles.switcherRow}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.switcherContent}>
           {dogs.map(d => {
             const active = d.id === selectedDogId;
@@ -105,6 +109,7 @@ export default function PetsScreen({
           updateDog={updateDog}
           onEdit={() => { setEditingDog(selectedDog); setMode('form'); }}
           onDelete={async () => { await deleteDog(selectedDog.id); }}
+          tourRefs={{ habitsSectionRef, addHabitRef }}
         />
       ) : (
         <View style={styles.emptyState}>
@@ -118,6 +123,16 @@ export default function PetsScreen({
           </TouchableOpacity>
         </View>
       )}
+
+      <TabTour
+        tab="pets"
+        enabled={!loading && !!selectedDog}
+        steps={[
+          { targetRef: switcherRef, position: 'bottom', title: t('tour.pets.s1Title'), body: t('tour.pets.s1Body') },
+          { targetRef: habitsSectionRef, position: 'top', title: t('tour.pets.s2Title'), body: t('tour.pets.s2Body') },
+          { targetRef: addHabitRef, position: 'bottom', title: t('tour.pets.s3Title'), body: t('tour.pets.s3Body') },
+        ]}
+      />
     </View>
   );
 }

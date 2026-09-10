@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { RefObject, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, ScrollView, Alert, StyleSheet } from 'react-native';
 import { Dog, Habit, HabitType, DogMood, VaccineRecord, Allergen, HealthLog } from '../types';
 import { useHabits, getHabitTarget } from '../lib/hooks/useHabits';
@@ -43,6 +43,10 @@ type Props = {
   updateDog: ReturnType<typeof useDogs>['updateDog'];
   onEdit: () => void;
   onDelete: () => void;
+  tourRefs?: {
+    habitsSectionRef: RefObject<View | null>;
+    addHabitRef: RefObject<View | null>;
+  };
 };
 
 type Mode = 'detail' | 'habit-quick-add' | 'habit-form' | 'vaccine-list' | 'vaccine-form' | 'history' | 'mood-history' | 'allergen-form' | 'health-list' | 'poop-form' | 'vomit-list' | 'vomit-form' | 'meal-history' | 'cycle-history';
@@ -55,7 +59,7 @@ const MOOD_OPTIONS: { value: DogMood['mood']; emoji: string }[] = [
   { value: 'sick', emoji: '🤒' },
 ];
 
-export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Props) {
+export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tourRefs }: Props) {
   const { theme } = useTheme();
   const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -447,15 +451,17 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
         </View>
       </View>
 
-      <View style={styles.section}>
+      <View ref={tourRefs?.habitsSectionRef} collapsable={false} style={styles.section}>
         <View style={styles.sectionTitleRow}>
           <Text style={styles.sectionTitle}>{t('dogDetail.todaysHabits')}</Text>
-          <TouchableOpacity
-            onPress={() => { setEditingHabit(null); setMode('habit-quick-add'); }}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.addIcon}>+</Text>
-          </TouchableOpacity>
+          <View ref={tourRefs?.addHabitRef} collapsable={false}>
+            <TouchableOpacity
+              onPress={() => { setEditingHabit(null); setMode('habit-quick-add'); }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.addIcon}>+</Text>
+            </TouchableOpacity>
+          </View>
         </View>
         {habits.length === 0 ? (
           <Text style={styles.emptyText}>{t('dogDetail.noHabitsAddOne')}</Text>

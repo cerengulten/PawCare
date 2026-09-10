@@ -682,6 +682,35 @@ const en = {
     yesAddAnother: 'Yes, add another',
     noContinue: 'No, continue to app',
   },
+  tour: {
+    stepCounter: '%{step} of %{total}',
+    skip: 'Skip tour',
+    next: 'Next →',
+    gotIt: 'Got it ✓',
+    replay: 'Replay app tour',
+    replayDoneTitle: 'Tour reset',
+    replayDoneBody: 'Tour reset — switch between tabs to see the guides again.',
+    home: {
+      s1Title: 'Your pets at a glance',
+      s1Body: "Quick overview of every pet's daily progress and mood. Tap any card to jump straight to that pet.",
+      s2Title: 'Build your streak',
+      s2Body: 'Complete at least one habit every day to keep your streak alive. Your longest streak is saved too.',
+    },
+    pets: {
+      s1Title: 'Switch between your pets',
+      s1Body: "Tap any pet's name to switch — your last viewed pet is remembered when you reopen the app.",
+      s2Title: 'Your daily habit log',
+      s2Body: 'Tap a habit row to see its full history. Swipe left on any habit to edit or delete it.',
+      s3Title: 'Add new habits',
+      s3Body: 'Tap + to add a new habit for this pet — feeding, walks, medication, vitamins, and more.',
+    },
+    more: {
+      s1Title: 'Never miss a vet visit',
+      s1Body: 'Vaccines and scheduled events across all your pets, sorted by due date so nothing slips through.',
+      s2Title: 'More features coming',
+      s2Body: "AI care chat and vet finder are on the way — tap any row to see what's planned for Bisco.",
+    },
+  },
 };
 
 export default en;

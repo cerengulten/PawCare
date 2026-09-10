@@ -21,6 +21,30 @@ https://docs.expo.dev/versions/v54.0.0/ before writing Expo-related code — don
 ## Current state
 
 **Done:**
+- **Per-tab first-time tooltip tour (2026-09-10):** one-time guided tour that fires the
+  first time each of the **Home** / **Pets** / **More** tabs is opened, highlighting 2–3
+  key elements per tab with a tooltip card (dark backdrop via four dim bands around the
+  target — no clip-path hole-punch — plus a white 2px ring + `theme.primary` glow).
+  Pure React Native (`Modal` + `Animated`), no library, Expo-Go compatible.
+  `lib/hooks/useTourState.ts` = plain async helpers (not a hook) over AsyncStorage:
+  `hasSeenTour`/`markTourSeen`/`resetAllTours`, keys **`tour_home_done`** /
+  **`tour_pets_done`** / **`tour_more_done`** (string `'true'`, absent = unseen;
+  `hasSeenTour` fails closed on storage error). `components/TourTooltip.tsx` = one
+  presentational step (measures its `targetRef` via `measureInWindow` with a short retry;
+  auto-advances/skips a step whose target never measures — this is how Home's step 2
+  no-ops when the streak pill isn't rendered). `components/TabTour.tsx` = per-tab
+  orchestrator: waits **500 ms after the tab is focused** (`useIsFocused`), checks
+  `hasSeenTour`, walks the steps, calls `markTourSeen` on finish/skip. Tours are
+  independent — skipping one tab doesn't touch the others — and gated on real content
+  (`enabled={dogs.length > 0}` on Home, `!loading && !!selectedDog` on Pets, always on
+  More). Wiring: `HomeScreen.tsx` (refs on pet-summary strip wrapper + streak pill),
+  `PetsScreen.tsx` (ref on switcher row; passes `tourRefs={{ habitsSectionRef,
+  addHabitRef }}` down to `DogDetailScreen.tsx`, which attaches them to the "Today's
+  habits" `styles.section` and a wrapper around the `+` button — optional prop, no-op
+  when absent), `MoreScreen.tsx` (refs on the Upcoming + Coming-soon cards). Copy is
+  i18n'd under the `tour.*` namespace (en/tr/it). **Replay:** More › Settings ›
+  "Replay app tour" calls `resetAllTours()` + an `Alert`; re-visiting each tab
+  re-triggers.
 - **Multi-language support — English / Turkish / Italian (2026-09-10):** app-wide i18n via
   `i18n-js` + `expo-localization`, modeled on the `ThemeContext` pattern. `lib/i18n/`
   (`en.ts` is the source of truth; `tr.ts`/`it.ts` are typed `: typeof en` so any key gap

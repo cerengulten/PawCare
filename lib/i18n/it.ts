@@ -683,6 +683,35 @@ const it: typeof en = {
     yesAddAnother: 'Sì, aggiungine un altro',
     noContinue: "No, continua all'app",
   },
+  tour: {
+    stepCounter: '%{step} di %{total}',
+    skip: 'Salta il tour',
+    next: 'Avanti →',
+    gotIt: 'Ho capito ✓',
+    replay: "Rivedi il tour dell'app",
+    replayDoneTitle: 'Tour reimpostato',
+    replayDoneBody: 'Tour reimpostato — passa da una scheda all\'altra per rivedere le guide.',
+    home: {
+      s1Title: 'I tuoi animali in sintesi',
+      s1Body: "Panoramica rapida dei progressi giornalieri e dell'umore di ogni animale. Tocca una scheda per andare direttamente a quell'animale.",
+      s2Title: 'Costruisci la tua serie',
+      s2Body: 'Completa almeno un\'abitudine ogni giorno per mantenere viva la serie. Viene salvata anche la serie più lunga.',
+    },
+    pets: {
+      s1Title: 'Passa da un animale all\'altro',
+      s1Body: "Tocca il nome di un animale per cambiarlo — l'ultimo animale visualizzato viene ricordato alla riapertura dell'app.",
+      s2Title: 'Il tuo registro delle abitudini',
+      s2Body: 'Tocca la riga di un\'abitudine per vederne la cronologia completa. Scorri verso sinistra per modificarla o eliminarla.',
+      s3Title: 'Aggiungi nuove abitudini',
+      s3Body: 'Tocca + per aggiungere una nuova abitudine per questo animale — pasti, passeggiate, farmaci, vitamine e altro.',
+    },
+    more: {
+      s1Title: 'Non perdere una visita dal veterinario',
+      s1Body: 'Vaccini ed eventi programmati di tutti i tuoi animali, ordinati per data di scadenza così non sfugge nulla.',
+      s2Title: 'Altre funzioni in arrivo',
+      s2Body: "La chat AI e il cerca-veterinario sono in arrivo — tocca una riga per vedere cosa è previsto per Bisco.",
+    },
+  },
 };
 
 export default it;

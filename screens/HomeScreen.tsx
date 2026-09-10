@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useProfile } from '../lib/hooks/useProfile';
@@ -7,6 +7,7 @@ import { useSelectedPet } from '../lib/hooks/useSelectedPet';
 import { useOverallStreak } from '../lib/hooks/useOverallStreak';
 import PetSummaryCard from '../components/PetSummaryCard';
 import NearbyVetsSection from '../components/NearbyVetsSection';
+import TabTour from '../components/TabTour';
 import ProfileScreen from './ProfileScreen';
 import { RootTabParamList } from './AppTabs';
 import { useTheme } from '../lib/ThemeContext';
@@ -30,6 +31,8 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { streak } = useOverallStreak();
   const [showProfile, setShowProfile] = useState(false);
+  const petStripRef = useRef<View>(null);
+  const streakRef = useRef<View>(null);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? t('home.goodMorning') : hour < 18 ? t('home.goodAfternoon') : t('home.goodEvening');
@@ -68,19 +71,21 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
       </View>
 
       {dogs.length > 0 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.strip}>
-          {dogs.map(dog => (
-            <PetSummaryCard
-              key={dog.id}
-              dog={dog}
-              onPress={() => navigation.navigate('Pets', { dogId: dog.id })}
-            />
-          ))}
-        </ScrollView>
+        <View ref={petStripRef} collapsable={false}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.strip}>
+            {dogs.map(dog => (
+              <PetSummaryCard
+                key={dog.id}
+                dog={dog}
+                onPress={() => navigation.navigate('Pets', { dogId: dog.id })}
+              />
+            ))}
+          </ScrollView>
+        </View>
       ) : null}
 
       {streak > 0 ? (
-        <View style={styles.streakPill}>
+        <View ref={streakRef} collapsable={false} style={styles.streakPill}>
           <Text style={styles.streakEmoji}>🔥</Text>
           <View style={styles.streakTextGroup}>
             <Text style={styles.streakTitle}>{t('home.streakTitle', { count: streak })}</Text>
@@ -113,6 +118,15 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
           <Text style={styles.blueChipText}>{t('home.communitySoon')}</Text>
         </View>
       </View>
+
+      <TabTour
+        tab="home"
+        enabled={dogs.length > 0}
+        steps={[
+          { targetRef: petStripRef, position: 'bottom', title: t('tour.home.s1Title'), body: t('tour.home.s1Body') },
+          { targetRef: streakRef, position: 'bottom', title: t('tour.home.s2Title'), body: t('tour.home.s2Body') },
+        ]}
+      />
     </ScrollView>
   );
 }
