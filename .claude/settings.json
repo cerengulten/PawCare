@@ -16,7 +16,20 @@
       "Read(//tmp/**)",
       "Bash(curl -s \"https://cerengulten.github.io/PawCare/auth-bridge/\")",
       "Bash(npx supabase *)",
-      "Bash(git check-ignore *)"
+      "Bash(git check-ignore *)",
+      "Bash(node -e ' *)",
+      "Bash(rm -f .tmp_payload.json)",
+      "Bash(npx tsx -e ' *)",
+      "Bash(npx tsx *)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/i18n-js/package.json'\\).version\\)\")",
+      "Bash(:)",
+      "Bash(grep -rn \">[A-Z][a-z][a-zA-Z ]\\\\{3,\\\\}<\" screens components)",
+      "Bash(grep -oE \"<Text[^>]*>[A-Za-z][^<{]{4,}</Text>\")",
+      "Bash(grep -rnoE \"<Text[^>]*>[^<>{]*[A-Za-z]{4,}[^<>{]*</Text>\" screens components)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(git reset *)",
+      "Bash(git commit -q -m ' *)"
     ]
   },
   "enabledPlugins": {
