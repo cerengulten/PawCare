@@ -27,9 +27,11 @@ https://docs.expo.dev/versions/v54.0.0/ before writing Expo-related code — don
   target — no clip-path hole-punch — plus a white 2px ring + `theme.primary` glow).
   Pure React Native (`Modal` + `Animated`), no library, Expo-Go compatible.
   `lib/hooks/useTourState.ts` = plain async helpers (not a hook) over AsyncStorage:
-  `hasSeenTour`/`markTourSeen`/`resetAllTours`, keys **`tour_home_done`** /
-  **`tour_pets_done`** / **`tour_more_done`** (string `'true'`, absent = unseen;
-  `hasSeenTour` fails closed on storage error). `components/TourTooltip.tsx` = one
+  `hasSeenTour`/`markTourSeen`/`resetAllTours`, keys
+  **`tour_<home|pets|more>_done_<userId>`** (string `'true'`, absent = unseen;
+  `hasSeenTour` fails closed on storage error). Keys are **namespaced by Supabase user
+  id** (`getSession()`) — AsyncStorage is device-level, so without this a second account
+  on the same device would inherit the first's "seen" state and never get the tour. `components/TourTooltip.tsx` = one
   presentational step (measures its `targetRef` via `measureInWindow` with a short retry;
   auto-advances/skips a step whose target never measures — this is how Home's step 2
   no-ops when the streak pill isn't rendered; optional `ensureVisible()` runs first to
