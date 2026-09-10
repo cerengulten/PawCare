@@ -19,9 +19,10 @@ import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import { CycleSpecies } from '../types';
-import { CYCLE_START_TIPS } from '../lib/cycleLogic';
+import { cycleStartTip } from '../lib/cycleLogic';
 
 type Props = {
   visible: boolean;
@@ -42,6 +43,7 @@ function toDateOnlyString(d: Date): string {
 
 export default function CycleStartSheet({ visible, species, onClose, onSave }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [startDate, setStartDate] = useState(new Date());
   const [notes, setNotes] = useState('');
@@ -108,7 +110,7 @@ export default function CycleStartSheet({ visible, species, onClose, onSave }: P
             <View style={styles.handle} />
           </View>
 
-          <Text style={styles.title}>When did the cycle start?</Text>
+          <Text style={styles.title}>{t('cycle.startSheetTitle')}</Text>
 
           {Platform.OS === 'ios' ? (
             <View style={styles.dateFieldRow}>
@@ -132,16 +134,16 @@ export default function CycleStartSheet({ visible, species, onClose, onSave }: P
 
           <TextInput
             style={styles.input}
-            placeholder="Notes (optional)"
+            placeholder={t('tracker.notesOptional')}
             placeholderTextColor={theme.textMuted}
             value={notes}
             onChangeText={setNotes}
           />
 
-          <Text style={styles.tip}>💡 {CYCLE_START_TIPS[species]}</Text>
+          <Text style={styles.tip}>💡 {cycleStartTip(species)}</Text>
 
           <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading}>
-            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>Start tracking</Text>}
+            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>{t('cycle.startSheetButton')}</Text>}
           </TouchableOpacity>
         </Animated.View>
       </KeyboardAvoidingView>

@@ -4,6 +4,8 @@ import { Dog, Habit } from '../types';
 import { getHabitTarget } from '../lib/hooks/useHabits';
 import { useHabitHistory, computeStreak, computeBestStreak } from '../lib/hooks/useHabitHistory';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
+import { monthYearLabel, weekdayLetters } from '../lib/i18n/calendar';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
@@ -23,11 +25,6 @@ const HABIT_TYPE_ICONS: Record<Habit['habit_type'], string> = {
   custom: '📝',
 };
 
-const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
 const HISTORY_DAYS = 90;
 
 function toDateStr(y: number, m: number, d: number): string {
@@ -36,7 +33,9 @@ function toDateStr(y: number, m: number, d: number): string {
 
 export default function HabitHistoryScreen({ habit, dog, onBack }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
+  const DAY_LABELS = weekdayLetters();
   const target = getHabitTarget(habit);
   const { historyByHabit } = useHabitHistory(dog.id, [habit], HISTORY_DAYS);
   const history = historyByHabit.get(habit.id) ?? new Map<string, number>();
@@ -78,7 +77,7 @@ export default function HabitHistoryScreen({ habit, dog, onBack }: Props) {
     <SwipeBackWrapper onBack={onBack}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <TouchableOpacity onPress={onBack} style={styles.backRow}>
-        <Text style={styles.backText}>‹ Back</Text>
+        <Text style={styles.backText}>‹ {t('common.back')}</Text>
       </TouchableOpacity>
 
       <View style={styles.header}>
@@ -90,20 +89,20 @@ export default function HabitHistoryScreen({ habit, dog, onBack }: Props) {
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{habit.frequency === 'daily' ? (streak > 0 ? `🔥${streak}` : '🌱') : '—'}</Text>
-          <Text style={styles.statLabel}>Current streak</Text>
+          <Text style={styles.statLabel}>{t('habitHistory.currentStreak')}</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{habit.frequency === 'daily' ? bestStreak : '—'}</Text>
-          <Text style={styles.statLabel}>Best streak</Text>
+          <Text style={styles.statLabel}>{t('habitHistory.bestStreak')}</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{monthDoneCount}/{monthElapsedDays}</Text>
-          <Text style={styles.statLabel}>This month</Text>
+          <Text style={styles.statLabel}>{t('habitHistory.thisMonth')}</Text>
         </View>
       </View>
 
       {habit.frequency === 'daily' && streak === 0 ? (
-        <Text style={styles.gentleCopy}>No streak yet — every day is a fresh start.</Text>
+        <Text style={styles.gentleCopy}>{t('habitHistory.noStreakYet')}</Text>
       ) : null}
 
       <View style={styles.calendarCard}>
@@ -118,7 +117,7 @@ export default function HabitHistoryScreen({ habit, dog, onBack }: Props) {
           >
             <Text style={[styles.monthNavArrow, !canGoBack && styles.monthNavArrowDisabled]}>‹</Text>
           </TouchableOpacity>
-          <Text style={styles.monthLabel}>{MONTH_NAMES[viewMonth]} {viewYear}</Text>
+          <Text style={styles.monthLabel}>{monthYearLabel(viewYear, viewMonth)}</Text>
           <TouchableOpacity
             onPress={() => {
               if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0); }

@@ -3,8 +3,11 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Dog } from '../types';
 import { useCycleTracking } from '../lib/hooks/useCycleTracking';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
+import { i18n } from '../lib/i18n';
+import { shortDate as i18nShortDate } from '../lib/i18n/calendar';
 import { ThemeTokens } from '../lib/themes';
-import { phaseColorToken, matchBreedSizeTier, CyclePhaseName } from '../lib/cycleLogic';
+import { phaseColorToken, phaseLabel, matchBreedSizeTier } from '../lib/cycleLogic';
 
 function toDateOnlyString(d: Date): string {
   const y = d.getFullYear();
@@ -14,17 +17,13 @@ function toDateOnlyString(d: Date): string {
 }
 
 function shortDate(d: Date): string {
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return i18nShortDate(toDateOnlyString(d));
 }
 
 function daysAway(target: Date): number {
   const now = new Date();
   const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return Math.round((target.getTime() - todayMidnight.getTime()) / (1000 * 60 * 60 * 24));
-}
-
-function phaseLabel(phase: CyclePhaseName): string {
-  return phase.charAt(0).toUpperCase() + phase.slice(1);
 }
 
 type Props = {
@@ -36,6 +35,7 @@ type Props = {
 
 export default function HeatCycleSection({ dog, tracking, onStartCycle, onViewHistory }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { mostRecentCycle, activeCycle, currentPhase, predictedPhases, nextCycleDate, cycles, loading } = tracking;
 
@@ -46,15 +46,15 @@ export default function HeatCycleSection({ dog, tracking, onStartCycle, onViewHi
     return (
       <View style={styles.section}>
         <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>🌸 Heat Cycle</Text>
+          <Text style={styles.sectionTitle}>{t('cycle.sectionTitle')}</Text>
         </View>
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Track {dog.name}'s heat cycle</Text>
+          <Text style={styles.cardTitle}>{t('cycle.trackTitle', { name: dog.name })}</Text>
           <Text style={styles.cardSubtext}>
-            Log when her cycle starts to get phase predictions and reminders for future cycles
+            {t('cycle.trackSubtext')}
           </Text>
           <TouchableOpacity style={styles.primaryLink} onPress={onStartCycle}>
-            <Text style={styles.primaryLinkText}>Start tracking →</Text>
+            <Text style={styles.primaryLinkText}>{t('cycle.startTracking')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -62,13 +62,13 @@ export default function HeatCycleSection({ dog, tracking, onStartCycle, onViewHi
   }
 
   const away = nextCycleDate ? daysAway(nextCycleDate.predictedDate) : null;
-  const awayLabel = away == null ? '—' : away <= 0 ? 'Today' : `${away}d`;
+  const awayLabel = away == null ? '—' : away <= 0 ? t('cycle.today') : `${away}d`;
 
   // 3b/3c: a tap-through summary tile — whole card opens Cycle History, no inline buttons.
   return (
     <View style={styles.section}>
       <View style={styles.sectionTitleRow}>
-        <Text style={styles.sectionTitle}>🌸 Heat Cycle</Text>
+        <Text style={styles.sectionTitle}>{t('cycle.sectionTitle')}</Text>
       </View>
       <TouchableOpacity style={styles.card} onPress={onViewHistory} activeOpacity={0.85}>
         {activeCycle && currentPhase && predictedPhases ? (
@@ -80,15 +80,15 @@ export default function HeatCycleSection({ dog, tracking, onStartCycle, onViewHi
         <View style={styles.statStrip}>
           <View style={styles.statBox}>
             <Text style={styles.statNum}>{nextCycleDate ? shortDate(nextCycleDate.predictedDate) : '—'}</Text>
-            <Text style={styles.statLabel}>Next cycle</Text>
+            <Text style={styles.statLabel}>{t('cycle.nextCycle')}</Text>
           </View>
           <View style={styles.statBox}>
             <Text style={styles.statNum}>{awayLabel}</Text>
-            <Text style={styles.statLabel}>Until next</Text>
+            <Text style={styles.statLabel}>{t('cycle.untilNext')}</Text>
           </View>
           <View style={styles.statBox}>
             <Text style={styles.statNum}>{cycles.length}</Text>
-            <Text style={styles.statLabel}>{cycles.length === 1 ? 'Cycle logged' : 'Cycles logged'}</Text>
+            <Text style={styles.statLabel}>{cycles.length === 1 ? t('cycle.cycleLogged') : t('cycle.cyclesLogged')}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -123,10 +123,10 @@ function ActiveHeader({
         </View>
         <View style={styles.headerTextCol}>
           <Text style={[styles.headerTitle, { color: theme[phaseColorToken(currentPhase.phaseName)] }]}>
-            {phaseLabel(currentPhase.phaseName)} · Day {currentPhase.dayOfPhase}
+            {i18n.t('cycle.phaseDay', { phase: phaseLabel(currentPhase.phaseName), day: currentPhase.dayOfPhase })}
           </Text>
           <Text style={styles.headerSubtext}>
-            Started {shortDate(parseLocalDate(activeCycleStart))} · ends ~{shortDate(currentPhase.phaseEndDate)}
+            {i18n.t('cycle.startedEnds', { start: shortDate(parseLocalDate(activeCycleStart)), end: shortDate(currentPhase.phaseEndDate) })}
           </Text>
         </View>
       </View>
@@ -136,7 +136,7 @@ function ActiveHeader({
           <View key={`${seg.phase}-${i}`} style={[styles.timelineSegment, { flex: seg.days, backgroundColor: theme[phaseColorToken(seg.phase)] }]} />
         ))}
       </View>
-      <Text style={styles.timelineCaption}>▲ Today · Day {currentPhase.dayOfCycle} of {totalDays}</Text>
+      <Text style={styles.timelineCaption}>{i18n.t('cycle.todayCaption', { day: currentPhase.dayOfCycle, total: totalDays })}</Text>
     </>
   );
 }
@@ -155,10 +155,10 @@ function BetweenHeader({
   const confidenceLabel = !nextCycleDate
     ? ''
     : nextCycleDate.confidenceLevel === 'predicted'
-    ? 'Predicted from cycle history'
+    ? i18n.t('cycle.predictedFromHistory')
     : matchBreedSizeTier(dog.breed)
-    ? 'Estimated from breed average'
-    : 'Estimated from species average';
+    ? i18n.t('cycle.estimatedFromBreed')
+    : i18n.t('cycle.estimatedFromSpecies');
 
   return (
     <View style={styles.headerRow}>
@@ -166,7 +166,7 @@ function BetweenHeader({
         <Text style={styles.iconBadgeEmoji}>🌸</Text>
       </View>
       <View style={styles.headerTextCol}>
-        <Text style={styles.headerTitle}>Between cycles</Text>
+        <Text style={styles.headerTitle}>{i18n.t('cycle.betweenCycles')}</Text>
         <Text style={styles.headerSubtext}>{confidenceLabel}</Text>
       </View>
     </View>

@@ -34,6 +34,7 @@ import CycleStartSheet from '../components/CycleStartSheet';
 import { useCycleTracking } from '../lib/hooks/useCycleTracking';
 import { mapDogSpeciesToCycleSpecies } from '../lib/cycleLogic';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import { computeAge } from '../lib/petAge';
 
@@ -46,25 +47,28 @@ type Props = {
 
 type Mode = 'detail' | 'habit-quick-add' | 'habit-form' | 'vaccine-list' | 'vaccine-form' | 'history' | 'mood-history' | 'allergen-form' | 'health-list' | 'poop-form' | 'vomit-list' | 'vomit-form' | 'meal-history' | 'cycle-history';
 
-const MOOD_OPTIONS: { value: DogMood['mood']; emoji: string; label: string }[] = [
-  { value: 'sleepy', emoji: '😴', label: 'Sleepy' },
-  { value: 'off', emoji: '😟', label: 'Off' },
-  { value: 'good', emoji: '😊', label: 'Good' },
-  { value: 'great', emoji: '🤩', label: 'Great' },
-  { value: 'sick', emoji: '🤒', label: 'Sick' },
+const MOOD_OPTIONS: { value: DogMood['mood']; emoji: string }[] = [
+  { value: 'sleepy', emoji: '😴' },
+  { value: 'off', emoji: '😟' },
+  { value: 'good', emoji: '😊' },
+  { value: 'great', emoji: '🤩' },
+  { value: 'sick', emoji: '🤒' },
 ];
-
-function subtitleFor(h: Habit, count: number, target: number, done: boolean): string {
-  if (h.habit_type === 'water') return `${count}/${target} ml`;
-  if (done) return 'Done';
-  if (count > 0) return `${count} of ${target} today`;
-  if (target > 1) return `0 of ${target} today`;
-  return h.reminder_times && h.reminder_times.length > 0 ? `Due at ${h.reminder_times[0]}` : 'Not logged yet';
-}
 
 export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
+
+  const subtitleFor = (h: Habit, count: number, target: number, done: boolean): string => {
+    if (h.habit_type === 'water') return t('dogDetail.mlProgress', { count, target });
+    if (done) return t('dogDetail.doneSubtitle');
+    if (count > 0) return t('dogDetail.countOfTarget', { count, target });
+    if (target > 1) return t('dogDetail.countOfTarget', { count: 0, target });
+    return h.reminder_times && h.reminder_times.length > 0
+      ? t('dogDetail.dueAt', { time: h.reminder_times[0] })
+      : t('dogDetail.notLoggedYet');
+  };
   const [mode, setMode] = useState<Mode>('detail');
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [presetType, setPresetType] = useState<HabitType | undefined>(undefined);
@@ -108,6 +112,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
   if (mode === 'habit-quick-add') {
     return (
       <HabitQuickAddScreen
+        existingTypes={habits.map(h => h.habit_type)}
         onSelect={(type) => { setPresetType(type); setMode('habit-form'); }}
         onCancel={() => setMode('detail')}
       />
@@ -119,6 +124,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
       <HabitFormScreen
         habit={editingHabit}
         presetType={presetType}
+        existingHabits={habits}
         weightKg={dog.weight_kg}
         feedingWetDryRatio={habits.find(h => h.habit_type === 'feeding')?.wet_dry_ratio ?? null}
         addHabit={addHabit}
@@ -137,18 +143,18 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
       <SwipeBackWrapper onBack={() => setMode('detail')}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <TouchableOpacity onPress={() => setMode('detail')} style={styles.backRow}>
-          <Text style={styles.backText}>‹ Back</Text>
+          <Text style={styles.backText}>‹ {t('common.back')}</Text>
         </TouchableOpacity>
 
         <View style={styles.listHeader}>
           <View style={styles.listHeaderLeft}>
             <Text style={styles.listHeaderDogName}>{dog.name}</Text>
-            <Text style={styles.title}>Vaccines</Text>
+            <Text style={styles.title}>{t('dogDetail.vaccines')}</Text>
           </View>
         </View>
 
         {allVaccines.length === 0 ? (
-          <Text style={styles.emptyText}>No vaccines tracked yet.</Text>
+          <Text style={styles.emptyText}>{t('dogDetail.noVaccinesTracked')}</Text>
         ) : (
           <View style={styles.card}>
             {allVaccines.map((v, idx) => (
@@ -168,7 +174,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
           style={styles.vaccineLink}
           onPress={() => { setEditingVaccine(null); setMode('vaccine-form'); }}
         >
-          <Text style={styles.vaccineLinkText}>+ Add vaccine</Text>
+          <Text style={styles.vaccineLinkText}>{t('dogDetail.addVaccine')}</Text>
         </TouchableOpacity>
       </ScrollView>
       </SwipeBackWrapper>
@@ -225,13 +231,13 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
       <SwipeBackWrapper onBack={() => setMode('detail')}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <TouchableOpacity onPress={() => setMode('detail')} style={styles.backRow}>
-          <Text style={styles.backText}>‹ Back</Text>
+          <Text style={styles.backText}>‹ {t('common.back')}</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Poop Tracker</Text>
+        <Text style={styles.title}>{t('dogDetail.poopTracker')}</Text>
         <Text style={styles.subtitle}>{dog.name}</Text>
 
         {logs.length === 0 ? (
-          <Text style={styles.emptyText}>No Poop Logged Yet.</Text>
+          <Text style={styles.emptyText}>{t('dogDetail.noPoopYet')}</Text>
         ) : (
           <View style={styles.card}>
             {logs.map((l, idx) => (
@@ -250,7 +256,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
           style={styles.vaccineLink}
           onPress={() => { setEditingLog(null); setMode('poop-form'); }}
         >
-          <Text style={styles.vaccineLinkText}>+ Add</Text>
+          <Text style={styles.vaccineLinkText}>{t('common.add')}</Text>
         </TouchableOpacity>
       </ScrollView>
       </SwipeBackWrapper>
@@ -275,13 +281,13 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
       <SwipeBackWrapper onBack={() => setMode('detail')}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <TouchableOpacity onPress={() => setMode('detail')} style={styles.backRow}>
-          <Text style={styles.backText}>‹ Back</Text>
+          <Text style={styles.backText}>‹ {t('common.back')}</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Vomit Tracker</Text>
+        <Text style={styles.title}>{t('dogDetail.vomitTracker')}</Text>
         <Text style={styles.subtitle}>{dog.name}</Text>
 
         {vomitLogs.length === 0 ? (
-          <Text style={styles.emptyText}>No Vomit Logged Yet.</Text>
+          <Text style={styles.emptyText}>{t('dogDetail.noVomitYet')}</Text>
         ) : (
           <View style={styles.card}>
             {vomitLogs.map((l, idx) => (
@@ -300,7 +306,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
           style={styles.vaccineLink}
           onPress={() => { setEditingVomitLog(null); setMode('vomit-form'); }}
         >
-          <Text style={styles.vaccineLinkText}>+ Add</Text>
+          <Text style={styles.vaccineLinkText}>{t('common.add')}</Text>
         </TouchableOpacity>
       </ScrollView>
       </SwipeBackWrapper>
@@ -343,18 +349,18 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
     );
   }
 
-  const sexLabel = dog.sex === 'male' ? 'Male' : dog.sex === 'female' ? 'Female' : null;
+  const sexLabel = dog.sex === 'male' ? t('dogDetail.male') : dog.sex === 'female' ? t('dogDetail.female') : null;
   const sterilizedLabel = dog.sex === 'male'
-    ? (dog.is_sterilized ? 'Neutered' : 'Not neutered')
-    : (dog.is_sterilized ? 'Sterilized' : 'Not sterilized');
+    ? (dog.is_sterilized ? t('dogDetail.neutered') : t('dogDetail.notNeutered'))
+    : (dog.is_sterilized ? t('dogDetail.sterilized') : t('dogDetail.notSterilized'));
   const age = computeAge(dog.birth_date);
   const metaLine = [dog.species, dog.breed, sexLabel, sterilizedLabel, age].filter(Boolean).join(' · ');
   const vaccineCount = overdue.length + upcoming.length;
   const vaccineLabel = overdue.length > 0
-    ? `🩺 Vaccines · ${overdue.length} overdue`
+    ? t('dogDetail.vaccinesOverdue', { count: overdue.length })
     : vaccineCount > 0
-    ? `🩺 Vaccines · ${vaccineCount} upcoming`
-    : '＋ Add vaccine';
+    ? t('dogDetail.vaccinesUpcoming', { count: vaccineCount })
+    : t('dogDetail.addVaccineShort');
 
   return (
     <>
@@ -373,7 +379,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
         </View>
         {streak > 0 ? (
           <View style={styles.streakChip}>
-            <Text style={styles.streakChipText}>🔥 {streak} days</Text>
+            <Text style={styles.streakChipText}>{t('dogDetail.streakDays', { count: streak })}</Text>
           </View>
         ) : null}
       </View>
@@ -381,42 +387,42 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
       <View style={styles.statStrip}>
         <View style={styles.statCell}>
           <Text style={styles.statValue}>{dog.weight_kg != null ? `${dog.weight_kg}kg` : '—'}</Text>
-          <Text style={styles.statLabel}>Weight</Text>
+          <Text style={styles.statLabel}>{t('dogDetail.weight')}</Text>
         </View>
         <View style={[styles.statCell, styles.statCellBorder]}>
           <Text style={styles.statValue}>{completedToday.size}/{habits.length}</Text>
-          <Text style={styles.statLabel}>Today</Text>
+          <Text style={styles.statLabel}>{t('dogDetail.today')}</Text>
         </View>
         <View style={styles.statCell}>
           <Text style={styles.statValue}>{habits.length}</Text>
-          <Text style={styles.statLabel}>Habits</Text>
+          <Text style={styles.statLabel}>{t('dogDetail.habits')}</Text>
         </View>
       </View>
 
       <View style={styles.headerButtons}>
         <TouchableOpacity style={styles.editButton} onPress={onEdit}>
-          <Text style={styles.editButtonText}>Edit pet</Text>
+          <Text style={styles.editButtonText}>{t('dogDetail.editPet')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.deleteButton}
           onPress={() => {
             Alert.alert(
-              'Delete pet?',
-              `This permanently deletes ${dog.name} and all of their habits, vaccine records, and poop/vomit tracker entries.`,
+              t('dogDetail.deletePetTitle'),
+              t('dogDetail.deletePetMessage', { name: dog.name }),
               [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Delete', style: 'destructive', onPress: onDelete },
+                { text: t('common.cancel'), style: 'cancel' },
+                { text: t('common.delete'), style: 'destructive', onPress: onDelete },
               ]
             );
           }}
         >
-          <Text style={styles.deleteButtonText}>Delete pet</Text>
+          <Text style={styles.deleteButtonText}>{t('dogDetail.deletePet')}</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.card}>
         <View style={styles.moodLabelRow}>
-          <Text style={styles.moodLabel}>How is {dog.name} today?</Text>
+          <Text style={styles.moodLabel}>{t('mood.question', { name: dog.name })}</Text>
           <TouchableOpacity
             onPress={() => setMode('mood-history')}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -434,7 +440,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
                 onPress={() => setTodayMood(opt.value)}
               >
                 <Text style={styles.moodEmoji}>{opt.emoji}</Text>
-                <Text style={styles.moodBtnLabel}>{opt.label}</Text>
+                <Text style={styles.moodBtnLabel}>{t('mood.' + opt.value)}</Text>
               </TouchableOpacity>
             );
           })}
@@ -443,7 +449,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
 
       <View style={styles.section}>
         <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>Today's habits</Text>
+          <Text style={styles.sectionTitle}>{t('dogDetail.todaysHabits')}</Text>
           <TouchableOpacity
             onPress={() => { setEditingHabit(null); setMode('habit-quick-add'); }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -452,7 +458,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
           </TouchableOpacity>
         </View>
         {habits.length === 0 ? (
-          <Text style={styles.emptyText}>No habits yet. Add one!</Text>
+          <Text style={styles.emptyText}>{t('dogDetail.noHabitsAddOne')}</Text>
         ) : (
           <View style={styles.card}>
             {habits.map((h, idx) => {
@@ -506,18 +512,18 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
           style={styles.vaccineLink}
           onPress={() => setMode('meal-history')}
         >
-          <Text style={styles.vaccineLinkText}>Meal history →</Text>
+          <Text style={styles.vaccineLinkText}>{t('dogDetail.mealHistory')}</Text>
         </TouchableOpacity>
       ) : null}
 
       <View style={styles.section}>
         <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>Food sensitivities</Text>
+          <Text style={styles.sectionTitle}>{t('dogDetail.foodSensitivities')}</Text>
           <TouchableOpacity
             style={styles.addChip}
             onPress={() => { setEditingAllergen(null); setMode('allergen-form'); }}
           >
-            <Text style={styles.addChipText}>＋ Add</Text>
+            <Text style={styles.addChipText}>{t('dogDetail.addShort')}</Text>
           </TouchableOpacity>
         </View>
         {allergens.length > 0 ? (
@@ -533,7 +539,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
             ))}
           </View>
         ) : (
-          <Text style={styles.emptyText}>No known sensitivities.</Text>
+          <Text style={styles.emptyText}>{t('dogDetail.noSensitivities')}</Text>
         )}
       </View>
 
@@ -548,12 +554,12 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
 
       <View style={styles.section}>
         <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>Poop Tracker</Text>
+          <Text style={styles.sectionTitle}>{t('dogDetail.poopTracker')}</Text>
           <TouchableOpacity
             style={styles.addChip}
             onPress={() => { setEditingLog(null); setMode('poop-form'); }}
           >
-            <Text style={styles.addChipText}>＋ Add</Text>
+            <Text style={styles.addChipText}>{t('dogDetail.addShort')}</Text>
           </TouchableOpacity>
         </View>
         {logs.length > 0 ? (
@@ -569,23 +575,23 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
             ))}
           </View>
         ) : (
-          <Text style={styles.emptyText}>No Poop Logged Yet.</Text>
+          <Text style={styles.emptyText}>{t('dogDetail.noPoopYet')}</Text>
         )}
         {logs.length > 3 ? (
           <TouchableOpacity onPress={() => setMode('health-list')} style={styles.seeAllRow}>
-            <Text style={styles.backText}>See all →</Text>
+            <Text style={styles.backText}>{t('common.seeAll')} →</Text>
           </TouchableOpacity>
         ) : null}
       </View>
 
       <View style={styles.section}>
         <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>Vomit Tracker</Text>
+          <Text style={styles.sectionTitle}>{t('dogDetail.vomitTracker')}</Text>
           <TouchableOpacity
             style={styles.addChip}
             onPress={() => { setEditingVomitLog(null); setMode('vomit-form'); }}
           >
-            <Text style={styles.addChipText}>＋ Add</Text>
+            <Text style={styles.addChipText}>{t('dogDetail.addShort')}</Text>
           </TouchableOpacity>
         </View>
         {vomitLogs.length > 0 ? (
@@ -601,11 +607,11 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
             ))}
           </View>
         ) : (
-          <Text style={styles.emptyText}>No Vomit Logged Yet.</Text>
+          <Text style={styles.emptyText}>{t('dogDetail.noVomitYet')}</Text>
         )}
         {vomitLogs.length > 3 ? (
           <TouchableOpacity onPress={() => setMode('vomit-list')} style={styles.seeAllRow}>
-            <Text style={styles.backText}>See all →</Text>
+            <Text style={styles.backText}>{t('common.seeAll')} →</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -622,7 +628,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete }: Pr
       initial={mealDetailInitial}
       onClose={() => setMealDetailHabitId(null)}
       onSave={async (details) => {
-        if (!mealDetailCompletionId) return { error: new Error('No completion found for this habit today') };
+        if (!mealDetailCompletionId) return { error: new Error(t('dogDetail.noCompletionFound')) };
         const { error } = await addMealDetail(mealDetailCompletionId, dog.id, details);
         if (!error) setMealDetailHabitId(null);
         return { error };

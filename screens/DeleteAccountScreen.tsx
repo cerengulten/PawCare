@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
@@ -24,6 +25,7 @@ const CONFIRM_WORD = 'DELETE';
 
 export default function DeleteAccountScreen({ onCancel }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [confirmText, setConfirmText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -31,7 +33,7 @@ export default function DeleteAccountScreen({ onCancel }: Props) {
 
   async function handleDelete() {
     if (confirmText.trim().toUpperCase() !== CONFIRM_WORD) {
-      setError(`Type ${CONFIRM_WORD} to confirm.`);
+      setError(t('deleteAccount.typeToConfirmError', { word: CONFIRM_WORD }));
       return;
     }
 
@@ -57,18 +59,17 @@ export default function DeleteAccountScreen({ onCancel }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Delete account</Text>
+        <Text style={styles.title}>{t('deleteAccount.title')}</Text>
 
         <View style={styles.warningCard}>
           <Text style={styles.warningText}>
-            This permanently deletes your account, all of your pets, and every habit, mood,
-            symptom, vaccine, and meal log attached to them. This cannot be undone.
+            {t('deleteAccount.warning')}
           </Text>
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Text style={styles.sectionLabel}>Type {CONFIRM_WORD} to confirm</Text>
+        <Text style={styles.sectionLabel}>{t('deleteAccount.typeToConfirm', { word: CONFIRM_WORD })}</Text>
         <TextInput
           style={styles.input}
           placeholder={CONFIRM_WORD}
@@ -82,12 +83,12 @@ export default function DeleteAccountScreen({ onCancel }: Props) {
           {loading ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text style={styles.deleteButtonText}>Permanently delete my account</Text>
+            <Text style={styles.deleteButtonText}>{t('deleteAccount.confirmButton')}</Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
-          <Text style={styles.switchLink}>Cancel</Text>
+          <Text style={styles.switchLink}>{t('common.cancel')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>

@@ -3,8 +3,10 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'rea
 import { Dog, CycleIntensity } from '../types';
 import { useCycleTracking } from '../lib/hooks/useCycleTracking';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
+import { monthYearLabel, weekdayLetters, longDate as i18nLongDate, shortDate as i18nShortDate } from '../lib/i18n/calendar';
 import { ThemeTokens } from '../lib/themes';
-import { SYMPTOM_LABELS, predictPhases, phaseColorToken, matchBreedSizeTier, CyclePhaseName } from '../lib/cycleLogic';
+import { symptomLabel, phaseLabel, predictPhases, phaseColorToken, matchBreedSizeTier } from '../lib/cycleLogic';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 import CycleEditSheet from '../components/CycleEditSheet';
 import SymptomLogSheet from '../components/SymptomLogSheet';
@@ -16,12 +18,6 @@ type Props = {
   onStartCycle: () => void;
 };
 
-const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
-
 function toDateStr(y: number, m: number, d: number): string {
   return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
@@ -32,15 +28,11 @@ function parseDateOnly(s: string): Date {
 }
 
 function formatLongDate(dateStr: string): string {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return i18nLongDate(dateStr);
 }
 
 function shortDate(d: Date): string {
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function phaseLabel(phase: CyclePhaseName): string {
-  return phase.charAt(0).toUpperCase() + phase.slice(1);
+  return i18nShortDate(toDateStr(d.getFullYear(), d.getMonth(), d.getDate()));
 }
 
 function intensityBg(theme: ThemeTokens, intensity: CycleIntensity | null): { bg: string; text: string } {
@@ -52,7 +44,9 @@ function intensityBg(theme: ThemeTokens, intensity: CycleIntensity | null): { bg
 
 export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
+  const DAY_LABELS = weekdayLetters();
   const {
     cycles, symptoms, activeCycle, currentPhase, predictedPhases, nextCycleDate,
     updateCycle, deleteCycle, endCycle, logSymptoms, deleteSymptomLog,
@@ -125,9 +119,9 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
 
   function handleEndCycle() {
     if (!activeCycle) return;
-    Alert.alert('End cycle?', `This marks ${dog.name}'s current cycle as finished today.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'End cycle', style: 'destructive', onPress: () => endCycle(activeCycle.id, new Date()) },
+    Alert.alert(t('cycle.endCycleTitle'), t('cycle.endCycleMessage', { name: dog.name }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('cycle.endCycle'), style: 'destructive', onPress: () => endCycle(activeCycle.id, new Date()) },
     ]);
   }
 
@@ -143,63 +137,63 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
     <SwipeBackWrapper onBack={onBack}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <TouchableOpacity onPress={onBack} style={styles.backRow}>
-          <Text style={styles.backText}>‹ Back</Text>
+          <Text style={styles.backText}>‹ {t('common.back')}</Text>
         </TouchableOpacity>
 
         <View style={styles.header}>
           <Text style={styles.headerDogName}>{dog.name}</Text>
-          <Text style={styles.title}>Cycle History</Text>
+          <Text style={styles.title}>{t('cycle.historyTitle')}</Text>
         </View>
 
         <View style={styles.statStrip}>
           <View style={styles.statBox}>
             <Text style={styles.statNum}>{cycles.length}</Text>
-            <Text style={styles.statLabel}>{cycles.length === 1 ? 'Cycle logged' : 'Cycles logged'}</Text>
+            <Text style={styles.statLabel}>{cycles.length === 1 ? t('cycle.cycleLogged') : t('cycle.cyclesLogged')}</Text>
           </View>
           <View style={styles.statBox}>
             <Text style={styles.statNum}>{avgDurationDays != null ? `${avgDurationDays}d` : '—'}</Text>
-            <Text style={styles.statLabel}>Avg duration</Text>
+            <Text style={styles.statLabel}>{t('cycle.avgDuration')}</Text>
           </View>
           <View style={[styles.statBox, styles.statBoxAccent]}>
             <Text style={[styles.statNum, styles.statNumAccent]}>{nextCycleDate ? shortDate(nextCycleDate.predictedDate) : '—'}</Text>
-            <Text style={styles.statLabel}>Next est.</Text>
+            <Text style={styles.statLabel}>{t('cycle.nextEst')}</Text>
           </View>
         </View>
 
         {activeCycle && currentPhase && predictedPhases ? (
           <View style={styles.activeCard}>
             <Text style={styles.activeHeading}>
-              {phaseLabel(currentPhase.phaseName)} · Day {currentPhase.dayOfPhase}
+              {t('cycle.phaseDay', { phase: phaseLabel(currentPhase.phaseName), day: currentPhase.dayOfPhase })}
             </Text>
             <Text style={styles.activeSubtext}>
-              Started {formatLongDate(activeCycle.start_date)} · ends ~{shortDate(currentPhase.phaseEndDate)}
+              {t('cycle.startedEnds', { start: formatLongDate(activeCycle.start_date), end: shortDate(currentPhase.phaseEndDate) })}
             </Text>
             <View style={styles.timelineBar}>
               {activeSegments.map((seg, i) => (
                 <View key={`${seg.phase}-${i}`} style={[styles.timelineSegment, { flex: seg.days, backgroundColor: theme[phaseColorToken(seg.phase)] }]} />
               ))}
             </View>
-            <Text style={styles.timelineCaption}>▲ Today · Day {currentPhase.dayOfCycle} of {activeTotalDays}</Text>
+            <Text style={styles.timelineCaption}>{t('cycle.todayCaption', { day: currentPhase.dayOfCycle, total: activeTotalDays })}</Text>
 
             <TouchableOpacity style={styles.primaryBtn} onPress={() => setTodaySymptomSheetVisible(true)}>
-              <Text style={styles.primaryBtnText}>Log today's symptoms</Text>
+              <Text style={styles.primaryBtnText}>{t('cycle.logTodaySymptoms')}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={handleEndCycle} style={styles.endCycleRow}>
-              <Text style={styles.endCycleText}>End cycle</Text>
+              <Text style={styles.endCycleText}>{t('cycle.endCycle')}</Text>
             </TouchableOpacity>
           </View>
         ) : null}
 
         {!activeCycle ? (
           <TouchableOpacity style={styles.startBtn} onPress={onStartCycle}>
-            <Text style={styles.startBtnText}>+ Start new cycle</Text>
+            <Text style={styles.startBtnText}>{t('cycle.startNewCycle')}</Text>
           </TouchableOpacity>
         ) : null}
 
-        <Text style={styles.sectionLabel}>Past cycles</Text>
+        <Text style={styles.sectionLabel}>{t('cycle.pastCycles')}</Text>
 
         {closedCycles.length === 0 ? (
-          <Text style={styles.gentleCopy}>No completed cycles yet.</Text>
+          <Text style={styles.gentleCopy}>{t('cycle.noCompletedCycles')}</Text>
         ) : (
           closedCycles.map(cycle => {
             const durationDays = cycle.end_date
@@ -211,7 +205,7 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
               for (const key of row.symptoms) tally.set(key, (tally.get(key) ?? 0) + 1);
             }
             const sortedKeys = Array.from(tally.keys()).sort((a, b) => (tally.get(b) ?? 0) - (tally.get(a) ?? 0));
-            const shownSymptoms = sortedKeys.slice(0, 3).map(key => SYMPTOM_LABELS[key] ?? key);
+            const shownSymptoms = sortedKeys.slice(0, 3).map(key => symptomLabel(key));
             const moreCount = sortedKeys.length - shownSymptoms.length;
             const cycleSegments = predictPhases(parseDateOnly(cycle.start_date), cycle.species).map(p => ({
               phase: p.phase,
@@ -227,10 +221,10 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
                       {formatLongDate(cycle.start_date)} → {cycle.end_date ? formatLongDate(cycle.end_date) : '—'}
                     </Text>
                     <View style={styles.completeBadge}>
-                      <Text style={styles.completeBadgeText}>Complete</Text>
+                      <Text style={styles.completeBadgeText}>{t('cycle.complete')}</Text>
                     </View>
                   </View>
-                  <Text style={styles.cycleMeta}>{durationDays != null ? `${durationDays} days total` : ''}</Text>
+                  <Text style={styles.cycleMeta}>{durationDays != null ? t('cycle.daysTotal', { count: durationDays }) : ''}</Text>
 
                   <View style={styles.timelineBar}>
                     {cycleSegments.map((seg, i) => (
@@ -241,14 +235,14 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
                     {cycleSegments.map((seg, i) => (
                       <View key={`${seg.phase}-legend-${i}`} style={styles.legendItem}>
                         <View style={[styles.legendDot, { backgroundColor: theme[phaseColorToken(seg.phase)] }]} />
-                        <Text style={styles.legendText}>{phaseLabel(seg.phase)} {seg.days}d</Text>
+                        <Text style={styles.legendText}>{t('cycle.phaseDays', { phase: phaseLabel(seg.phase), days: seg.days })}</Text>
                       </View>
                     ))}
                   </View>
 
                   {shownSymptoms.length > 0 ? (
                     <>
-                      <Text style={styles.symptomsLabel}>Symptoms logged</Text>
+                      <Text style={styles.symptomsLabel}>{t('cycle.symptomsLogged')}</Text>
                       <View style={styles.symptomChipRow}>
                         {shownSymptoms.map(label => (
                           <View key={label} style={styles.symptomChip}>
@@ -257,7 +251,7 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
                         ))}
                         {moreCount > 0 ? (
                           <View style={styles.symptomChip}>
-                            <Text style={styles.symptomChipText}>+{moreCount} more</Text>
+                            <Text style={styles.symptomChipText}>{t('cycle.moreCount', { count: moreCount })}</Text>
                           </View>
                         ) : null}
                       </View>
@@ -265,16 +259,16 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
                   ) : null}
 
                   <TouchableOpacity onPress={() => toggleCalendar(cycle.id, cycle.start_date)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Text style={styles.dayByDayLink}>{expanded ? 'Hide day-by-day log' : 'View day-by-day log →'}</Text>
+                    <Text style={styles.dayByDayLink}>{expanded ? t('cycle.hideDayLog') : t('cycle.viewDayLog')}</Text>
                   </TouchableOpacity>
                 </View>
 
                 {expanded && selectedCycle && viewYear != null && viewMonth != null ? (
                   <View style={styles.calendarCard}>
                     <View style={styles.monthNav}>
-                      <Text style={styles.monthLabel}>{MONTH_NAMES[viewMonth]} {viewYear}</Text>
+                      <Text style={styles.monthLabel}>{monthYearLabel(viewYear, viewMonth)}</Text>
                       <TouchableOpacity onPress={() => setEditSheetVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                        <Text style={styles.editDatesLink}>Edit dates</Text>
+                        <Text style={styles.editDatesLink}>{t('cycle.editDates')}</Text>
                       </TouchableOpacity>
                     </View>
                     <View style={styles.weekdayRow}>
@@ -314,13 +308,13 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
                             <View style={styles.dayDetailChipRow}>
                               {selectedEntry.symptoms.map(key => (
                                 <View key={key} style={styles.dayDetailChip}>
-                                  <Text style={styles.dayDetailChipText}>{SYMPTOM_LABELS[key] ?? key}</Text>
+                                  <Text style={styles.dayDetailChipText}>{symptomLabel(key)}</Text>
                                 </View>
                               ))}
                             </View>
                             {selectedEntry.intensity ? (
                               <Text style={styles.dayDetailIntensity}>
-                                Intensity: {selectedEntry.intensity}
+                                {t('cycle.intensityLabel', { value: t('cycle.intensity.' + selectedEntry.intensity) })}
                               </Text>
                             ) : null}
                             {selectedEntry.notes ? (
@@ -328,14 +322,14 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
                             ) : null}
                             <View style={styles.dayDetailActionsRow}>
                               <TouchableOpacity onPress={() => setSymptomEditVisible(true)}>
-                                <Text style={styles.dayDetailActionText}>Edit</Text>
+                                <Text style={styles.dayDetailActionText}>{t('common.edit')}</Text>
                               </TouchableOpacity>
                               <TouchableOpacity
                                 onPress={() => {
-                                  Alert.alert('Delete this entry?', 'This removes the symptom log for this day.', [
-                                    { text: 'Cancel', style: 'cancel' },
+                                  Alert.alert(t('cycle.deleteEntryTitle'), t('cycle.deleteEntryMessage'), [
+                                    { text: t('common.cancel'), style: 'cancel' },
                                     {
-                                      text: 'Delete',
+                                      text: t('common.delete'),
                                       style: 'destructive',
                                       onPress: async () => {
                                         await deleteSymptomLog(selectedEntry.id);
@@ -345,12 +339,12 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
                                   ]);
                                 }}
                               >
-                                <Text style={[styles.dayDetailActionText, styles.dayDetailActionDelete]}>Delete</Text>
+                                <Text style={[styles.dayDetailActionText, styles.dayDetailActionDelete]}>{t('common.delete')}</Text>
                               </TouchableOpacity>
                             </View>
                           </>
                         ) : (
-                          <Text style={styles.emptyDayText}>No symptoms logged this day</Text>
+                          <Text style={styles.emptyDayText}>{t('cycle.noSymptomsThisDay')}</Text>
                         )}
                       </View>
                     ) : null}
@@ -364,9 +358,7 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
         {cycles.length === 1 ? (
           <View style={styles.tipCard}>
             <Text style={styles.tipText}>
-              💡 Did you know? With only 1 cycle recorded, predictions are estimated using{' '}
-              {matchBreedSizeTier(dog.breed) ? 'breed averages' : 'species averages'}. Log more
-              cycles for personalized predictions.
+              {matchBreedSizeTier(dog.breed) ? t('cycle.tipBreed') : t('cycle.tipSpecies')}
             </Text>
           </View>
         ) : null}
@@ -400,7 +392,7 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
           initial={selectedEntry}
           onClose={() => setSymptomEditVisible(false)}
           onSave={async (syms, intensity, notes) => {
-            if (!selectedDate) return { error: new Error('No day selected') };
+            if (!selectedDate) return { error: new Error(t('cycle.noDaySelected')) };
             const { error } = await logSymptoms(
               selectedCycle.id,
               dog.id,

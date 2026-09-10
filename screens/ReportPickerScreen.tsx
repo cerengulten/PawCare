@@ -8,6 +8,7 @@ import { useVomitLogs } from '../lib/hooks/useVomitLogs';
 import { useVaccines } from '../lib/hooks/useVaccines';
 import { useProfile } from '../lib/hooks/useProfile';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 import { shareHtmlAsPdf } from '../lib/pdfExport';
@@ -30,6 +31,7 @@ type ReportKey = 'mood' | 'meal' | 'symptom' | 'vaccine' | 'all';
 
 export default function ReportPickerScreen({ dog, onBack }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { profile } = useProfile();
   const { historyByDate: moodHistoryByDate } = useMoodHistory(dog.id, 90);
@@ -41,7 +43,7 @@ export default function ReportPickerScreen({ dog, onBack }: Props) {
 
   const exportSingle = async (key: ReportKey, report: ReportBuild | null, noDataMessage: string) => {
     if (!report) {
-      Alert.alert('No Data', noDataMessage);
+      Alert.alert(t('reportPicker.noData'), noDataMessage);
       return;
     }
     setExportingReport(key);
@@ -55,7 +57,7 @@ export default function ReportPickerScreen({ dog, onBack }: Props) {
       });
       await shareHtmlAsPdf(report.filename, html);
     } catch {
-      Alert.alert('Export Failed', 'Could not export report. Please try again.');
+      Alert.alert(t('reportPicker.exportFailed'), t('reportPicker.exportFailedMsg'));
     } finally {
       setExportingReport(null);
     }
@@ -70,7 +72,7 @@ export default function ReportPickerScreen({ dog, onBack }: Props) {
     ].filter((r): r is ReportBuild => r !== null);
 
     if (reports.length === 0) {
-      Alert.alert('No Data', 'Nothing to export yet.');
+      Alert.alert(t('reportPicker.noData'), t('reportPicker.nothingToExport'));
       return;
     }
     setExportingReport('all');
@@ -79,37 +81,37 @@ export default function ReportPickerScreen({ dog, onBack }: Props) {
       const monthAbbrev = today.toLocaleDateString('en-US', { month: 'short' });
       const filename = `${dog.name.replace(/\s+/g, '_')}_full_report_${monthAbbrev}${today.getFullYear()}.pdf`;
       const html = buildMultiSectionReportHtml({
-        title: '🐾 Bisco — Full Report',
+        title: t('reportPicker.fullReportTitle'),
         infoRows: buildDogInfoRows(dog, profile),
         sections: reports,
       });
       await shareHtmlAsPdf(filename, html);
     } catch {
-      Alert.alert('Export Failed', 'Could not export report. Please try again.');
+      Alert.alert(t('reportPicker.exportFailed'), t('reportPicker.exportFailedMsg'));
     } finally {
       setExportingReport(null);
     }
   };
 
   const reportRows: { key: ReportKey; label: string; onPress: () => void }[] = [
-    { key: 'mood', label: '😊 Mood History', onPress: () => exportSingle('mood', buildMoodReport(dog, moodHistoryByDate), 'No mood history to export yet.') },
-    { key: 'meal', label: '🍽️ Meal History', onPress: () => exportSingle('meal', buildMealReport(dog, mealDetails), 'No meal history to export yet.') },
-    { key: 'symptom', label: '🩺 Symptom History', onPress: () => exportSingle('symptom', buildSymptomReport(dog, logs, vomitLogs), 'No symptom history to export yet.') },
-    { key: 'vaccine', label: '💉 Vaccine History', onPress: () => exportSingle('vaccine', buildVaccineReport(dog, overdue, upcoming), 'No vaccines to export yet.') },
-    { key: 'all', label: '📄 All Reports', onPress: exportAll },
+    { key: 'mood', label: t('reportPicker.rowMood'), onPress: () => exportSingle('mood', buildMoodReport(dog, moodHistoryByDate), t('reportPicker.noMood')) },
+    { key: 'meal', label: t('reportPicker.rowMeal'), onPress: () => exportSingle('meal', buildMealReport(dog, mealDetails), t('reportPicker.noMeal')) },
+    { key: 'symptom', label: t('reportPicker.rowSymptom'), onPress: () => exportSingle('symptom', buildSymptomReport(dog, logs, vomitLogs), t('reportPicker.noSymptom')) },
+    { key: 'vaccine', label: t('reportPicker.rowVaccine'), onPress: () => exportSingle('vaccine', buildVaccineReport(dog, overdue, upcoming), t('reportPicker.noVaccine')) },
+    { key: 'all', label: t('reportPicker.rowAll'), onPress: exportAll },
   ];
 
   return (
     <SwipeBackWrapper onBack={onBack}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <TouchableOpacity onPress={onBack} style={styles.backRow}>
-        <Text style={styles.backText}>‹ Back</Text>
+        <Text style={styles.backText}>‹ {t('common.back')}</Text>
       </TouchableOpacity>
 
       <View style={styles.listHeader}>
         <View style={styles.listHeaderLeft}>
           <Text style={styles.listHeaderDogName}>{dog.name}</Text>
-          <Text style={styles.title}>Download report</Text>
+          <Text style={styles.title}>{t('reportPicker.title')}</Text>
         </View>
       </View>
 

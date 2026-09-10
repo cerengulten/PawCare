@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { VaccineRecord } from '../types';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import { daysAway, formatDaysAway, formatDate, SOON_THRESHOLD_DAYS } from '../lib/vaccineDisplay';
 
@@ -14,13 +15,14 @@ type Props = {
 
 export default function VaccineCard({ vaccine, isOverdue, onPress, dogName }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const days = daysAway(vaccine.next_due_date);
   const isSoon = !isOverdue && days <= SOON_THRESHOLD_DAYS;
   const dotColor = isOverdue ? theme.allergenText : isSoon ? theme.pending : theme.done;
   const chipStyle = isOverdue ? styles.chipRed : isSoon ? styles.chipAmber : styles.chipGreen;
   const chipTextStyle = isOverdue ? styles.chipTextRed : isSoon ? styles.chipTextAmber : styles.chipTextGreen;
-  const chipLabel = isOverdue ? 'Overdue' : isSoon ? 'Soon' : 'Scheduled';
+  const chipLabel = isOverdue ? t('vaccines.overdue') : isSoon ? t('vaccines.soon') : t('vaccines.scheduled');
 
   return (
     <TouchableOpacity style={styles.row} onPress={onPress}>
@@ -28,7 +30,7 @@ export default function VaccineCard({ vaccine, isOverdue, onPress, dogName }: Pr
       <View style={styles.info}>
         <Text style={styles.name}>{vaccine.vaccine_name}{dogName ? ` · ${dogName}` : ''}</Text>
         <Text style={styles.meta}>
-          Due {formatDate(vaccine.next_due_date)} · {formatDaysAway(days, isOverdue)}
+          {t('vaccines.due', { date: formatDate(vaccine.next_due_date) })} · {formatDaysAway(days, isOverdue)}
         </Text>
       </View>
       <View style={[styles.chip, chipStyle]}>

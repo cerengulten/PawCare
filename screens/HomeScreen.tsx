@@ -10,6 +10,7 @@ import NearbyVetsSection from '../components/NearbyVetsSection';
 import ProfileScreen from './ProfileScreen';
 import { RootTabParamList } from './AppTabs';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 
 type ProfileState = ReturnType<typeof useProfile>;
@@ -23,22 +24,18 @@ type Props = BottomTabScreenProps<RootTabParamList, 'Home'> & {
   checkUsernameAvailable: ProfileState['checkUsernameAvailable'];
 };
 
-function greeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
-  return 'Good evening';
-}
-
 export default function HomeScreen({ navigation, dogs, selectedDogId, profile, updateProfile, checkUsernameAvailable }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { streak } = useOverallStreak();
   const [showProfile, setShowProfile] = useState(false);
 
-  const firstName = profile?.full_name?.split(' ')[0] ?? 'there';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? t('home.goodMorning') : hour < 18 ? t('home.goodAfternoon') : t('home.goodEvening');
+  const firstName = profile?.full_name?.split(' ')[0] ?? t('home.there');
   const activeDog = dogs.find(d => d.id === selectedDogId) ?? dogs[0] ?? null;
-  const activeDogName = activeDog?.name ?? 'your pet';
+  const activeDogName = activeDog?.name ?? t('home.yourPet');
 
   if (showProfile) {
     return (
@@ -56,7 +53,7 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.greetingLabel}>{greeting()}</Text>
+          <Text style={styles.greetingLabel}>{greeting}</Text>
           <Text style={styles.greetingName}>{firstName} 👋</Text>
         </View>
         <TouchableOpacity onPress={() => setShowProfile(true)}>
@@ -86,11 +83,11 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
         <View style={styles.streakPill}>
           <Text style={styles.streakEmoji}>🔥</Text>
           <View style={styles.streakTextGroup}>
-            <Text style={styles.streakTitle}>{streak}-day streak</Text>
-            <Text style={styles.streakSubtitle}>Keep it going today</Text>
+            <Text style={styles.streakTitle}>{t('home.streakTitle', { count: streak })}</Text>
+            <Text style={styles.streakSubtitle}>{t('home.streakSubtitle')}</Text>
           </View>
           <View style={styles.weekChip}>
-            <Text style={styles.weekChipText}>Week {Math.ceil(streak / 7)}</Text>
+            <Text style={styles.weekChipText}>{t('home.week', { count: Math.ceil(streak / 7) })}</Text>
           </View>
         </View>
       ) : null}
@@ -102,18 +99,18 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
 
       <TouchableOpacity style={styles.aiBar} onPress={() => navigation.navigate('Chat', { fromLink: true })}>
         <Text style={styles.aiIcon}>💬</Text>
-        <Text style={styles.aiText} numberOfLines={1}>Ask about {activeDogName}'s nutrition...</Text>
+        <Text style={styles.aiText} numberOfLines={1}>{t('home.askNutrition', { name: activeDogName })}</Text>
         <Text style={styles.chevron}>›</Text>
       </TouchableOpacity>
 
-      <Text style={styles.sectionTitle}>Community tip</Text>
+      <Text style={styles.sectionTitle}>{t('home.communityTip')}</Text>
       <View style={styles.tipCard}>
-        <Text style={styles.tipTitle}>Toy poodle tip 🐩</Text>
+        <Text style={styles.tipTitle}>{t('home.tipTitle')}</Text>
         <Text style={styles.tipBody}>
-          Hypoallergenic diets work best when introduced gradually to avoid GI upset.
+          {t('home.tipBody')}
         </Text>
         <View style={styles.blueChip}>
-          <Text style={styles.blueChipText}>Community · Soon</Text>
+          <Text style={styles.blueChipText}>{t('home.communitySoon')}</Text>
         </View>
       </View>
     </ScrollView>

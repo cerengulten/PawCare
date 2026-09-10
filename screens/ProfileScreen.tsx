@@ -19,6 +19,7 @@ import { useProfile } from '../lib/hooks/useProfile';
 import { useDebounce } from '../lib/hooks/useDebounce';
 import { USERNAME_REQUIREMENTS, isUsernameFormatValid, usernameCooldown } from '../lib/usernamePolicy';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 import ChangePasswordScreen from './ChangePasswordScreen';
@@ -40,6 +41,7 @@ type SubScreen = 'password' | 'email' | 'delete' | null;
 
 export default function ProfileScreen({ profile, updateProfile, checkUsernameAvailable, onDone, onCancel }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [fullName, setFullName] = useState(profile?.full_name ?? '');
   const [username, setUsername] = useState(profile?.username ?? '');
@@ -89,7 +91,7 @@ export default function ProfileScreen({ profile, updateProfile, checkUsernameAva
   async function pickPhoto() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      setError('Photo library permission is required to pick a photo.');
+      setError(t('profile.photoPermission'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -107,24 +109,24 @@ export default function ProfileScreen({ profile, updateProfile, checkUsernameAva
     const trimmedName = fullName.trim();
     const trimmedUsername = username.trim();
     if (!trimmedName) {
-      setError('Name is required.');
+      setError(t('profile.nameRequired'));
       return;
     }
     if (!trimmedUsername) {
-      setError('Username is required.');
+      setError(t('profile.usernameRequired'));
       return;
     }
     const usernameChanged = trimmedUsername !== (profile?.username ?? '');
     if (usernameChanged && cooldownActive) {
-      setError(`You can change your username again on ${unlockDate?.toLocaleDateString()}.`);
+      setError(t('profile.cooldownNotice', { date: unlockDate?.toLocaleDateString() ?? '' }));
       return;
     }
     if (usernameChanged && !isUsernameFormatValid(trimmedUsername)) {
-      setError('Username does not meet the requirements below.');
+      setError(t('profile.usernameFailsRequirements'));
       return;
     }
     if (usernameChanged && usernameStatus === 'taken') {
-      setError('That username is already taken.');
+      setError(t('profile.usernameAlreadyTaken'));
       return;
     }
 
@@ -142,7 +144,7 @@ export default function ProfileScreen({ profile, updateProfile, checkUsernameAva
       // stale profile prop) with this error code.
       setError(
         error.message.includes('username_cooldown_active')
-          ? 'You changed your username too recently — try again later.'
+          ? t('profile.changedTooRecently')
           : error.message
       );
       return;
@@ -172,7 +174,7 @@ export default function ProfileScreen({ profile, updateProfile, checkUsernameAva
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Profile</Text>
+        <Text style={styles.title}>{t('profile.title')}</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -180,49 +182,49 @@ export default function ProfileScreen({ profile, updateProfile, checkUsernameAva
           {photoUri ? (
             <Image source={{ uri: photoUri }} style={styles.photoPreview} />
           ) : (
-            <Text style={styles.photoPickerText}>🐾{'\n'}Add photo</Text>
+            <Text style={styles.photoPickerText}>{t('profile.addPhoto')}</Text>
           )}
         </TouchableOpacity>
 
-        <Text style={styles.sectionLabel}>Full name</Text>
+        <Text style={styles.sectionLabel}>{t('profile.fullName')}</Text>
         <TextInput
           style={styles.input}
-          placeholder="Full name"
+          placeholder={t('profile.fullName')}
           placeholderTextColor={theme.textMuted}
           value={fullName}
           onChangeText={setFullName}
         />
 
-        <Text style={styles.sectionLabel}>Username</Text>
+        <Text style={styles.sectionLabel}>{t('profile.username')}</Text>
         <TextInput
           style={[styles.input, cooldownActive && styles.inputDisabled]}
-          placeholder="Username"
+          placeholder={t('profile.username')}
           placeholderTextColor={theme.textMuted}
           value={username}
-          onChangeText={(t) => setUsername(t.replace(/\s/g, ''))}
+          onChangeText={(v) => setUsername(v.replace(/\s/g, ''))}
           autoCapitalize="none"
           editable={!cooldownActive}
         />
         {cooldownActive ? (
           <Text style={styles.usernameTaken}>
-            You can change your username again on {unlockDate?.toLocaleDateString()}.
+            {t('profile.cooldownNotice', { date: unlockDate?.toLocaleDateString() ?? '' })}
           </Text>
         ) : username.trim() && username.trim() !== (profile?.username ?? '') ? (
           <View style={styles.requirements}>
             {USERNAME_REQUIREMENTS.map((req) => (
               <Text
-                key={req.label}
+                key={req.labelKey}
                 style={[styles.requirement, req.test(username.trim()) && styles.requirementMet]}
               >
-                {req.test(username.trim()) ? '✓' : '·'} {req.label}
+                {req.test(username.trim()) ? '✓' : '·'} {t(req.labelKey, req.labelParams)}
               </Text>
             ))}
             {usernameStatus === 'checking' ? (
-              <Text style={styles.requirement}>Checking availability…</Text>
+              <Text style={styles.requirement}>{t('profile.checkingAvailability')}</Text>
             ) : usernameStatus === 'taken' ? (
-              <Text style={styles.usernameTaken}>That username is taken.</Text>
+              <Text style={styles.usernameTaken}>{t('profile.usernameTaken')}</Text>
             ) : usernameStatus === 'available' ? (
-              <Text style={styles.usernameAvailable}>Username available.</Text>
+              <Text style={styles.usernameAvailable}>{t('profile.usernameAvailable')}</Text>
             ) : null}
           </View>
         ) : null}
@@ -231,34 +233,34 @@ export default function ProfileScreen({ profile, updateProfile, checkUsernameAva
           {loading ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text style={styles.buttonText}>Save</Text>
+            <Text style={styles.buttonText}>{t('common.save')}</Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
-          <Text style={styles.switchLink}>Cancel</Text>
+          <Text style={styles.switchLink}>{t('common.cancel')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.accountSectionLabel}>Account</Text>
+        <Text style={styles.accountSectionLabel}>{t('profile.account')}</Text>
         <View style={styles.card}>
           <TouchableOpacity style={styles.row} onPress={() => setSubScreen('password')}>
-            <Text style={styles.rowTitle}>Change password</Text>
+            <Text style={styles.rowTitle}>{t('settings.changePassword')}</Text>
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
           <View style={styles.divider} />
           <TouchableOpacity style={styles.row} onPress={() => setSubScreen('email')}>
-            <Text style={styles.rowTitle}>Change email</Text>
+            <Text style={styles.rowTitle}>{t('settings.changeEmail')}</Text>
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
           <View style={styles.divider} />
           <TouchableOpacity style={styles.row} onPress={() => setSubScreen('delete')}>
-            <Text style={styles.rowTitleDanger}>Delete account</Text>
+            <Text style={styles.rowTitleDanger}>{t('settings.deleteAccount')}</Text>
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity style={styles.signOutRow} onPress={handleSignOut}>
-          <Text style={styles.signOutText}>🚪 Sign out</Text>
+          <Text style={styles.signOutText}>{t('profile.signOut')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>

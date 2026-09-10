@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import { AUTH_BRIDGE_URL } from '../lib/authBridge';
 
@@ -20,6 +21,7 @@ type Props = {
 
 export default function ForgotPasswordScreen({ onBack }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,7 +30,7 @@ export default function ForgotPasswordScreen({ onBack }: Props) {
 
   async function handleSend() {
     if (!email.trim()) {
-      setError('Enter your email.');
+      setError(t('auth.enterEmail'));
       return;
     }
     setLoading(true);
@@ -53,12 +55,12 @@ export default function ForgotPasswordScreen({ onBack }: Props) {
     return (
       <View style={styles.container}>
         <Text style={styles.paw}>📬</Text>
-        <Text style={styles.title}>Check your email</Text>
+        <Text style={styles.title}>{t('auth.checkEmailTitle')}</Text>
         <Text style={styles.subtitle}>
-          We sent a password reset link to {email.trim()}. Tap it to set a new password.
+          {t('auth.resetSentSubtitle', { email: email.trim() })}
         </Text>
         <TouchableOpacity style={styles.button} onPress={onBack}>
-          <Text style={styles.buttonText}>Back to sign in</Text>
+          <Text style={styles.buttonText}>{t('auth.backToSignIn')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -70,14 +72,14 @@ export default function ForgotPasswordScreen({ onBack }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <Text style={styles.paw}>🔑</Text>
-      <Text style={styles.title}>Reset password</Text>
-      <Text style={styles.subtitle}>We'll email you a link to set a new password</Text>
+      <Text style={styles.title}>{t('auth.resetTitle')}</Text>
+      <Text style={styles.subtitle}>{t('auth.resetSubtitle')}</Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <TextInput
         style={styles.input}
-        placeholder="Email"
+        placeholder={t('auth.email')}
         placeholderTextColor={theme.textMuted}
         value={email}
         onChangeText={setEmail}
@@ -89,12 +91,12 @@ export default function ForgotPasswordScreen({ onBack }: Props) {
         {loading ? (
           <ActivityIndicator color="white" />
         ) : (
-          <Text style={styles.buttonText}>Send reset link</Text>
+          <Text style={styles.buttonText}>{t('auth.sendResetLink')}</Text>
         )}
       </TouchableOpacity>
 
       <TouchableOpacity onPress={onBack} style={styles.switchRow}>
-        <Text style={styles.switchLink}>Back to sign in</Text>
+        <Text style={styles.switchLink}>{t('auth.backToSignIn')}</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
   );

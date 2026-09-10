@@ -23,6 +23,8 @@ import { buildDogContextSummary } from '../lib/dogContextSummary';
 import { hasGeminiApiKey, sendChatMessage, ChatTurn } from '../lib/gemini';
 import { RootTabParamList } from './AppTabs';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
+import { LANG_LABELS } from '../lib/i18n';
 import { ThemeTokens } from '../lib/themes';
 
 type Props = BottomTabScreenProps<RootTabParamList, 'Chat'> & {
@@ -42,14 +44,16 @@ symptom, illness, or triage question. Keep answers short and practical.
 Respond in plain text only — no markdown (no asterisks, no headers, no numbered/bulleted
 lists). Write short plain sentences or paragraphs instead, since the chat UI displays raw text.`;
 
-function buildGreeting(dogName: string): ChatTurn {
-  return { role: 'model', text: `Hi! Ask me about ${dogName}'s food, hydration, or symptoms.` };
-}
-
 export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigation, route }: Props) {
   const { theme } = useTheme();
+  const { t, lang } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const activeDog = dogs.find(d => d.id === selectedDogId) ?? dogs[0] ?? null;
+
+  const buildGreeting = (dogName: string): ChatTurn => ({
+    role: 'model',
+    text: t('chat.greeting', { name: dogName }),
+  });
 
   const { allergens } = useAllergens(activeDog?.id ?? '');
   const { mealDetails } = useMealDetails(activeDog?.id ?? '');
@@ -100,7 +104,7 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
     setInput('');
     setSending(true);
     try {
-      const systemInstruction = `${SCOPE_INSTRUCTION}\n\nDog profile and recent data:\n${buildDogContextSummary(
+      const systemInstruction = `${SCOPE_INSTRUCTION}\n\n${t('chat.respondInLanguage', { language: LANG_LABELS[lang] })}\n\nDog profile and recent data:\n${buildDogContextSummary(
         activeDog!,
         { allergens, mealDetails, moodHistoryByDate, healthLogs, vomitLogs, waterLogs }
       )}`;
@@ -110,7 +114,7 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
       console.log('Chat send failed:', err);
       setMessages(prev => [
         ...prev,
-        { role: 'model', text: "Sorry, I couldn't get a response. Please try again." },
+        { role: 'model', text: t('chat.sendFailed') },
       ]);
     } finally {
       setSending(false);
@@ -123,7 +127,7 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
     content = (
       <View style={styles.container}>
         <View style={styles.center}>
-          <Text style={styles.emptyText}>Add a pet first to start chatting.</Text>
+          <Text style={styles.emptyText}>{t('chat.addPetFirst')}</Text>
         </View>
       </View>
     );
@@ -132,7 +136,7 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
       <View style={styles.container}>
         <View style={styles.center}>
           <Text style={styles.emptyText}>
-            AI Care Chat isn't set up yet — missing EXPO_PUBLIC_GEMINI_API_KEY.
+            {t('chat.notSetUp')}
           </Text>
         </View>
       </View>
@@ -145,7 +149,7 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
         keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
       >
         <View style={styles.disclaimerBar}>
-          <Text style={styles.disclaimerText}>⚠️ Not a substitute for veterinary care</Text>
+          <Text style={styles.disclaimerText}>{t('chat.disclaimer')}</Text>
         </View>
 
         <ScrollView
@@ -174,7 +178,7 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
         <View style={styles.composerRow}>
           <TextInput
             style={styles.input}
-            placeholder={`Ask about ${activeDog.name}...`}
+            placeholder={t('chat.inputPlaceholder', { name: activeDog.name })}
             placeholderTextColor={theme.textMuted}
             value={input}
             onChangeText={setInput}

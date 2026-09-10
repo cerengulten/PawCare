@@ -21,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Dog } from '../types';
 import { useDogs } from '../lib/hooks/useDogs';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { THEMES, THEME_LABELS, ThemeFamily, ThemeTokens } from '../lib/themes';
 import { suggestThemeFamily } from '../lib/themeSuggestion';
 import { PET_SPECIES } from '../lib/petSpecies';
@@ -51,6 +52,7 @@ function parseDateOnly(s: string): Date {
 
 export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [name, setName] = useState(dog?.name ?? '');
   const matchedSpecies = dog?.species && PET_SPECIES.some(s => s.value === dog.species) ? dog.species : null;
@@ -94,7 +96,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
   async function pickPhoto() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      setError('Photo library permission is required to pick a photo.');
+      setError(t('petForm.photoPermission'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -111,7 +113,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
   async function handleSave() {
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setError('Name is required.');
+      setError(t('petForm.nameRequired'));
       return;
     }
 
@@ -119,7 +121,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
     if (weightText.trim()) {
       const parsed = Number(weightText.trim());
       if (!Number.isFinite(parsed) || parsed <= 0) {
-        setError('Weight must be a positive number.');
+        setError(t('petForm.weightPositive'));
         return;
       }
       weightValue = parsed;
@@ -163,7 +165,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>{dog ? 'Edit pet' : 'Add pet'}</Text>
+        <Text style={styles.title}>{dog ? t('petForm.editTitle') : t('petForm.addTitle')}</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -171,20 +173,20 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
           {photoUri ? (
             <Image source={{ uri: photoUri }} style={styles.photoPreview} />
           ) : (
-            <Text style={styles.photoPickerText}>Add photo</Text>
+            <Text style={styles.photoPickerText}>{t('petForm.addPhoto')}</Text>
           )}
         </TouchableOpacity>
 
         <TextInput
           style={styles.input}
-          placeholder="Name"
+          placeholder={t('petForm.name')}
           placeholderTextColor={theme.textMuted}
           value={name}
           onChangeText={setName}
         />
-        <Text style={styles.sectionLabel}>Species</Text>
+        <Text style={styles.sectionLabel}>{t('petForm.species')}</Text>
         <View style={styles.chipGrid}>
-          {PET_SPECIES.map(({ value, emoji }) => {
+          {PET_SPECIES.map(({ value, emoji, labelKey }) => {
             const selected = value === selectedSpecies;
             return (
               <TouchableOpacity
@@ -194,7 +196,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
               >
                 <View style={styles.chipRow}>
                   <Text>{emoji}</Text>
-                  <Text style={styles.chipBtnLabel}>{value}</Text>
+                  <Text style={styles.chipBtnLabel}>{t(labelKey)}</Text>
                 </View>
               </TouchableOpacity>
             );
@@ -203,14 +205,14 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
             style={[styles.chipBtn, selectedSpecies === 'Other' && styles.chipBtnSelected]}
             onPress={() => setSelectedSpecies('Other')}
           >
-            <Text style={styles.chipBtnLabel}>Other</Text>
+            <Text style={styles.chipBtnLabel}>{t('petForm.other')}</Text>
           </TouchableOpacity>
         </View>
 
         {selectedSpecies === 'Other' && (
           <TextInput
             style={styles.input}
-            placeholder="Enter species"
+            placeholder={t('petForm.enterSpecies')}
             placeholderTextColor={theme.textMuted}
             value={customSpeciesText}
             onChangeText={setCustomSpeciesText}
@@ -219,15 +221,15 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
 
         <TextInput
           style={styles.input}
-          placeholder="Breed (optional)"
+          placeholder={t('petForm.breedOptional')}
           placeholderTextColor={theme.textMuted}
           value={breed}
           onChangeText={(text) => { setBreed(text); setBreedTouched(true); }}
         />
 
-        <Text style={styles.sectionLabel}>Sex</Text>
+        <Text style={styles.sectionLabel}>{t('petForm.sex')}</Text>
         <View style={styles.chipGrid}>
-          {PET_SEX.map(({ value, emoji, label }) => {
+          {PET_SEX.map(({ value, emoji, labelKey }) => {
             const selected = value === sex;
             return (
               <TouchableOpacity
@@ -237,7 +239,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
               >
                 <View style={styles.chipRow}>
                   <Text>{emoji}</Text>
-                  <Text style={styles.chipBtnLabel}>{label}</Text>
+                  <Text style={styles.chipBtnLabel}>{t(labelKey)}</Text>
                 </View>
               </TouchableOpacity>
             );
@@ -245,7 +247,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
         </View>
 
         <View style={styles.reminderRow}>
-          <Text style={styles.reminderLabel}>{sex === 'male' ? 'Neutered?' : 'Sterilized?'}</Text>
+          <Text style={styles.reminderLabel}>{sex === 'male' ? t('petForm.neuteredQuestion') : t('petForm.sterilizedQuestion')}</Text>
           <Switch
             value={isSterilized}
             onValueChange={setIsSterilized}
@@ -254,7 +256,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
           />
         </View>
 
-        <Text style={styles.sectionLabel}>Theme</Text>
+        <Text style={styles.sectionLabel}>{t('petForm.theme')}</Text>
         <View style={styles.chipGrid}>
           {(Object.keys(THEMES) as ThemeFamily[]).map(family => {
             const selected = family === selectedTheme;
@@ -269,7 +271,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
                   <View style={[styles.swatchDot, { backgroundColor: THEMES[family].primary }]} />
                   <Text style={styles.chipBtnLabel}>{THEME_LABELS[family]}</Text>
                 </View>
-                {isSuggested ? <Text style={styles.suggestedLabel}>✨ Suggested</Text> : null}
+                {isSuggested ? <Text style={styles.suggestedLabel}>{t('petForm.suggested')}</Text> : null}
               </TouchableOpacity>
             );
           })}
@@ -277,7 +279,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
 
         <TextInput
           style={styles.input}
-          placeholder="Weight in kg (optional)"
+          placeholder={t('petForm.weightOptional')}
           placeholderTextColor={theme.textMuted}
           value={weightText}
           onChangeText={setWeightText}
@@ -287,7 +289,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
         {Platform.OS === 'ios' ? (
           <View style={styles.dateFieldRow}>
             <Text style={birthDate ? styles.inputText : styles.placeholderText}>
-              {birthDate ? toDateOnlyString(birthDate) : 'Date of birth (optional)'}
+              {birthDate ? toDateOnlyString(birthDate) : t('petForm.dobOptional')}
             </Text>
             <DateTimePicker
               value={birthDate ?? new Date()}
@@ -303,7 +305,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
         ) : (
           <TouchableOpacity style={styles.input} onPress={openAndroidDatePicker}>
             <Text style={birthDate ? styles.inputText : styles.placeholderText}>
-              {birthDate ? toDateOnlyString(birthDate) : 'Date of birth (optional)'}
+              {birthDate ? toDateOnlyString(birthDate) : t('petForm.dobOptional')}
             </Text>
           </TouchableOpacity>
         )}
@@ -312,12 +314,12 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
           {loading ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text style={styles.buttonText}>Save</Text>
+            <Text style={styles.buttonText}>{t('common.save')}</Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
-          <Text style={styles.switchLink}>Cancel</Text>
+          <Text style={styles.switchLink}>{t('common.cancel')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>

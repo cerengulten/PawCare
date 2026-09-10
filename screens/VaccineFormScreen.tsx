@@ -19,6 +19,7 @@ import { VaccineRecord } from '../types';
 import { useVaccines } from '../lib/hooks/useVaccines';
 import { requestNotificationPermissions } from '../lib/notifications';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
@@ -73,6 +74,7 @@ export default function VaccineFormScreen({
   onCancel,
 }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [vaccineName, setVaccineName] = useState(vaccine?.vaccine_name ?? '');
   const [dateGivenText, setDateGivenText] = useState(vaccine?.date_given?.slice(0, 10) ?? '');
@@ -91,7 +93,7 @@ export default function VaccineFormScreen({
     if (value) {
       const granted = await requestNotificationPermissions();
       if (!granted) {
-        setError('Enable notifications in your device settings to use vaccine reminders.');
+        setError(t('vaccineForm.notifPermission'));
         return;
       }
     }
@@ -130,7 +132,7 @@ export default function VaccineFormScreen({
   async function handleSave() {
     const trimmedName = vaccineName.trim();
     if (!trimmedName) {
-      setError('Vaccine name is required.');
+      setError(t('vaccineForm.nameRequired'));
       return;
     }
 
@@ -138,25 +140,25 @@ export default function VaccineFormScreen({
     if (dateGivenText.trim()) {
       dateGiven = parseUserDateInput(dateGivenText);
       if (!dateGiven) {
-        setError('Date given must be a valid date (YYYY-MM-DD).');
+        setError(t('vaccineForm.dateGivenInvalid'));
         return;
       }
       if (dateGiven > new Date()) {
-        setError('Date given cannot be a future date.');
+        setError(t('vaccineForm.dateGivenFuture'));
         return;
       }
     }
 
     if (!nextDueDateText.trim()) {
-      setError('Due date is required.');
+      setError(t('vaccineForm.dueDateRequired'));
       return;
     }
     if (!parsedNextDueDate) {
-      setError('Next due date must be a valid date (YYYY-MM-DD).');
+      setError(t('vaccineForm.nextDueInvalid'));
       return;
     }
     if (parsedNextDueDate < minNextDueDate) {
-      setError('Next due date must be a future date.');
+      setError(t('vaccineForm.nextDueFuture'));
       return;
     }
     const nextDueDate = parsedNextDueDate;
@@ -203,13 +205,13 @@ export default function VaccineFormScreen({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>{vaccine ? 'Edit vaccine' : 'Add vaccine'}</Text>
+        <Text style={styles.title}>{vaccine ? t('vaccineForm.editTitle') : t('vaccineForm.addTitle')}</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <TextInput
           style={styles.input}
-          placeholder="Vaccine name"
+          placeholder={t('vaccineForm.name')}
           placeholderTextColor={theme.textMuted}
           value={vaccineName}
           onChangeText={setVaccineName}
@@ -218,7 +220,7 @@ export default function VaccineFormScreen({
         <View style={styles.dateRow}>
           <TextInput
             style={[styles.input, styles.dateInput]}
-            placeholder="Date given (optional), YYYY-MM-DD"
+            placeholder={t('vaccineForm.dateGivenPlaceholder')}
             placeholderTextColor={theme.textMuted}
             value={dateGivenText}
             onChangeText={setDateGivenText}
@@ -245,20 +247,20 @@ export default function VaccineFormScreen({
 
         <View style={styles.quickRow}>
           <TouchableOpacity style={styles.quickChip} onPress={() => applyQuickDueDate(6)}>
-            <Text style={styles.quickChipText}>6 months</Text>
+            <Text style={styles.quickChipText}>{t('vaccineForm.sixMonths')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickChip} onPress={() => applyQuickDueDate(12)}>
-            <Text style={styles.quickChipText}>1 year</Text>
+            <Text style={styles.quickChipText}>{t('vaccineForm.oneYear')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickChip} onPress={() => applyQuickDueDate(24)}>
-            <Text style={styles.quickChipText}>2 years</Text>
+            <Text style={styles.quickChipText}>{t('vaccineForm.twoYears')}</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.dateRow}>
           <TextInput
             style={[styles.input, styles.dateInput]}
-            placeholder="Next due date, YYYY-MM-DD"
+            placeholder={t('vaccineForm.nextDuePlaceholder')}
             placeholderTextColor={theme.textMuted}
             value={nextDueDateText}
             onChangeText={setNextDueDateText}
@@ -284,7 +286,7 @@ export default function VaccineFormScreen({
         </View>
 
         <View style={styles.reminderRow}>
-          <Text style={styles.reminderLabel}>Remind me on the due date</Text>
+          <Text style={styles.reminderLabel}>{t('vaccineForm.remindOnDueDate')}</Text>
           <Switch
             value={reminderEnabled}
             onValueChange={handleToggleReminder}
@@ -295,7 +297,7 @@ export default function VaccineFormScreen({
 
         <TextInput
           style={[styles.input, styles.notesInput]}
-          placeholder="Notes (optional)"
+          placeholder={t('vaccineForm.notesOptional')}
           placeholderTextColor={theme.textMuted}
           value={notes}
           onChangeText={setNotes}
@@ -306,17 +308,17 @@ export default function VaccineFormScreen({
           {loading ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text style={styles.buttonText}>Save</Text>
+            <Text style={styles.buttonText}>{t('common.save')}</Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
-          <Text style={styles.switchLink}>Cancel</Text>
+          <Text style={styles.switchLink}>{t('common.cancel')}</Text>
         </TouchableOpacity>
 
         {vaccine ? (
           <TouchableOpacity onPress={handleDelete} style={styles.switchRow} disabled={loading}>
-            <Text style={styles.deleteLink}>Delete vaccine</Text>
+            <Text style={styles.deleteLink}>{t('vaccineForm.deleteVaccine')}</Text>
           </TouchableOpacity>
         ) : null}
       </ScrollView>

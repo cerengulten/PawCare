@@ -1,4 +1,5 @@
 import { CycleSpecies } from '../types';
+import { i18n } from './i18n';
 
 export type CyclePhaseName = 'proestrus' | 'estrus' | 'diestrus' | 'anestrus' | 'interestrus';
 
@@ -307,12 +308,14 @@ export const SYMPTOMS_BY_SPECIES: Record<CycleSpecies, string[]> = {
   guinea_pig: GUINEA_PIG_SYMPTOMS,
 };
 
-export const CYCLE_START_TIPS: Record<CycleSpecies, string> = {
-  dog: 'Look for bleeding/discharge and swelling as signs',
-  cat: 'Vocalization and restlessness are the main signs',
-  rabbit: 'Chin rubbing and nesting are common early signs',
-  guinea_pig: 'Restlessness and vocalization are common signs',
-};
+export function cycleStartTip(species: CycleSpecies): string {
+  return i18n.t('cycle.startTip.' + species);
+}
+
+/** Localized display label for a cycle phase. */
+export function phaseLabel(phase: CyclePhaseName): string {
+  return i18n.t('cycle.phase.' + phase);
+}
 
 export function phaseColorToken(phase: CyclePhaseName): 'phaseProestrus' | 'phaseEstrus' | 'phaseDiestrus' | 'phaseAnestrus' {
   if (phase === 'proestrus') return 'phaseProestrus';
@@ -322,26 +325,8 @@ export function phaseColorToken(phase: CyclePhaseName): 'phaseProestrus' | 'phas
   return 'phaseDiestrus';
 }
 
-export const SYMPTOM_LABELS: Record<string, string> = {
-  bleeding: 'Bleeding',
-  discharge: 'Discharge',
-  swelling: 'Swelling',
-  restlessness: 'Restlessness',
-  appetite_change: 'Appetite change',
-  increased_urination: 'Increased urination',
-  male_attraction: 'Attracting males',
-  nesting_behavior: 'Nesting behavior',
-  lethargy: 'Lethargy',
-  mood_change: 'Mood change',
-  vocalization: 'Vocalization',
-  rolling: 'Rolling',
-  loss_of_appetite: 'Loss of appetite',
-  affection_increase: 'Increased affection',
-  raised_hindquarters: 'Raised hindquarters',
-  frequent_urination: 'Frequent urination',
-  chin_rubbing: 'Chin rubbing',
-  aggression: 'Aggression',
-  nesting: 'Nesting',
-  lordosis: 'Lordosis',
-  mounting_behavior: 'Mounting behavior',
-};
+/** Localized display label for a cycle-symptom key. */
+export function symptomLabel(key: string): string {
+  const translated = i18n.t('cycle.symptom.' + key);
+  return translated === 'cycle.symptom.' + key ? key : translated;
+}

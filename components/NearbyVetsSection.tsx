@@ -6,6 +6,8 @@ import { useMoodHistory } from '../lib/hooks/useMoodHistory';
 import { useHomeVetPreview } from '../lib/hooks/useHomeVetPreview';
 import { buildVetMapHtml } from '../lib/vetMapHtml';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
+import { i18n } from '../lib/i18n';
 import { ThemeTokens } from '../lib/themes';
 
 const ALERT_MOODS: DogMood['mood'][] = ['off', 'sick'];
@@ -18,14 +20,6 @@ function dateStringDaysAgo(days: number): string {
   return d.toISOString().split('T')[0];
 }
 
-const MOOD_LABEL: Record<DogMood['mood'], string> = {
-  sleepy: 'sleepy',
-  off: 'off',
-  good: 'good',
-  great: 'great',
-  sick: 'sick',
-};
-
 function openDirections(vet: VetResult) {
   Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${vet.lat},${vet.lon}`);
 }
@@ -37,6 +31,7 @@ type Props = {
 
 export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { historyByDate } = useMoodHistory(dog?.id ?? null, ALERT_LOOKBACK_DAYS);
   const { vets, userLocation, loading, available } = useHomeVetPreview();
@@ -67,7 +62,7 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
   if (loading || !mounted) {
     return (
       <>
-        <Text style={styles.sectionTitle}>Nearby vets</Text>
+        <Text style={styles.sectionTitle}>{t('nearbyVets.sectionTitle')}</Text>
         <View style={styles.skeleton} />
       </>
     );
@@ -76,10 +71,10 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
   if (!available || !userLocation) {
     return (
       <>
-        <Text style={styles.sectionTitle}>Nearby vets</Text>
+        <Text style={styles.sectionTitle}>{t('nearbyVets.sectionTitle')}</Text>
         <TouchableOpacity style={styles.placeholder} onPress={onOpenVetFinder}>
           <Text style={styles.placeholderArrow}>➜</Text>
-          <Text style={styles.placeholderText}>Tap to find vets near you</Text>
+          <Text style={styles.placeholderText}>{t('nearbyVets.tapToFind')}</Text>
         </TouchableOpacity>
       </>
     );
@@ -92,9 +87,9 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
     return (
       <>
         <View style={styles.alertHeaderRow}>
-          <Text style={styles.alertSectionTitle}>⚠️ Vet recommended</Text>
+          <Text style={styles.alertSectionTitle}>{t('nearbyVets.vetRecommended')}</Text>
           <TouchableOpacity onPress={onOpenVetFinder} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.seeAllText}>See all →</Text>
+            <Text style={styles.seeAllText}>{t('common.seeAll')} →</Text>
           </TouchableOpacity>
         </View>
 
@@ -123,12 +118,16 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
               <View style={styles.mapTintOverlay} />
             </View>
             <View style={styles.openMapBtnAlert}>
-              <Text style={styles.openMapBtnText}>Open map →</Text>
+              <Text style={styles.openMapBtnText}>{t('nearbyVets.openMap')}</Text>
             </View>
             <View style={styles.alertBanner}>
               <Text style={styles.alertBannerIcon}>⚠️</Text>
               <Text style={styles.alertBannerText} numberOfLines={1}>
-                {dog.name} feeling {MOOD_LABEL[alert.latestMood ?? 'off']} for {alert.streakDays} days
+                {t('nearbyVets.alertBanner', {
+                  name: dog.name,
+                  mood: t('mood.' + (alert.latestMood ?? 'off')).toLowerCase(),
+                  days: alert.streakDays,
+                })}
               </Text>
             </View>
           </TouchableOpacity>
@@ -149,7 +148,7 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
 
   return (
     <>
-      <Text style={styles.sectionTitle}>Nearby vets</Text>
+      <Text style={styles.sectionTitle}>{t('nearbyVets.sectionTitle')}</Text>
       <TouchableOpacity style={styles.normalCard} onPress={onOpenVetFinder} activeOpacity={0.85}>
         <View style={styles.mapTile}>
           <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
@@ -169,7 +168,7 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
           </View>
           <View style={styles.nearbyBadge}>
             <Text style={styles.nearbyBadgeText}>
-              {vets.length} vet{vets.length === 1 ? '' : 's'} nearby
+              {t('nearbyVets.vetsNearby', { count: vets.length })}
             </Text>
           </View>
           <View style={styles.openMapBtn}>
@@ -183,14 +182,14 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
             </View>
             <View style={styles.vetInfo}>
               <Text style={styles.vetName} numberOfLines={1}>{nearest.name}</Text>
-              <Text style={styles.vetMeta}>{nearest.distanceKm.toFixed(1)} km away</Text>
+              <Text style={styles.vetMeta}>{t('nearbyVets.kmAway', { km: nearest.distanceKm.toFixed(1) })}</Text>
             </View>
             <View style={styles.nearestChip}>
-              <Text style={styles.nearestChipText}>Nearest</Text>
+              <Text style={styles.nearestChipText}>{t('nearbyVets.nearest')}</Text>
             </View>
           </View>
         ) : (
-          <Text style={styles.emptyRowText}>No vets found nearby.</Text>
+          <Text style={styles.emptyRowText}>{t('nearbyVets.noVetsNearby')}</Text>
         )}
       </TouchableOpacity>
     </>
@@ -215,18 +214,18 @@ function VetRow({
       </View>
       <View style={styles.vetInfo}>
         <Text style={styles.vetName} numberOfLines={1}>{vet.name}</Text>
-        <Text style={styles.vetMeta}>{vet.distanceKm.toFixed(1)} km away</Text>
+        <Text style={styles.vetMeta}>{i18n.t('nearbyVets.kmAway', { km: vet.distanceKm.toFixed(1) })}</Text>
       </View>
       {vet.phone ? (
         <TouchableOpacity
           style={primary ? styles.callBtnPrimary : styles.callBtnSecondary}
           onPress={() => Linking.openURL(`tel:${vet.phone}`)}
         >
-          <Text style={primary ? styles.callBtnPrimaryText : styles.callBtnSecondaryText}>Call</Text>
+          <Text style={primary ? styles.callBtnPrimaryText : styles.callBtnSecondaryText}>{i18n.t('nearbyVets.call')}</Text>
         </TouchableOpacity>
       ) : (
         <TouchableOpacity style={styles.callBtnSecondary} onPress={() => openDirections(vet)}>
-          <Text style={styles.callBtnSecondaryText}>Directions</Text>
+          <Text style={styles.callBtnSecondaryText}>{i18n.t('nearbyVets.directions')}</Text>
         </TouchableOpacity>
       )}
     </TouchableOpacity>

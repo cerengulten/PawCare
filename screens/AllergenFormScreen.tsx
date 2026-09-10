@@ -13,6 +13,7 @@ import {
 import { Allergen } from '../types';
 import { useAllergens } from '../lib/hooks/useAllergens';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
@@ -36,6 +37,7 @@ export default function AllergenFormScreen({
   onCancel,
 }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [name, setName] = useState(allergen?.allergen ?? '');
   const [loading, setLoading] = useState(false);
@@ -44,7 +46,7 @@ export default function AllergenFormScreen({
   async function handleSave() {
     const trimmed = name.trim();
     if (!trimmed) {
-      setError('Allergen name is required.');
+      setError(t('allergens.nameRequired'));
       return;
     }
 
@@ -82,13 +84,13 @@ export default function AllergenFormScreen({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>{allergen ? 'Edit sensitivity' : 'Add sensitivity'}</Text>
+        <Text style={styles.title}>{allergen ? t('allergens.editTitle') : t('allergens.addTitle')}</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <TextInput
           style={styles.input}
-          placeholder="e.g. Chicken"
+          placeholder={t('allergens.placeholder')}
           placeholderTextColor={theme.textMuted}
           value={name}
           onChangeText={setName}
@@ -99,17 +101,17 @@ export default function AllergenFormScreen({
           {loading ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text style={styles.buttonText}>Save</Text>
+            <Text style={styles.buttonText}>{t('common.save')}</Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
-          <Text style={styles.switchLink}>Cancel</Text>
+          <Text style={styles.switchLink}>{t('common.cancel')}</Text>
         </TouchableOpacity>
 
         {allergen ? (
           <TouchableOpacity onPress={handleDelete} style={styles.switchRow} disabled={loading}>
-            <Text style={styles.deleteLink}>Delete sensitivity</Text>
+            <Text style={styles.deleteLink}>{t('allergens.deleteSensitivity')}</Text>
           </TouchableOpacity>
         ) : null}
       </ScrollView>

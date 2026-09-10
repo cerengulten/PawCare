@@ -15,6 +15,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 
 type Props = {
@@ -28,6 +29,7 @@ const DISMISS_THRESHOLD = 100;
 
 export default function WaterLogSheet({ visible, onClose, onSave }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [amountText, setAmountText] = useState('');
   const [notes, setNotes] = useState('');
@@ -66,7 +68,7 @@ export default function WaterLogSheet({ visible, onClose, onSave }: Props) {
   async function handleSave() {
     const parsed = parseInt(amountText, 10);
     if (Number.isNaN(parsed) || parsed < 1) {
-      setError('Amount must be a number of 1 or more.');
+      setError(t('water.amountError'));
       return;
     }
     setLoading(true);
@@ -91,12 +93,12 @@ export default function WaterLogSheet({ visible, onClose, onSave }: Props) {
             <View style={styles.handle} />
           </View>
 
-          <Text style={styles.title}>Log water</Text>
+          <Text style={styles.title}>{t('water.logTitle')}</Text>
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <TextInput
             style={styles.input}
-            placeholder="Amount (ml)"
+            placeholder={t('water.amountMl')}
             placeholderTextColor={theme.textMuted}
             value={amountText}
             onChangeText={setAmountText}
@@ -105,14 +107,14 @@ export default function WaterLogSheet({ visible, onClose, onSave }: Props) {
           />
           <TextInput
             style={styles.input}
-            placeholder="Notes (optional)"
+            placeholder={t('water.notesOptional')}
             placeholderTextColor={theme.textMuted}
             value={notes}
             onChangeText={setNotes}
           />
 
           <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading}>
-            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>Save</Text>}
+            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>{t('common.save')}</Text>}
           </TouchableOpacity>
         </Animated.View>
       </KeyboardAvoidingView>

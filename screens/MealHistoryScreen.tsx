@@ -6,6 +6,9 @@ import { useMealDetails } from '../lib/hooks/useMealDetails';
 import MealDetailSheet from '../components/MealDetailSheet';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
+import { i18n } from '../lib/i18n';
+import { weekdayShortMonFirst, shortDate, timeOfDay } from '../lib/i18n/calendar';
 import { ThemeTokens } from '../lib/themes';
 
 export function formatLongDate(dateStr: string): string {
@@ -27,12 +30,11 @@ const FOOD_TYPE_EMOJI: Record<FoodType, string> = {
   raw: '🥚',
 };
 
-export const FOOD_TYPE_LABEL: Record<FoodType, string> = {
-  wet: 'Wet',
-  dry: 'Dry',
-  mixed: 'Mixed',
-  raw: 'Raw',
-};
+// Non-reactive lookup (reads i18n.locale) — used both in this screen and by
+// lib/reportBuilders.ts at export time.
+export function foodTypeLabel(type: FoodType): string {
+  return i18n.t('meal.foodType.' + type);
+}
 
 function foodTypeChipStyle(theme: ThemeTokens): Record<FoodType, { bg: string; text: string }> {
   return {
@@ -51,37 +53,30 @@ function foodTypeDot(theme: ThemeTokens): Record<'wet' | 'dry' | 'raw', string> 
   };
 }
 
-const FILTER_OPTIONS: { value: FoodType | 'all'; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'wet', label: '🥩 Wet' },
-  { value: 'dry', label: '🌾 Dry' },
-  { value: 'mixed', label: '🥣 Mixed' },
-  { value: 'raw', label: '🥚 Raw' },
-];
-
-const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const FILTER_OPTIONS: (FoodType | 'all')[] = ['all', 'wet', 'dry', 'mixed', 'raw'];
+const FILTER_EMOJI: Record<string, string> = { wet: '🥩 ', dry: '🌾 ', mixed: '🥣 ', raw: '🥚 ', all: '' };
 
 export function dateKey(iso: string): string {
   return iso.split('T')[0];
 }
 
 export function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return timeOfDay(iso);
 }
 
 function formatDateHeader(key: string, todayKey: string, yesterdayKey: string): string {
-  if (key === todayKey) return 'Today';
-  if (key === yesterdayKey) return 'Yesterday';
-  return new Date(key).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  if (key === todayKey) return i18n.t('mealHistory.today');
+  if (key === yesterdayKey) return i18n.t('mealHistory.yesterday');
+  return shortDate(key);
 }
 
 // Meal name is derived purely for display from time-of-day, not stored on meal_details.
 export function mealNameFor(iso: string): string {
   const hour = new Date(iso).getHours();
-  if (hour >= 5 && hour < 11) return 'Breakfast';
-  if (hour >= 11 && hour < 16) return 'Lunch';
-  if (hour >= 16 && hour < 21) return 'Dinner';
-  return 'Snack';
+  if (hour >= 5 && hour < 11) return i18n.t('meal.mealName.breakfast');
+  if (hour >= 11 && hour < 16) return i18n.t('meal.mealName.lunch');
+  if (hour >= 16 && hour < 21) return i18n.t('meal.mealName.dinner');
+  return i18n.t('meal.mealName.snack');
 }
 
 // `sub` doubles as the key into foodTypeDot(theme) at render time — kept color-free here
@@ -106,14 +101,14 @@ export function amountPillsFor(detail: MealDetail): AmountPillInfo[] {
 export function formatBrands(detail: MealDetail): { emoji: string; label: string; brand: string }[] {
   if (detail.food_type === 'mixed') {
     const parts: { emoji: string; label: string; brand: string }[] = [];
-    if (detail.brand_wet) parts.push({ emoji: FOOD_TYPE_EMOJI.wet, label: 'Wet', brand: detail.brand_wet });
-    if (detail.brand_dry) parts.push({ emoji: FOOD_TYPE_EMOJI.dry, label: 'Dry', brand: detail.brand_dry });
+    if (detail.brand_wet) parts.push({ emoji: FOOD_TYPE_EMOJI.wet, label: i18n.t('meal.foodType.wet'), brand: detail.brand_wet });
+    if (detail.brand_dry) parts.push({ emoji: FOOD_TYPE_EMOJI.dry, label: i18n.t('meal.foodType.dry'), brand: detail.brand_dry });
     return parts;
   }
   const brand = detail.food_type === 'wet' ? detail.brand_wet
     : detail.food_type === 'dry' ? detail.brand_dry
     : detail.brand_raw;
-  return brand ? [{ emoji: FOOD_TYPE_EMOJI[detail.food_type], label: 'Brand', brand }] : [];
+  return brand ? [{ emoji: FOOD_TYPE_EMOJI[detail.food_type], label: i18n.t('mealHistory.brandLabel'), brand }] : [];
 }
 
 export function mostCommon<T extends string>(items: T[]): T | null {
@@ -139,17 +134,18 @@ type MealEntryRowProps = {
 
 function MealEntryRow({ detail, onEdit, onDelete }: MealEntryRowProps) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const swipeableRef = useRef<Swipeable>(null);
 
   function confirmDelete() {
     Alert.alert(
-      'Delete meal detail?',
-      'This permanently deletes this meal record.',
+      t('mealHistory.deleteTitle'),
+      t('mealHistory.deleteMessage'),
       [
-        { text: 'Cancel', style: 'cancel', onPress: () => swipeableRef.current?.close() },
+        { text: t('common.cancel'), style: 'cancel', onPress: () => swipeableRef.current?.close() },
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => { swipeableRef.current?.close(); onDelete(); },
         },
@@ -163,10 +159,10 @@ function MealEntryRow({ detail, onEdit, onDelete }: MealEntryRowProps) {
         style={[styles.actionButton, styles.editAction]}
         onPress={() => { swipeableRef.current?.close(); onEdit(); }}
       >
-        <Text style={styles.actionText}>Edit</Text>
+        <Text style={styles.actionText}>{t('common.edit')}</Text>
       </TouchableOpacity>
       <TouchableOpacity style={[styles.actionButton, styles.deleteAction]} onPress={confirmDelete}>
-        <Text style={styles.actionText}>Delete</Text>
+        <Text style={styles.actionText}>{t('common.delete')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -182,12 +178,12 @@ function MealEntryRow({ detail, onEdit, onDelete }: MealEntryRowProps) {
         <View style={styles.entryTop}>
           <Text style={styles.entryEmoji}>{FOOD_TYPE_EMOJI[detail.food_type]}</Text>
           <View style={styles.entryBody}>
-            <Text style={styles.entryName}>{mealNameFor(detail.logged_at)} · {FOOD_TYPE_LABEL[detail.food_type]}</Text>
+            <Text style={styles.entryName}>{mealNameFor(detail.logged_at)} · {foodTypeLabel(detail.food_type)}</Text>
             <Text style={styles.entryTime}>{formatTime(detail.logged_at)}</Text>
             {detail.notes ? <Text style={styles.entryNotes}>"{detail.notes}"</Text> : null}
           </View>
           <View style={[styles.chip, { backgroundColor: chip.bg }]}>
-            <Text style={[styles.chipText, { color: chip.text }]}>{FOOD_TYPE_LABEL[detail.food_type]}</Text>
+            <Text style={[styles.chipText, { color: chip.text }]}>{foodTypeLabel(detail.food_type)}</Text>
           </View>
         </View>
 
@@ -222,7 +218,9 @@ function MealEntryRow({ detail, onEdit, onDelete }: MealEntryRowProps) {
 
 export default function MealHistoryScreen({ dog, mealDetails, addMealDetail, deleteMealDetail, onBack }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
+  const WEEKDAY_LABELS = weekdayShortMonFirst();
   const [filter, setFilter] = useState<FoodType | 'all'>('all');
   const [editingDetail, setEditingDetail] = useState<MealDetail | null>(null);
 
@@ -284,26 +282,27 @@ export default function MealHistoryScreen({ dog, mealDetails, addMealDetail, del
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <TouchableOpacity onPress={onBack} style={styles.backRow}>
-          <Text style={styles.backText}>‹ Back</Text>
+          <Text style={styles.backText}>‹ {t('common.back')}</Text>
         </TouchableOpacity>
 
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={styles.headerDogName}>{dog.name}</Text>
-            <Text style={styles.title}>Meal History</Text>
+            <Text style={styles.title}>{t('mealHistory.title')}</Text>
           </View>
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow} contentContainerStyle={styles.filterRowContent}>
           {FILTER_OPTIONS.map(opt => {
-            const selected = filter === opt.value;
+            const selected = filter === opt;
+            const label = opt === 'all' ? t('mealHistory.filterAll') : `${FILTER_EMOJI[opt]}${t('meal.foodType.' + opt)}`;
             return (
               <TouchableOpacity
-                key={opt.value}
+                key={opt}
                 style={[styles.filterPill, selected && styles.filterPillSelected]}
-                onPress={() => setFilter(opt.value)}
+                onPress={() => setFilter(opt)}
               >
-                <Text style={[styles.filterPillText, selected && styles.filterPillTextSelected]}>{opt.label}</Text>
+                <Text style={[styles.filterPillText, selected && styles.filterPillTextSelected]}>{label}</Text>
               </TouchableOpacity>
             );
           })}
@@ -312,22 +311,22 @@ export default function MealHistoryScreen({ dog, mealDetails, addMealDetail, del
         <View style={styles.statStrip}>
           <View style={styles.statBox}>
             <Text style={styles.statNum}>{avgDailyIntake != null ? `${avgDailyIntake}g` : '—'}</Text>
-            <Text style={styles.statLabel}>avg / day</Text>
+            <Text style={styles.statLabel}>{t('mealHistory.avgPerDay')}</Text>
           </View>
           <View style={styles.statBox}>
             <Text style={[styles.statNum, styles.statNumPurple]}>
-              {mostCommonType ? FOOD_TYPE_LABEL[mostCommonType] : '—'}
+              {mostCommonType ? foodTypeLabel(mostCommonType) : '—'}
             </Text>
-            <Text style={styles.statLabel}>most common</Text>
+            <Text style={styles.statLabel}>{t('mealHistory.mostCommon')}</Text>
           </View>
           <View style={styles.statBox}>
             <Text style={styles.statNum}>{daysWithLogs.size}<Text style={styles.statNumSuffix}>/7</Text></Text>
-            <Text style={styles.statLabel}>days logged</Text>
+            <Text style={styles.statLabel}>{t('mealHistory.daysLogged')}</Text>
           </View>
         </View>
 
         <View style={styles.barCard}>
-          <Text style={styles.barCardTitle}>Daily intake this week (g)</Text>
+          <Text style={styles.barCardTitle}>{t('mealHistory.dailyIntakeWeek')}</Text>
           {weekDays.map((wd, i) => {
             const total = dayTotals[i];
             const hasEntry = total > 0;
@@ -348,12 +347,12 @@ export default function MealHistoryScreen({ dog, mealDetails, addMealDetail, del
         {mealDetails.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>
-              No meals logged yet — tap + Add meal detail on any completed feeding to start.
+              {t('mealHistory.emptyState')}
             </Text>
           </View>
         ) : groups.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>No {FOOD_TYPE_LABEL[filter as FoodType]} meals logged.</Text>
+            <Text style={styles.emptyStateText}>{t('mealHistory.noFilteredMeals', { type: foodTypeLabel(filter as FoodType) })}</Text>
           </View>
         ) : (
           groups.map(group => (
@@ -377,7 +376,7 @@ export default function MealHistoryScreen({ dog, mealDetails, addMealDetail, del
         initial={editingDetail}
         onClose={() => setEditingDetail(null)}
         onSave={async (details) => {
-          if (!editingDetail) return { error: new Error('No meal detail selected') };
+          if (!editingDetail) return { error: new Error(t('meal.noMealDetailSelected')) };
           const { error } = await addMealDetail(editingDetail.completion_id, dog.id, details);
           if (!error) setEditingDetail(null);
           return { error };

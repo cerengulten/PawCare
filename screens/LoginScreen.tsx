@@ -13,6 +13,7 @@ import { supabase } from '../lib/supabase';
 import SocialSignInButtons from '../components/SocialSignInButtons';
 import ForgotPasswordScreen from './ForgotPasswordScreen';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 
 type Props = {
@@ -21,6 +22,7 @@ type Props = {
 
 export default function LoginScreen({ onSwitch }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,7 +32,7 @@ export default function LoginScreen({ onSwitch }: Props) {
 
   async function handleLogin() {
     if (!email || !password) {
-      setError('Please fill in all fields.');
+      setError(t('common.fillAllFields'));
       return;
     }
     setLoading(true);
@@ -50,14 +52,14 @@ export default function LoginScreen({ onSwitch }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <Text style={styles.paw}>🐾</Text>
-      <Text style={styles.title}>Welcome back</Text>
-      <Text style={styles.subtitle}>Sign in to care for your dog</Text>
+      <Text style={styles.title}>{t('auth.welcomeBack')}</Text>
+      <Text style={styles.subtitle}>{t('auth.signInSubtitle')}</Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <TextInput
         style={styles.input}
-        placeholder="Email"
+        placeholder={t('auth.email')}
         placeholderTextColor={theme.textMuted}
         value={email}
         onChangeText={setEmail}
@@ -66,7 +68,7 @@ export default function LoginScreen({ onSwitch }: Props) {
       />
       <TextInput
         style={styles.input}
-        placeholder="Password"
+        placeholder={t('auth.password')}
         placeholderTextColor={theme.textMuted}
         value={password}
         onChangeText={setPassword}
@@ -74,22 +76,22 @@ export default function LoginScreen({ onSwitch }: Props) {
       />
 
       <TouchableOpacity onPress={() => setShowForgotPassword(true)} style={styles.forgotRow}>
-        <Text style={styles.switchLink}>Forgot password?</Text>
+        <Text style={styles.switchLink}>{t('auth.forgotPassword')}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
         {loading ? (
           <ActivityIndicator color="white" />
         ) : (
-          <Text style={styles.buttonText}>Sign in</Text>
+          <Text style={styles.buttonText}>{t('auth.signIn')}</Text>
         )}
       </TouchableOpacity>
 
       <SocialSignInButtons />
 
       <TouchableOpacity onPress={onSwitch} style={styles.switchRow}>
-        <Text style={styles.switchText}>Don't have an account? </Text>
-        <Text style={styles.switchLink}>Sign up</Text>
+        <Text style={styles.switchText}>{t('auth.noAccount')}</Text>
+        <Text style={styles.switchLink}>{t('auth.signUp')}</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
   );

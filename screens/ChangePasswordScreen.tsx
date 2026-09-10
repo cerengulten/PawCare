@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { PASSWORD_REQUIREMENTS, isPasswordValid } from '../lib/passwordPolicy';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
@@ -24,6 +25,7 @@ type Props = {
 
 export default function ChangePasswordScreen({ onDone, onCancel }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [email, setEmail] = useState<string | null>(null);
   const [hasPassword, setHasPassword] = useState<boolean | null>(null);
@@ -48,11 +50,11 @@ export default function ChangePasswordScreen({ onDone, onCancel }: Props) {
 
   async function handleSave() {
     if (!isPasswordValid(password)) {
-      setError('Password does not meet the requirements below.');
+      setError(t('changePassword.passwordFailsRequirements'));
       return;
     }
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError(t('changePassword.passwordsDoNotMatch'));
       return;
     }
 
@@ -62,12 +64,12 @@ export default function ChangePasswordScreen({ onDone, onCancel }: Props) {
     if (hasPassword) {
       if (!currentPassword) {
         setLoading(false);
-        setError('Enter your current password.');
+        setError(t('changePassword.enterCurrentPassword'));
         return;
       }
       if (!email) {
         setLoading(false);
-        setError('Could not verify your account. Try again.');
+        setError(t('changePassword.couldNotVerify'));
         return;
       }
       const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -76,7 +78,7 @@ export default function ChangePasswordScreen({ onDone, onCancel }: Props) {
       });
       if (signInError) {
         setLoading(false);
-        setError('Current password is incorrect.');
+        setError(t('changePassword.currentPasswordIncorrect'));
         return;
       }
     }
@@ -98,19 +100,19 @@ export default function ChangePasswordScreen({ onDone, onCancel }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Change password</Text>
+        <Text style={styles.title}>{t('changePassword.title')}</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         {hasPassword === false ? (
           <Text style={styles.googleNote}>
-            Signed in with Google — no password to change here.
+            {t('changePassword.googleNote')}
           </Text>
         ) : (
           <>
             <TextInput
               style={styles.input}
-              placeholder="Current password"
+              placeholder={t('changePassword.currentPassword')}
               placeholderTextColor={theme.textMuted}
               value={currentPassword}
               onChangeText={setCurrentPassword}
@@ -119,7 +121,7 @@ export default function ChangePasswordScreen({ onDone, onCancel }: Props) {
 
             <TextInput
               style={styles.input}
-              placeholder="New password"
+              placeholder={t('changePassword.newPassword')}
               placeholderTextColor={theme.textMuted}
               value={password}
               onChangeText={setPassword}
@@ -127,7 +129,7 @@ export default function ChangePasswordScreen({ onDone, onCancel }: Props) {
             />
             <TextInput
               style={styles.input}
-              placeholder="Confirm new password"
+              placeholder={t('changePassword.confirmNewPassword')}
               placeholderTextColor={theme.textMuted}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
@@ -138,8 +140,8 @@ export default function ChangePasswordScreen({ onDone, onCancel }: Props) {
               {PASSWORD_REQUIREMENTS.map((req) => {
                 const met = req.test(password);
                 return (
-                  <Text key={req.label} style={[styles.checklistItem, met && styles.checklistItemMet]}>
-                    {met ? '✓' : '○'} {req.label}
+                  <Text key={req.labelKey} style={[styles.checklistItem, met && styles.checklistItemMet]}>
+                    {met ? '✓' : '○'} {t(req.labelKey)}
                   </Text>
                 );
               })}
@@ -149,14 +151,14 @@ export default function ChangePasswordScreen({ onDone, onCancel }: Props) {
               {loading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text style={styles.buttonText}>Save</Text>
+                <Text style={styles.buttonText}>{t('common.save')}</Text>
               )}
             </TouchableOpacity>
           </>
         )}
 
         <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
-          <Text style={styles.switchLink}>Cancel</Text>
+          <Text style={styles.switchLink}>{t('common.cancel')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>

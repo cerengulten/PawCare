@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { i18n } from './i18n';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -18,11 +19,11 @@ const HABIT_ANDROID_CHANNEL_ID = 'habit-reminders';
 async function ensureAndroidChannel() {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
-      name: 'Vaccine reminders',
+      name: i18n.t('notifications.vaccineChannel'),
       importance: Notifications.AndroidImportance.DEFAULT,
     });
     await Notifications.setNotificationChannelAsync(HABIT_ANDROID_CHANNEL_ID, {
-      name: 'Habit reminders',
+      name: i18n.t('notifications.habitChannel'),
       importance: Notifications.AndroidImportance.DEFAULT,
     });
   }
@@ -45,8 +46,8 @@ export async function scheduleVaccineReminder(
   try {
     return await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'Vaccine due today',
-        body: `${vaccineName} is due today.`,
+        title: i18n.t('notifications.vaccineDueTitle'),
+        body: i18n.t('notifications.vaccineDueBody', { name: vaccineName }),
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,
@@ -89,7 +90,7 @@ export async function scheduleHabitReminder(
   try {
     return await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'Habit reminder',
+        title: i18n.t('notifications.habitReminderTitle'),
         body: title,
       },
       trigger,

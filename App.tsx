@@ -13,6 +13,7 @@ import { useProfile } from './lib/hooks/useProfile';
 import { useDogs } from './lib/hooks/useDogs';
 import { useSelectedPet } from './lib/hooks/useSelectedPet';
 import { ThemeProvider, useTheme } from './lib/ThemeContext';
+import { LanguageProvider } from './lib/LanguageContext';
 
 // Parses the `bisco://reset-password#access_token=...&refresh_token=...&type=recovery`
 // deep link Supabase's password-reset email sends the user to (see
@@ -174,9 +175,11 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.flex}>
       <SafeAreaProvider>
-        <ThemeProvider>
-          <AppInner />
-        </ThemeProvider>
+        <LanguageProvider>
+          <ThemeProvider>
+            <AppInner />
+          </ThemeProvider>
+        </LanguageProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

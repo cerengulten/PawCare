@@ -9,6 +9,7 @@ import PetsScreen from './PetsScreen';
 import ChatScreen from './ChatScreen';
 import MoreScreen from './MoreScreen';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { useDogs } from '../lib/hooks/useDogs';
 import { useSelectedPet } from '../lib/hooks/useSelectedPet';
 import { useProfile } from '../lib/hooks/useProfile';
@@ -54,6 +55,7 @@ export default function AppTabs({
   selectDog,
 }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const [petsResetKey, setPetsResetKey] = useState(0);
   const [moreResetKey, setMoreResetKey] = useState(0);
 
@@ -88,6 +90,7 @@ export default function AppTabs({
           <Tab.Screen
             name="Home"
             options={{
+              tabBarLabel: t('tabs.home'),
               tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>🏠</Text>,
             }}
           >
@@ -106,6 +109,7 @@ export default function AppTabs({
           <Tab.Screen
             name="Pets"
             options={{
+              tabBarLabel: t('tabs.pets'),
               tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>🐾</Text>,
             }}
             listeners={({ navigation }) => ({
@@ -133,6 +137,7 @@ export default function AppTabs({
           <Tab.Screen
             name="Chat"
             options={{
+              tabBarLabel: t('tabs.chat'),
               tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>💬</Text>,
             }}
           >
@@ -149,6 +154,7 @@ export default function AppTabs({
           <Tab.Screen
             name="More"
             options={{
+              tabBarLabel: t('tabs.more'),
               tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>✨</Text>,
             }}
             listeners={({ navigation }) => ({

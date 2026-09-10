@@ -19,6 +19,7 @@ import { useDebounce } from '../lib/hooks/useDebounce';
 import { USERNAME_REQUIREMENTS, isUsernameFormatValid, suggestUsernames } from '../lib/usernamePolicy';
 import PetFormScreen from './PetFormScreen';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import { Dog } from '../types';
 
@@ -49,6 +50,7 @@ export default function OnboardingScreen({
   onComplete,
 }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [step, setStep] = useState<Step>('identity');
   const [fullName, setFullName] = useState(profile?.full_name ?? '');
@@ -100,7 +102,7 @@ export default function OnboardingScreen({
   async function pickPhoto() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      setError('Photo library permission is required to pick a photo.');
+      setError(t('onboarding.photoPermission'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -134,15 +136,15 @@ export default function OnboardingScreen({
     const trimmedName = fullName.trim();
     const trimmedUsername = username.trim();
     if (!trimmedName) {
-      setError('Please enter your name.');
+      setError(t('onboarding.enterYourName'));
       return;
     }
     if (!isUsernameFormatValid(trimmedUsername)) {
-      setError('Please choose a valid username.');
+      setError(t('onboarding.chooseValidUsername'));
       return;
     }
     if (usernameStatus === 'taken') {
-      setError('That username is taken — pick a suggestion below.');
+      setError(t('onboarding.usernameTakenPickSuggestion'));
       return;
     }
     setLoading(true);
@@ -150,7 +152,7 @@ export default function OnboardingScreen({
     const { error } = await completeOnboarding(trimmedName, trimmedUsername, photoUri);
     if (error) {
       if ((error as PostgrestError).code === '23505') {
-        setError('That username was just taken — try another.');
+        setError(t('onboarding.usernameJustTaken'));
         setUsernameStatus('taken');
         generateVerifiedSuggestions(trimmedUsername);
       } else {
@@ -181,15 +183,15 @@ export default function OnboardingScreen({
     return (
       <View style={styles.container}>
         <Text style={styles.paw}>🐾</Text>
-        <Text style={styles.title}>Add another pet?</Text>
-        <Text style={styles.subtitle}>You can always add more later too.</Text>
+        <Text style={styles.title}>{t('onboarding.addAnotherTitle')}</Text>
+        <Text style={styles.subtitle}>{t('onboarding.addAnotherSubtitle')}</Text>
 
         <TouchableOpacity style={styles.button} onPress={() => setStep('pet')}>
-          <Text style={styles.buttonText}>Yes, add another</Text>
+          <Text style={styles.buttonText}>{t('onboarding.yesAddAnother')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.secondaryButton} onPress={onComplete}>
-          <Text style={styles.secondaryButtonText}>No, continue to app</Text>
+          <Text style={styles.secondaryButtonText}>{t('onboarding.noContinue')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -220,16 +222,16 @@ export default function OnboardingScreen({
           <Text style={styles.photoPickerBadgeText}>{photoUri ? '✎' : '+'}</Text>
         </View>
       </TouchableOpacity>
-      <Text style={styles.photoCaption}>{photoUri ? 'Tap to change photo' : 'Add a photo (optional)'}</Text>
+      <Text style={styles.photoCaption}>{photoUri ? t('onboarding.tapToChangePhoto') : t('onboarding.addPhotoOptional')}</Text>
 
-      <Text style={styles.title}>Tell us about you</Text>
-      <Text style={styles.subtitle}>We'll use these to set up your account</Text>
+      <Text style={styles.title}>{t('onboarding.tellUsAboutYou')}</Text>
+      <Text style={styles.subtitle}>{t('onboarding.identitySubtitle')}</Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <TextInput
         style={styles.input}
-        placeholder="Your name"
+        placeholder={t('onboarding.yourName')}
         placeholderTextColor={theme.textMuted}
         value={fullName}
         onChangeText={setFullName}
@@ -238,7 +240,7 @@ export default function OnboardingScreen({
 
       <TextInput
         style={styles.input}
-        placeholder="Username"
+        placeholder={t('onboarding.username')}
         placeholderTextColor={theme.textMuted}
         value={username}
         onChangeText={setUsername}
@@ -251,8 +253,8 @@ export default function OnboardingScreen({
           {USERNAME_REQUIREMENTS.map((req) => {
             const met = req.test(username.trim());
             return (
-              <Text key={req.label} style={[styles.checklistItem, met && styles.checklistItemMet]}>
-                {met ? '✓' : '○'} {req.label}
+              <Text key={req.labelKey} style={[styles.checklistItem, met && styles.checklistItemMet]}>
+                {met ? '✓' : '○'} {t(req.labelKey, req.labelParams)}
               </Text>
             );
           })}
@@ -260,16 +262,16 @@ export default function OnboardingScreen({
       )}
 
       {usernameStatus === 'checking' && (
-        <Text style={styles.statusChecking}>Checking availability…</Text>
+        <Text style={styles.statusChecking}>{t('onboarding.checkingAvailability')}</Text>
       )}
 
       {usernameStatus === 'available' && (
-        <Text style={styles.statusAvailable}>✓ Available</Text>
+        <Text style={styles.statusAvailable}>{t('onboarding.available')}</Text>
       )}
 
       {usernameStatus === 'taken' && (
         <View>
-          <Text style={styles.statusTaken}>✗ Not available</Text>
+          <Text style={styles.statusTaken}>{t('onboarding.notAvailable')}</Text>
           {suggestions.length > 0 && (
             <View style={styles.suggestionsRow}>
               {suggestions.map((s) => (
@@ -290,12 +292,12 @@ export default function OnboardingScreen({
         {loading ? (
           <ActivityIndicator color="white" />
         ) : (
-          <Text style={styles.buttonText}>Continue</Text>
+          <Text style={styles.buttonText}>{t('onboarding.continue')}</Text>
         )}
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => supabase.auth.signOut()} style={styles.signOutRow}>
-        <Text style={styles.signOutText}>Not you? Sign out</Text>
+        <Text style={styles.signOutText}>{t('onboarding.notYouSignOut')}</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
   );

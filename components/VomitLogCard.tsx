@@ -1,27 +1,14 @@
 import { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { HealthLog, VomitLogDetails, VomitSeverity, VomitCause } from '../types';
+import { HealthLog, VomitLogDetails, VomitSeverity } from '../types';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
+import { localeTag } from '../lib/i18n';
 import { ThemeTokens } from '../lib/themes';
 
 type Props = {
   log: HealthLog;
   onPress: () => void;
-};
-
-const SEVERITY_LABEL: Record<VomitSeverity, string> = {
-  mild: 'Mild',
-  moderate: 'Moderate',
-  severe: 'Severe',
-};
-
-const CAUSE_LABEL: Record<VomitCause, string> = {
-  food: 'Food',
-  motion: 'Motion',
-  ate_too_fast: 'Ate too fast',
-  hairball: 'Hairball',
-  foreign_object: 'Foreign object',
-  unknown: 'Unknown',
 };
 
 function severityStyle(theme: ThemeTokens, severity: VomitSeverity) {
@@ -36,12 +23,13 @@ function severityStyle(theme: ThemeTokens, severity: VomitSeverity) {
 
 function formatLoggedAt(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-    + ' · ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return d.toLocaleDateString(localeTag(), { month: 'short', day: 'numeric' })
+    + ' · ' + d.toLocaleTimeString(localeTag(), { hour: 'numeric', minute: '2-digit' });
 }
 
 export default function VomitLogCard({ log, onPress }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const details = log.details as VomitLogDetails;
   const { dot, chipBg, chipText } = severityStyle(theme, details.severity);
@@ -52,11 +40,11 @@ export default function VomitLogCard({ log, onPress }: Props) {
       <View style={styles.info}>
         <Text style={styles.title}>🤮 {formatLoggedAt(log.logged_at)}</Text>
         <Text style={styles.meta} numberOfLines={1}>
-          {CAUSE_LABEL[details.possibleCause]} · {details.frequency}x{log.notes ? ` · ${log.notes}` : ''}
+          {t('vomit.causeOpt.' + details.possibleCause)} · {details.frequency}x{log.notes ? ` · ${log.notes}` : ''}
         </Text>
       </View>
       <View style={[styles.chip, { backgroundColor: chipBg }]}>
-        <Text style={[styles.chipText, { color: chipText }]}>{SEVERITY_LABEL[details.severity]}</Text>
+        <Text style={[styles.chipText, { color: chipText }]}>{t('vomit.severityOpt.' + details.severity)}</Text>
       </View>
     </TouchableOpacity>
   );

@@ -20,6 +20,7 @@ import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import { CycleRecord } from '../types';
 
@@ -48,6 +49,7 @@ function parseDateOnly(s: string): Date {
 
 export default function CycleEditSheet({ visible, cycle, onClose, onSave, onDelete }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
@@ -112,9 +114,9 @@ export default function CycleEditSheet({ visible, cycle, onClose, onSave, onDele
   }
 
   function handleDelete() {
-    Alert.alert('Delete this cycle?', 'This permanently deletes the cycle and all its symptom logs.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: onDelete },
+    Alert.alert(t('cycle.deleteCycleTitle'), t('cycle.deleteCycleMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.delete'), style: 'destructive', onPress: onDelete },
     ]);
   }
 
@@ -134,9 +136,9 @@ export default function CycleEditSheet({ visible, cycle, onClose, onSave, onDele
             <View style={styles.handle} />
           </View>
 
-          <Text style={styles.title}>Edit cycle dates</Text>
+          <Text style={styles.title}>{t('cycle.editSheetTitle')}</Text>
 
-          <Text style={styles.fieldLabel}>Start date</Text>
+          <Text style={styles.fieldLabel}>{t('cycle.startDateLabel')}</Text>
           {Platform.OS === 'ios' ? (
             <View style={styles.dateFieldRow}>
               <Text style={styles.inputText}>{toDateOnlyString(startDate)}</Text>
@@ -157,7 +159,7 @@ export default function CycleEditSheet({ visible, cycle, onClose, onSave, onDele
             </TouchableOpacity>
           )}
 
-          <Text style={styles.fieldLabel}>End date</Text>
+          <Text style={styles.fieldLabel}>{t('cycle.endDateLabel')}</Text>
           {Platform.OS === 'ios' ? (
             <View style={styles.dateFieldRow}>
               <Text style={styles.inputText}>{toDateOnlyString(endDate)}</Text>
@@ -180,18 +182,18 @@ export default function CycleEditSheet({ visible, cycle, onClose, onSave, onDele
 
           <TextInput
             style={styles.input}
-            placeholder="Notes (optional)"
+            placeholder={t('tracker.notesOptional')}
             placeholderTextColor={theme.textMuted}
             value={notes}
             onChangeText={setNotes}
           />
 
           <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading}>
-            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>Save</Text>}
+            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>{t('common.save')}</Text>}
           </TouchableOpacity>
 
           <TouchableOpacity onPress={handleDelete} style={styles.deleteRow}>
-            <Text style={styles.deleteText}>Delete cycle</Text>
+            <Text style={styles.deleteText}>{t('cycle.deleteCycle')}</Text>
           </TouchableOpacity>
         </Animated.View>
       </KeyboardAvoidingView>

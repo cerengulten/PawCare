@@ -13,6 +13,7 @@ import {
 import { HealthLog, VomitSeverity, VomitCause } from '../types';
 import { useVomitLogs } from '../lib/hooks/useVomitLogs';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
@@ -27,20 +28,8 @@ type Props = {
   onCancel: () => void;
 };
 
-const SEVERITY_OPTIONS: { value: VomitSeverity; label: string }[] = [
-  { value: 'mild', label: 'Mild' },
-  { value: 'moderate', label: 'Moderate' },
-  { value: 'severe', label: 'Severe' },
-];
-
-const CAUSE_OPTIONS: { value: VomitCause; label: string }[] = [
-  { value: 'food', label: 'Food' },
-  { value: 'motion', label: 'Motion' },
-  { value: 'ate_too_fast', label: 'Ate too fast' },
-  { value: 'hairball', label: 'Hairball' },
-  { value: 'foreign_object', label: 'Foreign object' },
-  { value: 'unknown', label: 'Unknown' },
-];
+const SEVERITY_OPTIONS: VomitSeverity[] = ['mild', 'moderate', 'severe'];
+const CAUSE_OPTIONS: VomitCause[] = ['food', 'motion', 'ate_too_fast', 'hairball', 'foreign_object', 'unknown'];
 
 export default function VomitFormScreen({
   log,
@@ -51,6 +40,7 @@ export default function VomitFormScreen({
   onCancel,
 }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const details = log?.details as { severity: VomitSeverity; possibleCause: VomitCause; frequency: number } | undefined;
   const [severity, setSeverity] = useState<VomitSeverity>(details?.severity ?? 'mild');
@@ -63,7 +53,7 @@ export default function VomitFormScreen({
   async function handleSave() {
     const frequency = parseInt(frequencyText, 10);
     if (!frequencyText.trim() || Number.isNaN(frequency) || frequency < 1) {
-      setError('Frequency must be a number of 1 or more.');
+      setError(t('tracker.frequencyError'));
       return;
     }
 
@@ -106,43 +96,43 @@ export default function VomitFormScreen({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>{log ? 'Edit Vomit' : 'Add Vomit'}</Text>
+        <Text style={styles.title}>{log ? t('vomit.editTitle') : t('vomit.addTitle')}</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Text style={styles.fieldLabel}>Severity</Text>
+        <Text style={styles.fieldLabel}>{t('vomit.severity')}</Text>
         <View style={styles.chipGrid}>
           {SEVERITY_OPTIONS.map(opt => {
-            const selected = severity === opt.value;
+            const selected = severity === opt;
             return (
               <TouchableOpacity
-                key={opt.value}
+                key={opt}
                 style={[styles.chipBtn, selected && styles.chipBtnSelected]}
-                onPress={() => setSeverity(opt.value)}
+                onPress={() => setSeverity(opt)}
               >
-                <Text style={styles.chipBtnLabel}>{opt.label}</Text>
+                <Text style={styles.chipBtnLabel}>{t('vomit.severityOpt.' + opt)}</Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        <Text style={styles.fieldLabel}>Possible cause</Text>
+        <Text style={styles.fieldLabel}>{t('vomit.possibleCause')}</Text>
         <View style={styles.chipGrid}>
           {CAUSE_OPTIONS.map(opt => {
-            const selected = possibleCause === opt.value;
+            const selected = possibleCause === opt;
             return (
               <TouchableOpacity
-                key={opt.value}
+                key={opt}
                 style={[styles.chipBtn, selected && styles.chipBtnSelected]}
-                onPress={() => setPossibleCause(opt.value)}
+                onPress={() => setPossibleCause(opt)}
               >
-                <Text style={styles.chipBtnLabel}>{opt.label}</Text>
+                <Text style={styles.chipBtnLabel}>{t('vomit.causeOpt.' + opt)}</Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        <Text style={styles.fieldLabel}>Frequency</Text>
+        <Text style={styles.fieldLabel}>{t('tracker.frequency')}</Text>
         <TextInput
           style={styles.input}
           placeholder="1"
@@ -154,7 +144,7 @@ export default function VomitFormScreen({
 
         <TextInput
           style={[styles.input, styles.notesInput]}
-          placeholder="Notes (optional)"
+          placeholder={t('tracker.notesOptional')}
           placeholderTextColor={theme.textMuted}
           value={notes}
           onChangeText={setNotes}
@@ -165,17 +155,17 @@ export default function VomitFormScreen({
           {loading ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text style={styles.buttonText}>Save</Text>
+            <Text style={styles.buttonText}>{t('common.save')}</Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
-          <Text style={styles.switchLink}>Cancel</Text>
+          <Text style={styles.switchLink}>{t('common.cancel')}</Text>
         </TouchableOpacity>
 
         {log ? (
           <TouchableOpacity onPress={handleDelete} style={styles.switchRow} disabled={loading}>
-            <Text style={styles.deleteLink}>Delete</Text>
+            <Text style={styles.deleteLink}>{t('tracker.deleteEntry')}</Text>
           </TouchableOpacity>
         ) : null}
       </ScrollView>

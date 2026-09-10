@@ -4,6 +4,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { useGoogleSignIn } from '../lib/hooks/useGoogleSignIn';
 import { useAppleSignIn } from '../lib/hooks/useAppleSignIn';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 
 // Apple sign-in isn't configured in Supabase yet (pending the Apple Developer
@@ -13,6 +14,7 @@ const APPLE_SIGN_IN_ENABLED = false;
 
 export default function SocialSignInButtons() {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { signInWithGoogle } = useGoogleSignIn();
   const { signInWithApple } = useAppleSignIn();
@@ -46,7 +48,7 @@ export default function SocialSignInButtons() {
     <View style={styles.container}>
       <View style={styles.divider}>
         <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>or</Text>
+        <Text style={styles.dividerText}>{t('auth.orDivider')}</Text>
         <View style={styles.dividerLine} />
       </View>
 
@@ -56,7 +58,7 @@ export default function SocialSignInButtons() {
         {loadingProvider === 'google' ? (
           <ActivityIndicator color={theme.primary} />
         ) : (
-          <Text style={styles.buttonText}>Continue with Google</Text>
+          <Text style={styles.buttonText}>{t('auth.continueWithGoogle')}</Text>
         )}
       </TouchableOpacity>
 
@@ -65,7 +67,7 @@ export default function SocialSignInButtons() {
           {loadingProvider === 'apple' ? (
             <ActivityIndicator color={theme.primary} />
           ) : (
-            <Text style={styles.buttonText}>Continue with Apple</Text>
+            <Text style={styles.buttonText}>{t('auth.continueWithApple')}</Text>
           )}
         </TouchableOpacity>
       ) : null}

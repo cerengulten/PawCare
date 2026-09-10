@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
@@ -27,6 +28,7 @@ function isEmailFormatValid(email: string): boolean {
 
 export default function ChangeEmailScreen({ onDone, onCancel }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [currentEmail, setCurrentEmail] = useState<string | null>(null);
   const [newEmail, setNewEmail] = useState('');
@@ -41,11 +43,11 @@ export default function ChangeEmailScreen({ onDone, onCancel }: Props) {
   async function handleSave() {
     const trimmed = newEmail.trim();
     if (!isEmailFormatValid(trimmed)) {
-      setError('Enter a valid email address.');
+      setError(t('changeEmail.invalidEmail'));
       return;
     }
     if (currentEmail && trimmed.toLowerCase() === currentEmail.toLowerCase()) {
-      setError('That is already your current email.');
+      setError(t('changeEmail.sameAsCurrent'));
       return;
     }
 
@@ -66,13 +68,12 @@ export default function ChangeEmailScreen({ onDone, onCancel }: Props) {
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.centerContent}>
           <Text style={styles.paw}>📬</Text>
-          <Text style={styles.title}>Check your new inbox</Text>
+          <Text style={styles.title}>{t('changeEmail.checkNewInbox')}</Text>
           <Text style={styles.subtitle}>
-            We sent a confirmation link to {newEmail.trim()}. Your email won't change until
-            you click it.
+            {t('changeEmail.confirmSentSubtitle', { email: newEmail.trim() })}
           </Text>
           <TouchableOpacity style={styles.button} onPress={onDone}>
-            <Text style={styles.buttonText}>Done</Text>
+            <Text style={styles.buttonText}>{t('common.done')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -88,19 +89,19 @@ export default function ChangeEmailScreen({ onDone, onCancel }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Change email</Text>
+        <Text style={styles.title}>{t('changeEmail.title')}</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Text style={styles.sectionLabel}>Current email</Text>
+        <Text style={styles.sectionLabel}>{t('changeEmail.currentEmail')}</Text>
         <View style={styles.readOnlyInput}>
           <Text style={styles.readOnlyText}>{currentEmail ?? '…'}</Text>
         </View>
 
-        <Text style={styles.sectionLabel}>New email</Text>
+        <Text style={styles.sectionLabel}>{t('changeEmail.newEmail')}</Text>
         <TextInput
           style={styles.input}
-          placeholder="New email"
+          placeholder={t('changeEmail.newEmail')}
           placeholderTextColor={theme.textMuted}
           value={newEmail}
           onChangeText={setNewEmail}
@@ -108,20 +109,19 @@ export default function ChangeEmailScreen({ onDone, onCancel }: Props) {
           keyboardType="email-address"
         />
         <Text style={styles.helperText}>
-          We'll send a confirmation link to the new address — the change only takes effect
-          once you click it.
+          {t('changeEmail.helper')}
         </Text>
 
         <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading}>
           {loading ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text style={styles.buttonText}>Save</Text>
+            <Text style={styles.buttonText}>{t('common.save')}</Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
-          <Text style={styles.switchLink}>Cancel</Text>
+          <Text style={styles.switchLink}>{t('common.cancel')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>

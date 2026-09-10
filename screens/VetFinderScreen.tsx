@@ -13,6 +13,7 @@ import { WebView } from 'react-native-webview';
 import { useNearbyVets } from '../lib/hooks/useNearbyVets';
 import { buildVetMapHtml } from '../lib/vetMapHtml';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
@@ -22,6 +23,7 @@ type Props = {
 
 export default function VetFinderScreen({ onBack }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { vets, userLocation, loading, error, permissionDenied, searchNearMe, searchByAddress } = useNearbyVets();
   const [addressInput, setAddressInput] = useState('');
@@ -34,32 +36,32 @@ export default function VetFinderScreen({ onBack }: Props) {
     <SwipeBackWrapper onBack={onBack}>
     <View style={styles.container}>
       <TouchableOpacity onPress={onBack} style={styles.backRow}>
-        <Text style={styles.backText}>‹ Back</Text>
+        <Text style={styles.backText}>‹ {t('common.back')}</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>Vet Finder</Text>
+      <Text style={styles.title}>{t('vetFinder.title')}</Text>
 
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={theme.primary} />
-          <Text style={styles.emptyText}>Finding vets near you…</Text>
+          <Text style={styles.emptyText}>{t('vetFinder.findingVets')}</Text>
         </View>
       ) : permissionDenied ? (
         <View style={styles.content}>
           <Text style={styles.emptyText}>
-            Location access was denied. Enter a city or address to search instead.
+            {t('vetFinder.permissionDenied')}
           </Text>
           <View style={styles.addressRow}>
             <TextInput
               style={styles.addressInput}
-              placeholder="City or address"
+              placeholder={t('vetFinder.cityOrAddress')}
               placeholderTextColor={theme.textMuted}
               value={addressInput}
               onChangeText={setAddressInput}
               onSubmitEditing={() => searchByAddress(addressInput)}
             />
             <TouchableOpacity style={styles.searchButton} onPress={() => searchByAddress(addressInput)}>
-              <Text style={styles.searchButtonText}>Search</Text>
+              <Text style={styles.searchButtonText}>{t('vetFinder.search')}</Text>
             </TouchableOpacity>
           </View>
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -68,7 +70,7 @@ export default function VetFinderScreen({ onBack }: Props) {
         <View style={styles.center}>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={searchNearMe}>
-            <Text style={styles.retryButtonText}>Try again</Text>
+            <Text style={styles.retryButtonText}>{t('vetFinder.tryAgain')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -85,7 +87,7 @@ export default function VetFinderScreen({ onBack }: Props) {
 
           <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
             {vets.length === 0 ? (
-              <Text style={styles.emptyText}>No vets found nearby.</Text>
+              <Text style={styles.emptyText}>{t('vetFinder.noVetsNearby')}</Text>
             ) : (
               vets.map((v, idx) => (
                 <View key={v.id}>
@@ -93,7 +95,7 @@ export default function VetFinderScreen({ onBack }: Props) {
                     <View style={styles.vetInfo}>
                       <Text style={styles.vetName}>{v.name}</Text>
                       {v.address ? <Text style={styles.vetSubtitle}>{v.address}</Text> : null}
-                      <Text style={styles.vetDistance}>{v.distanceKm.toFixed(1)} km away</Text>
+                      <Text style={styles.vetDistance}>{t('vetFinder.kmAway', { km: v.distanceKm.toFixed(1) })}</Text>
                     </View>
                     {v.phone ? (
                       <TouchableOpacity

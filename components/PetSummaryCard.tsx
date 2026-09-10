@@ -4,6 +4,7 @@ import { Dog } from '../types';
 import { useHabits } from '../lib/hooks/useHabits';
 import { useDogMood } from '../lib/hooks/useDogMood';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 
 type Props = {
@@ -19,23 +20,16 @@ const MOOD_EMOJI: Record<string, string> = {
   sick: '🤒',
 };
 
-const MOOD_LABEL: Record<string, string> = {
-  sleepy: 'Sleepy',
-  off: 'Off',
-  good: 'Good',
-  great: 'Great',
-  sick: 'Sick',
-};
-
 export default function PetSummaryCard({ dog, onPress }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { habits, completedToday } = useHabits(dog.id);
   const { mood } = useDogMood(dog.id);
 
   const hasHabits = habits.length > 0;
   const progress = hasHabits ? completedToday.size / habits.length : 0;
-  const moodText = mood ? `${MOOD_EMOJI[mood.mood]} ${MOOD_LABEL[mood.mood]}` : null;
+  const moodText = mood ? `${MOOD_EMOJI[mood.mood]} ${t('mood.' + mood.mood)}` : null;
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress}>
@@ -53,11 +47,11 @@ export default function PetSummaryCard({ dog, onPress }: Props) {
             <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
           </View>
           <Text style={styles.subtitle} numberOfLines={1}>
-            {completedToday.size}/{habits.length} habits{moodText ? ` · ${moodText}` : ''}
+            {t('habitRow.habitsProgress', { done: completedToday.size, total: habits.length })}{moodText ? ` · ${moodText}` : ''}
           </Text>
         </>
       ) : (
-        <Text style={styles.subtitle}>No habits yet</Text>
+        <Text style={styles.subtitle}>{t('habitRow.noHabitsYet')}</Text>
       )}
     </TouchableOpacity>
   );

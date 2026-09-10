@@ -14,6 +14,8 @@ import ChangeEmailScreen from './ChangeEmailScreen';
 import DeleteAccountScreen from './DeleteAccountScreen';
 import { RootTabParamList } from './AppTabs';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
+import { SUPPORTED_LANGS, LANG_LABELS } from '../lib/i18n';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
@@ -24,9 +26,11 @@ type Props = BottomTabScreenProps<RootTabParamList, 'More'> & {
 
 export default function MoreScreen({ route, navigation, dogs, profile }: Props) {
   const { theme } = useTheme();
+  const { t, lang, setLang } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { upcoming, overdue } = useAllVaccines();
   const [showNotifPlaceholder, setShowNotifPlaceholder] = useState(false);
+  const [showLanguage, setShowLanguage] = useState(false);
   const [reportDog, setReportDog] = useState<Dog | null>(null);
   const [showVetFinder, setShowVetFinder] = useState(false);
   const [vetFinderFromHome, setVetFinderFromHome] = useState(false);
@@ -77,13 +81,43 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
       <SwipeBackWrapper onBack={() => setShowNotifPlaceholder(false)}>
       <View style={styles.container}>
         <TouchableOpacity onPress={() => setShowNotifPlaceholder(false)} style={styles.backRow}>
-          <Text style={styles.backText}>‹ Back</Text>
+          <Text style={styles.backText}>‹ {t('common.back')}</Text>
         </TouchableOpacity>
         <View style={styles.center}>
           <Text style={styles.placeholderEmoji}>🔔</Text>
-          <Text style={styles.placeholderTitle}>Notification settings</Text>
-          <Text style={styles.placeholderSubtitle}>Coming soon.</Text>
+          <Text style={styles.placeholderTitle}>{t('settings.notificationSettings')}</Text>
+          <Text style={styles.placeholderSubtitle}>{t('common.comingSoon')}</Text>
         </View>
+      </View>
+      </SwipeBackWrapper>
+    );
+  }
+
+  if (showLanguage) {
+    return (
+      <SwipeBackWrapper onBack={() => setShowLanguage(false)}>
+      <View style={styles.container}>
+        <TouchableOpacity onPress={() => setShowLanguage(false)} style={styles.backRow}>
+          <Text style={styles.backText}>‹ {t('common.back')}</Text>
+        </TouchableOpacity>
+        <ScrollView contentContainerStyle={styles.content}>
+          <Text style={styles.title}>{t('language.title')}</Text>
+          <Text style={styles.sectionTitle}>{t('language.subtitle')}</Text>
+          <View style={styles.card}>
+            {SUPPORTED_LANGS.map((code, idx) => (
+              <View key={code}>
+                <TouchableOpacity style={styles.row} onPress={() => setLang(code)}>
+                  <View style={styles.iconBox}><Text style={styles.iconText}>🌐</Text></View>
+                  <View style={styles.rowInfo}>
+                    <Text style={styles.rowTitle}>{LANG_LABELS[code]}</Text>
+                  </View>
+                  {lang === code ? <Text style={styles.langCheck}>✓</Text> : null}
+                </TouchableOpacity>
+                {idx < SUPPORTED_LANGS.length - 1 ? <View style={styles.divider} /> : null}
+              </View>
+            ))}
+          </View>
+        </ScrollView>
       </View>
       </SwipeBackWrapper>
     );
@@ -93,7 +127,7 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>More</Text>
+      <Text style={styles.title}>{t('more.title')}</Text>
 
       <View style={styles.profileCard}>
         <View style={styles.profileRow}>
@@ -105,18 +139,18 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
             </View>
           )}
           <View>
-            <Text style={styles.profileName}>{profile?.full_name ?? 'Bisco user'}</Text>
+            <Text style={styles.profileName}>{profile?.full_name ?? t('more.biscoUser')}</Text>
             <Text style={styles.profileMeta}>
-              {profile?.username ? `@${profile.username} · ` : ''}{dogs.length} pet{dogs.length === 1 ? '' : 's'}
+              {profile?.username ? `@${profile.username} · ` : ''}{t('more.petCount', { count: dogs.length })}
             </Text>
           </View>
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Upcoming</Text>
+      <Text style={styles.sectionTitle}>{t('more.upcoming')}</Text>
       <View style={styles.card}>
         {allUpcoming.length === 0 ? (
-          <Text style={styles.emptyText}>No vaccines tracked yet.</Text>
+          <Text style={styles.emptyText}>{t('more.noVaccinesTracked')}</Text>
         ) : (
           allUpcoming.map((v, idx) => (
             <View key={v.id}>
@@ -134,7 +168,7 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
 
       {dogs.length > 0 ? (
         <>
-          <Text style={styles.sectionTitle}>Download report</Text>
+          <Text style={styles.sectionTitle}>{t('more.downloadReport')}</Text>
           <View style={styles.card}>
             {dogs.map((dog, idx) => (
               <View key={dog.id}>
@@ -152,62 +186,71 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
         </>
       ) : null}
 
-      <Text style={styles.sectionTitle}>Vet Finder</Text>
+      <Text style={styles.sectionTitle}>{t('more.vetFinder')}</Text>
       <View style={styles.card}>
         <TouchableOpacity style={styles.row} onPress={() => setShowVetFinder(true)}>
           <View style={styles.iconBox}><Text style={styles.iconText}>📍</Text></View>
           <View style={styles.rowInfo}>
-            <Text style={styles.rowTitle}>Vet Finder</Text>
-            <Text style={styles.rowSubtitle}>Find vets near you</Text>
+            <Text style={styles.rowTitle}>{t('more.vetFinder')}</Text>
+            <Text style={styles.rowSubtitle}>{t('more.vetFinderSubtitle')}</Text>
           </View>
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.sectionTitle}>Coming soon</Text>
+      <Text style={styles.sectionTitle}>{t('more.comingSoonSection')}</Text>
       <View style={styles.card}>
         <View style={[styles.row, styles.rowDisabled]}>
           <View style={styles.iconBox}><Text style={styles.iconText}>💬</Text></View>
           <View style={styles.rowInfo}>
-            <Text style={styles.rowTitle}>AI Care Chat</Text>
-            <Text style={styles.rowSubtitle}>Ask anything about your pets</Text>
+            <Text style={styles.rowTitle}>{t('more.aiCareChat')}</Text>
+            <Text style={styles.rowSubtitle}>{t('more.aiCareChatSubtitle')}</Text>
           </View>
-          <View style={styles.grayChip}><Text style={styles.grayChipText}>Soon</Text></View>
+          <View style={styles.grayChip}><Text style={styles.grayChipText}>{t('more.soon')}</Text></View>
         </View>
         <View style={styles.divider} />
         <View style={[styles.row, styles.rowDisabled]}>
           <View style={styles.iconBox}><Text style={styles.iconText}>🛡️</Text></View>
           <View style={styles.rowInfo}>
-            <Text style={styles.rowTitle}>Allergy Scanner</Text>
-            <Text style={styles.rowSubtitle}>Check food ingredients</Text>
+            <Text style={styles.rowTitle}>{t('more.allergyScanner')}</Text>
+            <Text style={styles.rowSubtitle}>{t('more.allergyScannerSubtitle')}</Text>
           </View>
-          <View style={styles.grayChip}><Text style={styles.grayChipText}>Soon</Text></View>
+          <View style={styles.grayChip}><Text style={styles.grayChipText}>{t('more.soon')}</Text></View>
         </View>
         <View style={styles.divider} />
         <View style={[styles.row, styles.rowDisabled]}>
           <View style={styles.iconBox}><Text style={styles.iconText}>👥</Text></View>
           <View style={styles.rowInfo}>
-            <Text style={styles.rowTitle}>Community</Text>
-            <Text style={styles.rowSubtitle}>Tips from dog owners</Text>
+            <Text style={styles.rowTitle}>{t('more.community')}</Text>
+            <Text style={styles.rowSubtitle}>{t('more.communitySubtitle')}</Text>
           </View>
-          <View style={styles.grayChip}><Text style={styles.grayChipText}>Soon</Text></View>
+          <View style={styles.grayChip}><Text style={styles.grayChipText}>{t('more.soon')}</Text></View>
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Settings</Text>
+      <Text style={styles.sectionTitle}>{t('settings.title')}</Text>
       <View style={styles.card}>
         <TouchableOpacity style={styles.row} onPress={() => setShowNotifPlaceholder(true)}>
           <View style={styles.iconBox}><Text style={styles.iconText}>🔔</Text></View>
           <View style={styles.rowInfo}>
-            <Text style={styles.rowTitle}>Notifications</Text>
+            <Text style={styles.rowTitle}>{t('settings.notifications')}</Text>
           </View>
+          <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
+        <View style={styles.divider} />
+        <TouchableOpacity style={styles.row} onPress={() => setShowLanguage(true)}>
+          <View style={styles.iconBox}><Text style={styles.iconText}>🌐</Text></View>
+          <View style={styles.rowInfo}>
+            <Text style={styles.rowTitle}>{t('settings.language')}</Text>
+          </View>
+          <Text style={styles.rowValue}>{LANG_LABELS[lang]}</Text>
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
         <View style={styles.divider} />
         <TouchableOpacity style={styles.row} onPress={() => setShowChangePassword(true)}>
           <View style={styles.iconBox}><Text style={styles.iconText}>🔒</Text></View>
           <View style={styles.rowInfo}>
-            <Text style={styles.rowTitle}>Change password</Text>
+            <Text style={styles.rowTitle}>{t('settings.changePassword')}</Text>
           </View>
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
@@ -215,7 +258,7 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
         <TouchableOpacity style={styles.row} onPress={() => setShowChangeEmail(true)}>
           <View style={styles.iconBox}><Text style={styles.iconText}>✉️</Text></View>
           <View style={styles.rowInfo}>
-            <Text style={styles.rowTitle}>Change email</Text>
+            <Text style={styles.rowTitle}>{t('settings.changeEmail')}</Text>
           </View>
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
@@ -223,18 +266,18 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
         <TouchableOpacity style={styles.row} onPress={() => supabase.auth.signOut()}>
           <View style={styles.iconBox}><Text style={styles.iconText}>🚪</Text></View>
           <View style={styles.rowInfo}>
-            <Text style={styles.signOutTitle}>Sign out</Text>
+            <Text style={styles.signOutTitle}>{t('settings.signOut')}</Text>
           </View>
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.sectionTitle}>Danger zone</Text>
+      <Text style={styles.sectionTitle}>{t('settings.dangerZone')}</Text>
       <View style={styles.card}>
         <TouchableOpacity style={styles.row} onPress={() => setShowDeleteAccount(true)}>
           <View style={styles.iconBox}><Text style={styles.iconText}>⚠️</Text></View>
           <View style={styles.rowInfo}>
-            <Text style={styles.rowTitleDanger}>Delete account</Text>
-            <Text style={styles.rowSubtitle}>Permanently delete your account and all data</Text>
+            <Text style={styles.rowTitleDanger}>{t('settings.deleteAccount')}</Text>
+            <Text style={styles.rowSubtitle}>{t('settings.deleteAccountSubtitle')}</Text>
           </View>
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
@@ -407,6 +450,16 @@ function makeStyles(theme: ThemeTokens) {
     chevron: {
       fontSize: 16,
       color: theme.border,
+    },
+    rowValue: {
+      fontSize: 13,
+      color: theme.textMuted,
+      marginRight: 4,
+    },
+    langCheck: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: theme.primary,
     },
     divider: {
       height: 0.5,

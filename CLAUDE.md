@@ -21,6 +21,39 @@ https://docs.expo.dev/versions/v54.0.0/ before writing Expo-related code — don
 ## Current state
 
 **Done:**
+- **Multi-language support — English / Turkish / Italian (2026-09-10):** app-wide i18n via
+  `i18n-js` + `expo-localization`, modeled on the `ThemeContext` pattern. `lib/i18n/`
+  (`en.ts` is the source of truth; `tr.ts`/`it.ts` are typed `: typeof en` so any key gap
+  fails `tsc` — tr/it are AI-authored and want a native-speaker proofread pass before
+  launch). `lib/LanguageContext.tsx` exposes `useT()` → `{ t, lang, setLang }`; the `[lang]`
+  dep on the memoized `t` is what re-renders every consumer on switch. Persisted per-device
+  in AsyncStorage (`@bisco/language`); first launch auto-detects device locale
+  (`resolveDeviceLang()`), falling back to English. `LanguageProvider` wraps the whole app
+  in `App.tsx` **outside** `ThemeProvider`. Picker lives in **More › Settings › Language**
+  (a `showLanguage` mode-swap in `MoreScreen.tsx`). i18n-js interpolation is `%{var}` (NOT
+  i18next `{{var}}`); pluralization keys are `{ one, other }` called with `{ count }`.
+  - **Patterns to follow for new strings:** add the key to all three files, use
+    `const { t } = useT()` + `t('namespace.key')`; hoist any module-scope
+    `StyleSheet.create()` that needs nothing new (styles don't change per language, only the
+    theme pattern applies). Calendar/date formatting goes through `lib/i18n/calendar.ts`
+    (`monthYearLabel`/`weekdayLetters`/`longDate`/`shortDate`/`timeOfDay`/etc., all
+    locale-aware via `localeTag()`).
+  - **Non-reactive contexts import `i18n` directly** and call `i18n.t(...)` (they re-run when
+    a `useT()`-consuming parent re-renders): `lib/vaccineDisplay.ts`, `lib/cycleLogic.ts`
+    (`phaseLabel`/`symptomLabel`/`cycleStartTip`), `lib/reportBuilders.ts`,
+    `lib/notifications.ts`, `lib/hooks/useNearbyVets.ts`, and `MealHistoryScreen.tsx`'s
+    exported pure helpers (`mealNameFor`/`foodTypeLabel`/`formatBrands`/`formatTime`).
+  - **Reports ARE translated now** (unlike the theme pass, where reports stayed fixed
+    `sage_clay`) — `reportBuilders.ts` builds table headers/labels via `i18n.t` under the
+    `reports.*` namespace; only the alternating-row hex + white button text stay literal.
+  - **Deliberately left English:** the brand name "Bisco", the Gemini system prompt +
+    `dogContextSummary` (LLM-facing only; a `chat.respondInLanguage` line tells the model to
+    answer in the UI language), palette names in `lib/themes.ts` `THEME_LABELS`
+    (proper-noun-like), raw Supabase/network error `.message` strings, and
+    `SymptomHistoryScreen.tsx`'s dead `handleExport` copy (screen is no longer navigable,
+    kept only for its exported helpers).
+  - User-generated content (pet names, breeds, notes, brands, allergen text, chat messages)
+    is never translated.
 - Auth (sign up/sign in), Google sign-in (web-redirect flow), Apple sign-in (native, built but disabled)
 - Post-signup onboarding (`OnboardingScreen.tsx`): collects display name, unique username, and >=1 pet before `AppTabs`
 - Password strength policy, client-side (`lib/passwordPolicy.ts`)
@@ -961,8 +994,8 @@ a full manual end-to-end pass, and the `v1.0` commit/tag.
   => { if (navigation.isFocused()) setXResetKey(k => k + 1) } } })}` on each `Tab.Screen`,
   with `petsResetKey`/`moreResetKey` passed as the screen's `key` prop — remounting the
   screen is what resets all of its internal `useState` mode-swap flags back to defaults,
-  rather than manually clearing each one (`MoreScreen.tsx` alone has 7:
-  `showNotifPlaceholder`/`reportDog`/`showVetFinder`/`vetFinderFromHome`/
+  rather than manually clearing each one (`MoreScreen.tsx` alone has 8:
+  `showNotifPlaceholder`/`showLanguage`/`reportDog`/`showVetFinder`/`vetFinderFromHome`/
   `showChangePassword`/`showChangeEmail`/`showDeleteAccount`). Home and Chat weren't given
   this treatment — neither has internal nested-mode state to reset.
 - **Follow-up fix — Chat swipe-back scoped to link-entry only (2026-09-09):** the swipe-back
@@ -1225,6 +1258,11 @@ caused bugs twice.
   dev-client build. `app.json` gained its first `plugins` entry (`expo-location`, with a
   custom `locationWhenInUsePermission` string) — harmless in Expo Go, becomes load-bearing
   once/if this app ever moves to a dev-client build.
+- `i18n-js` (v4) + `expo-localization` (2026-09-10, multi-language support) — `i18n-js` is
+  the translation-lookup / interpolation / pluralization engine (`lib/i18n/`);
+  `expo-localization` reads the device locale for first-launch language detection. Both
+  Expo-Go compatible (pure JS). `i18n-js` was installed with plain `npm install
+  i18n-js --legacy-peer-deps` (not `npx expo install` — it's not an Expo package).
 - `@expo/vector-icons` is **not** installed/used for the tab bar — it's only resolvable nested inside `node_modules/expo/node_modules/@expo/vector-icons`, not from app source, so tab icons use plain emoji via `<Text>` instead. Install it explicitly as a follow-up if real icons are wanted later.
 - All installed via `npx expo install <pkg>`, then `npm install --legacy-peer-deps` to resolve — pre-existing peer conflict between pinned `react@19.1.0` and transitive `react-dom@19.2.7` (Expo CLI/web tooling, not app code). Plain `npm install` fails on this regardless of what's being added.
 - `app.json` has `"scheme": "pawcare"` for a future dev-client/standalone build — no effect on Expo Go's own redirect URI, which `makeRedirectUri()` generates automatically.

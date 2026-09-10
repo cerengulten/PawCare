@@ -12,6 +12,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { PASSWORD_REQUIREMENTS, isPasswordValid } from '../lib/passwordPolicy';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 
 type Props = {
@@ -24,6 +25,7 @@ type Props = {
 // current password.
 export default function SetNewPasswordScreen({ onDone }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -32,11 +34,11 @@ export default function SetNewPasswordScreen({ onDone }: Props) {
 
   async function handleSave() {
     if (!isPasswordValid(password)) {
-      setError('Password does not meet the requirements below.');
+      setError(t('auth.passwordFailsRequirements'));
       return;
     }
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError(t('auth.passwordsDoNotMatch'));
       return;
     }
 
@@ -57,13 +59,13 @@ export default function SetNewPasswordScreen({ onDone }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <Text style={styles.paw}>🔑</Text>
-      <Text style={styles.title}>Set a new password</Text>
+      <Text style={styles.title}>{t('auth.setNewPasswordTitle')}</Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <TextInput
         style={styles.input}
-        placeholder="New password"
+        placeholder={t('auth.newPassword')}
         placeholderTextColor={theme.textMuted}
         value={password}
         onChangeText={setPassword}
@@ -71,7 +73,7 @@ export default function SetNewPasswordScreen({ onDone }: Props) {
       />
       <TextInput
         style={styles.input}
-        placeholder="Confirm new password"
+        placeholder={t('auth.confirmNewPassword')}
         placeholderTextColor={theme.textMuted}
         value={confirmPassword}
         onChangeText={setConfirmPassword}
@@ -82,8 +84,8 @@ export default function SetNewPasswordScreen({ onDone }: Props) {
         {PASSWORD_REQUIREMENTS.map((req) => {
           const met = req.test(password);
           return (
-            <Text key={req.label} style={[styles.checklistItem, met && styles.checklistItemMet]}>
-              {met ? '✓' : '○'} {req.label}
+            <Text key={req.labelKey} style={[styles.checklistItem, met && styles.checklistItemMet]}>
+              {met ? '✓' : '○'} {t(req.labelKey)}
             </Text>
           );
         })}
@@ -93,7 +95,7 @@ export default function SetNewPasswordScreen({ onDone }: Props) {
         {loading ? (
           <ActivityIndicator color="white" />
         ) : (
-          <Text style={styles.buttonText}>Save</Text>
+          <Text style={styles.buttonText}>{t('common.save')}</Text>
         )}
       </TouchableOpacity>
     </KeyboardAvoidingView>

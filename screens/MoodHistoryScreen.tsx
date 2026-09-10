@@ -3,6 +3,8 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { Dog, DogMood } from '../types';
 import { useMoodHistory } from '../lib/hooks/useMoodHistory';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
+import { monthYearLabel, weekdayLetters, shortDate } from '../lib/i18n/calendar';
 import { ThemeTokens } from '../lib/themes';
 // MOOD_COLOR below always uses the fixed sage_clay-derived report palette (see
 // lib/reportTheme.ts), not the active in-app theme — it's exported for lib/reportBuilders.ts's
@@ -40,11 +42,6 @@ export const MOOD_COLOR: Record<DogMood['mood'], string> = {
   sick: reportColors.allergenText,
 };
 
-const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
 const HISTORY_DAYS = 90;
 
 function toDateStr(y: number, m: number, d: number): string {
@@ -61,7 +58,9 @@ export function formatWeekday(dateStr: string): string {
 
 export default function MoodHistoryScreen({ dog, onBack }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
+  const DAY_LABELS = weekdayLetters();
   const { historyByDate } = useMoodHistory(dog.id, HISTORY_DAYS);
 
   const now = new Date();
@@ -102,9 +101,8 @@ export default function MoodHistoryScreen({ dog, onBack }: Props) {
 
   const selectedMood = historyByDate.get(selectedDate);
   const selectedLabel = (() => {
-    const d = new Date(selectedDate);
-    const formatted = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    return selectedDate === today ? `${formatted} · Today` : formatted;
+    const formatted = shortDate(selectedDate);
+    return selectedDate === today ? `${formatted} · ${t('moodHistory.today')}` : formatted;
   })();
 
   let monthLoggedCount = 0;
@@ -141,19 +139,19 @@ export default function MoodHistoryScreen({ dog, onBack }: Props) {
     <SwipeBackWrapper onBack={onBack}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <TouchableOpacity onPress={onBack} style={styles.backRow}>
-        <Text style={styles.backText}>‹ Back</Text>
+        <Text style={styles.backText}>‹ {t('common.back')}</Text>
       </TouchableOpacity>
 
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.headerDogName}>{dog.name}</Text>
-          <Text style={styles.title}>Mood History</Text>
+          <Text style={styles.title}>{t('moodHistory.title')}</Text>
         </View>
       </View>
 
       {!hasAnyHistory ? (
         <Text style={styles.gentleCopy}>
-          No moods logged yet — check in on {dog.name} from their profile.
+          {t('moodHistory.noneYet', { name: dog.name })}
         </Text>
       ) : null}
 
@@ -169,7 +167,7 @@ export default function MoodHistoryScreen({ dog, onBack }: Props) {
           >
             <Text style={[styles.monthNavArrow, !canGoBack && styles.monthNavArrowDisabled]}>‹</Text>
           </TouchableOpacity>
-          <Text style={styles.monthLabel}>{MONTH_NAMES[viewMonth]} {viewYear}</Text>
+          <Text style={styles.monthLabel}>{monthYearLabel(viewYear, viewMonth)}</Text>
           <TouchableOpacity
             onPress={() => {
               if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0); }
@@ -226,28 +224,28 @@ export default function MoodHistoryScreen({ dog, onBack }: Props) {
         {selectedMood ? (
           <View style={styles.entryRow}>
             <Text style={styles.entryEmoji}>{MOOD_EMOJI[selectedMood]}</Text>
-            <Text style={styles.entryName}>{MOOD_LABEL[selectedMood]}</Text>
+            <Text style={styles.entryName}>{t('mood.' + selectedMood)}</Text>
           </View>
         ) : (
-          <Text style={styles.emptyDayText}>No mood logged this day</Text>
+          <Text style={styles.emptyDayText}>{t('moodHistory.noMoodThisDay')}</Text>
         )}
       </View>
 
-      <Text style={[styles.sectionLabel, styles.monthStatsLabel]}>This month</Text>
+      <Text style={[styles.sectionLabel, styles.monthStatsLabel]}>{t('moodHistory.thisMonth')}</Text>
       <View style={styles.statStrip}>
         <View style={styles.statBox}>
           <Text style={styles.statNum}>{monthLoggedCount}/{monthElapsedDays}</Text>
-          <Text style={styles.statLabel}>days logged</Text>
+          <Text style={styles.statLabel}>{t('moodHistory.daysLogged')}</Text>
         </View>
         <View style={styles.statBox}>
           <Text style={[styles.statNum, styles.statNumGreen]}>
-            {mostCommonMood ? `${MOOD_EMOJI[mostCommonMood]} ${MOOD_LABEL[mostCommonMood]}` : '—'}
+            {mostCommonMood ? `${MOOD_EMOJI[mostCommonMood]} ${t('mood.' + mostCommonMood)}` : '—'}
           </Text>
-          <Text style={styles.statLabel}>most common</Text>
+          <Text style={styles.statLabel}>{t('moodHistory.mostCommon')}</Text>
         </View>
         <View style={styles.statBox}>
           <Text style={styles.statNum}>{loggingStreak > 0 ? `🔥${loggingStreak}` : '🌱'}</Text>
-          <Text style={styles.statLabel}>day streak</Text>
+          <Text style={styles.statLabel}>{t('moodHistory.dayStreak')}</Text>
         </View>
       </View>
     </ScrollView>

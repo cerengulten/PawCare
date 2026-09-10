@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { MealDetail, FoodType } from '../types';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 
 type SavePayload = {
@@ -36,12 +37,7 @@ type Props = {
   onSave: (details: SavePayload) => Promise<{ error: Error | null }>;
 };
 
-const FOOD_TYPE_OPTIONS: { value: FoodType; label: string }[] = [
-  { value: 'wet', label: 'Wet' },
-  { value: 'dry', label: 'Dry' },
-  { value: 'mixed', label: 'Mixed' },
-  { value: 'raw', label: 'Raw' },
-];
+const FOOD_TYPE_OPTIONS: FoodType[] = ['wet', 'dry', 'mixed', 'raw'];
 
 const SHEET_HEIGHT = Math.round(Dimensions.get('window').height * 0.6);
 const DISMISS_THRESHOLD = 100;
@@ -50,15 +46,16 @@ function amountText(grams: number | null): string {
   return grams != null ? String(grams) : '';
 }
 
-function parseAmount(text: string): { value: number | null; error?: string } {
+function parseAmount(text: string, errorMsg: string): { value: number | null; error?: string } {
   if (!text.trim()) return { value: null };
   const parsed = parseInt(text, 10);
-  if (Number.isNaN(parsed) || parsed < 1) return { value: null, error: 'Amount must be a number of 1 or more.' };
+  if (Number.isNaN(parsed) || parsed < 1) return { value: null, error: errorMsg };
   return { value: parsed };
 }
 
 export default function MealDetailSheet({ visible, initial, onClose, onSave }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [foodType, setFoodType] = useState<FoodType | null>(initial?.food_type ?? null);
   const [wetAmountText, setWetAmountText] = useState(amountText(initial?.wet_amount_grams ?? null));
@@ -108,26 +105,27 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
 
   async function handleSave() {
     if (!foodType) {
-      setError('Pick a food type.');
+      setError(t('meal.pickFoodType'));
       return;
     }
+    const amtErr = t('meal.amountError');
 
     let wetAmount: number | null = null;
     let dryAmount: number | null = null;
     let rawAmount: number | null = null;
 
     if (foodType === 'wet' || foodType === 'mixed') {
-      const r = parseAmount(wetAmountText);
+      const r = parseAmount(wetAmountText, amtErr);
       if (r.error) { setError(r.error); return; }
       wetAmount = r.value;
     }
     if (foodType === 'dry' || foodType === 'mixed') {
-      const r = parseAmount(dryAmountText);
+      const r = parseAmount(dryAmountText, amtErr);
       if (r.error) { setError(r.error); return; }
       dryAmount = r.value;
     }
     if (foodType === 'raw') {
-      const r = parseAmount(rawAmountText);
+      const r = parseAmount(rawAmountText, amtErr);
       if (r.error) { setError(r.error); return; }
       rawAmount = r.value;
     }
@@ -164,20 +162,20 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
             <View style={styles.handle} />
           </View>
 
-          <Text style={styles.title}>Meal detail</Text>
+          <Text style={styles.title}>{t('meal.detailTitle')}</Text>
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
-          <Text style={styles.fieldLabel}>Food type</Text>
+          <Text style={styles.fieldLabel}>{t('meal.foodTypeLabel')}</Text>
           <View style={styles.chipGrid}>
             {FOOD_TYPE_OPTIONS.map(opt => {
-              const selected = foodType === opt.value;
+              const selected = foodType === opt;
               return (
                 <TouchableOpacity
-                  key={opt.value}
+                  key={opt}
                   style={[styles.chipBtn, selected && styles.chipBtnSelected]}
-                  onPress={() => setFoodType(opt.value)}
+                  onPress={() => setFoodType(opt)}
                 >
-                  <Text style={styles.chipBtnLabel}>{opt.label}</Text>
+                  <Text style={styles.chipBtnLabel}>{t('meal.foodType.' + opt)}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -187,7 +185,7 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
             <>
               <TextInput
                 style={styles.input}
-                placeholder="Amount (grams, optional)"
+                placeholder={t('meal.amountGramsOptional')}
                 placeholderTextColor={theme.textMuted}
                 value={wetAmountText}
                 onChangeText={setWetAmountText}
@@ -195,7 +193,7 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
               />
               <TextInput
                 style={styles.input}
-                placeholder="Brand (optional)"
+                placeholder={t('meal.brandOptional')}
                 placeholderTextColor={theme.textMuted}
                 value={brandWet}
                 onChangeText={setBrandWet}
@@ -207,7 +205,7 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
             <>
               <TextInput
                 style={styles.input}
-                placeholder="Amount (grams, optional)"
+                placeholder={t('meal.amountGramsOptional')}
                 placeholderTextColor={theme.textMuted}
                 value={dryAmountText}
                 onChangeText={setDryAmountText}
@@ -215,7 +213,7 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
               />
               <TextInput
                 style={styles.input}
-                placeholder="Brand (optional)"
+                placeholder={t('meal.brandOptional')}
                 placeholderTextColor={theme.textMuted}
                 value={brandDry}
                 onChangeText={setBrandDry}
@@ -227,7 +225,7 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
             <>
               <TextInput
                 style={styles.input}
-                placeholder="Amount (grams, optional)"
+                placeholder={t('meal.amountGramsOptional')}
                 placeholderTextColor={theme.textMuted}
                 value={rawAmountText}
                 onChangeText={setRawAmountText}
@@ -235,7 +233,7 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
               />
               <TextInput
                 style={styles.input}
-                placeholder="Brand (optional)"
+                placeholder={t('meal.brandOptional')}
                 placeholderTextColor={theme.textMuted}
                 value={brandRaw}
                 onChangeText={setBrandRaw}
@@ -246,10 +244,10 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
           {foodType === 'mixed' ? (
             <View style={styles.mixedRow}>
               <View style={styles.mixedColumn}>
-                <Text style={styles.mixedColumnLabel}>Wet</Text>
+                <Text style={styles.mixedColumnLabel}>{t('meal.foodType.wet')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Grams"
+                  placeholder={t('meal.grams')}
                   placeholderTextColor={theme.textMuted}
                   value={wetAmountText}
                   onChangeText={setWetAmountText}
@@ -257,17 +255,17 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Brand"
+                  placeholder={t('meal.brand')}
                   placeholderTextColor={theme.textMuted}
                   value={brandWet}
                   onChangeText={setBrandWet}
                 />
               </View>
               <View style={styles.mixedColumn}>
-                <Text style={styles.mixedColumnLabel}>Dry</Text>
+                <Text style={styles.mixedColumnLabel}>{t('meal.foodType.dry')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Grams"
+                  placeholder={t('meal.grams')}
                   placeholderTextColor={theme.textMuted}
                   value={dryAmountText}
                   onChangeText={setDryAmountText}
@@ -275,7 +273,7 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Brand"
+                  placeholder={t('meal.brand')}
                   placeholderTextColor={theme.textMuted}
                   value={brandDry}
                   onChangeText={setBrandDry}
@@ -286,14 +284,14 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
 
           <TextInput
             style={styles.input}
-            placeholder="Notes (optional)"
+            placeholder={t('water.notesOptional')}
             placeholderTextColor={theme.textMuted}
             value={notes}
             onChangeText={setNotes}
           />
 
           <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading}>
-            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>Save</Text>}
+            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>{t('common.save')}</Text>}
           </TouchableOpacity>
         </Animated.View>
       </KeyboardAvoidingView>

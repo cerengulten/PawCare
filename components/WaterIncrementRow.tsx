@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 
 type Props = {
@@ -13,6 +14,7 @@ const INCREMENTS = [50, 100, 250];
 
 export default function WaterIncrementRow({ onAdd, onReset, onCustom }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
     <View style={styles.row}>
@@ -22,10 +24,10 @@ export default function WaterIncrementRow({ onAdd, onReset, onCustom }: Props) {
         </TouchableOpacity>
       ))}
       <TouchableOpacity style={styles.pill} onPress={onCustom}>
-        <Text style={styles.pillText}>+ Custom</Text>
+        <Text style={styles.pillText}>{t('water.custom')}</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={onReset} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Text style={styles.resetText}>↺ reset</Text>
+        <Text style={styles.resetText}>{t('water.reset')}</Text>
       </TouchableOpacity>
     </View>
   );

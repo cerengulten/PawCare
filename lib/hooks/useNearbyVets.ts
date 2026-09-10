@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import * as Location from 'expo-location';
 import { VetResult } from '../../types';
+import { i18n } from '../i18n';
 
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
@@ -45,7 +46,7 @@ export async function fetchVetsNear(center: Coords): Promise<VetResult[]> {
   return elements
     .map(el => ({
       id: String(el.id),
-      name: el.tags?.name ?? 'Veterinary clinic',
+      name: el.tags?.name ?? String(i18n.t('vetFinder.defaultName')),
       lat: el.lat,
       lon: el.lon,
       address: addressFromTags(el.tags),
@@ -91,7 +92,7 @@ export function useNearbyVets() {
       const results = await fetchVetsNear(center);
       setVets(results);
     } catch {
-      setError('Could not load nearby vets. Please try again.');
+      setError(i18n.t('vetFinder.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -103,7 +104,7 @@ export function useNearbyVets() {
     try {
       const center = await geocodeAddress(query);
       if (!center) {
-        setError('Could not find that address. Try a different search.');
+        setError(i18n.t('vetFinder.addressNotFound'));
         setLoading(false);
         return;
       }
@@ -111,7 +112,7 @@ export function useNearbyVets() {
       const results = await fetchVetsNear(center);
       setVets(results);
     } catch {
-      setError('Could not load nearby vets. Please try again.');
+      setError(i18n.t('vetFinder.loadFailed'));
     } finally {
       setLoading(false);
     }

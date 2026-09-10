@@ -16,9 +16,10 @@ import {
   Dimensions,
 } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import { CycleSpecies, CycleIntensity, CycleSymptom } from '../types';
-import { SYMPTOMS_BY_SPECIES, SYMPTOM_LABELS } from '../lib/cycleLogic';
+import { SYMPTOMS_BY_SPECIES, symptomLabel } from '../lib/cycleLogic';
 
 type Props = {
   visible: boolean;
@@ -30,17 +31,14 @@ type Props = {
   onSave: (symptoms: string[], intensity: CycleIntensity | null, notes: string | null) => Promise<{ error: Error | null }>;
 };
 
-const INTENSITY_OPTIONS: { value: CycleIntensity; label: string }[] = [
-  { value: 'mild', label: 'Mild' },
-  { value: 'moderate', label: 'Moderate' },
-  { value: 'severe', label: 'Severe' },
-];
+const INTENSITY_OPTIONS: CycleIntensity[] = ['mild', 'moderate', 'severe'];
 
 const SHEET_HEIGHT = Math.round(Dimensions.get('window').height * 0.7);
 const DISMISS_THRESHOLD = 100;
 
 export default function SymptomLogSheet({ visible, species, dogName, dayOfCycle, initial, onClose, onSave }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>(initial?.symptoms ?? []);
   const [intensity, setIntensity] = useState<CycleIntensity | null>(initial?.intensity ?? null);
@@ -84,7 +82,7 @@ export default function SymptomLogSheet({ visible, species, dogName, dayOfCycle,
 
   async function handleSave() {
     if (selectedSymptoms.length === 0) {
-      setError('Select at least one symptom.');
+      setError(t('cycle.selectAtLeastOne'));
       return;
     }
     setLoading(true);
@@ -113,12 +111,14 @@ export default function SymptomLogSheet({ visible, species, dogName, dayOfCycle,
           </View>
 
           <Text style={styles.title}>
-            How is {dogName} today?{dayOfCycle != null ? ` · Day ${dayOfCycle} of cycle` : ''}
+            {dayOfCycle != null
+              ? t('cycle.symptomSheetTitleDay', { name: dogName, day: dayOfCycle })
+              : t('cycle.symptomSheetTitle', { name: dogName })}
           </Text>
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <ScrollView showsVerticalScrollIndicator={false}>
-            <Text style={styles.fieldLabel}>Symptoms</Text>
+            <Text style={styles.fieldLabel}>{t('cycle.symptomsField')}</Text>
             <View style={styles.chipGrid}>
               {symptomKeys.map(key => {
                 const selected = selectedSymptoms.includes(key);
@@ -128,23 +128,23 @@ export default function SymptomLogSheet({ visible, species, dogName, dayOfCycle,
                     style={[styles.chipBtn, selected && styles.chipBtnSelected]}
                     onPress={() => toggleSymptom(key)}
                   >
-                    <Text style={styles.chipBtnLabel}>{SYMPTOM_LABELS[key] ?? key}</Text>
+                    <Text style={styles.chipBtnLabel}>{symptomLabel(key)}</Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            <Text style={styles.fieldLabel}>Intensity</Text>
+            <Text style={styles.fieldLabel}>{t('cycle.intensityField')}</Text>
             <View style={styles.chipGrid}>
               {INTENSITY_OPTIONS.map(opt => {
-                const selected = intensity === opt.value;
+                const selected = intensity === opt;
                 return (
                   <TouchableOpacity
-                    key={opt.value}
+                    key={opt}
                     style={[styles.chipBtn, selected && styles.chipBtnSelected]}
-                    onPress={() => setIntensity(opt.value)}
+                    onPress={() => setIntensity(opt)}
                   >
-                    <Text style={styles.chipBtnLabel}>{opt.label}</Text>
+                    <Text style={styles.chipBtnLabel}>{t('cycle.intensity.' + opt)}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -152,7 +152,7 @@ export default function SymptomLogSheet({ visible, species, dogName, dayOfCycle,
 
             <TextInput
               style={styles.input}
-              placeholder="Notes (optional)"
+              placeholder={t('tracker.notesOptional')}
               placeholderTextColor={theme.textMuted}
               value={notes}
               onChangeText={setNotes}
@@ -160,7 +160,7 @@ export default function SymptomLogSheet({ visible, species, dogName, dayOfCycle,
           </ScrollView>
 
           <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading}>
-            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>Save</Text>}
+            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>{t('common.save')}</Text>}
           </TouchableOpacity>
         </Animated.View>
       </KeyboardAvoidingView>

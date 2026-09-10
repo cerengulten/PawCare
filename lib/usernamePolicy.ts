@@ -5,17 +5,21 @@ export const USERNAME_MAX_LENGTH = 20;
 export const USERNAME_REGEX = /^[A-Za-z][A-Za-z0-9_]{2,19}$/;
 
 export type UsernameRequirement = {
-  label: string;
+  /** i18n key under `usernameReq` — resolve with t() at the call site. */
+  labelKey: string;
+  /** interpolation params for the label, if any */
+  labelParams?: Record<string, unknown>;
   test: (u: string) => boolean;
 };
 
 export const USERNAME_REQUIREMENTS: UsernameRequirement[] = [
   {
-    label: `${USERNAME_MIN_LENGTH}-${USERNAME_MAX_LENGTH} characters`,
+    labelKey: 'usernameReq.length',
+    labelParams: { min: USERNAME_MIN_LENGTH, max: USERNAME_MAX_LENGTH },
     test: (u) => u.length >= USERNAME_MIN_LENGTH && u.length <= USERNAME_MAX_LENGTH,
   },
-  { label: 'Starts with a letter', test: (u) => /^[A-Za-z]/.test(u) },
-  { label: 'Letters, numbers, underscores only', test: (u) => /^[A-Za-z0-9_]*$/.test(u) },
+  { labelKey: 'usernameReq.startsLetter', test: (u) => /^[A-Za-z]/.test(u) },
+  { labelKey: 'usernameReq.charset', test: (u) => /^[A-Za-z0-9_]*$/.test(u) },
 ];
 
 export function isUsernameFormatValid(u: string): boolean {

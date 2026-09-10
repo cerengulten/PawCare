@@ -13,6 +13,7 @@ import { supabase } from '../lib/supabase';
 import { PASSWORD_REQUIREMENTS, isPasswordValid } from '../lib/passwordPolicy';
 import SocialSignInButtons from '../components/SocialSignInButtons';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 
 type Props = {
@@ -21,6 +22,7 @@ type Props = {
 
 export default function RegisterScreen({ onSwitch }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,11 +32,11 @@ export default function RegisterScreen({ onSwitch }: Props) {
 
   async function handleRegister() {
     if (!email || !password) {
-      setError('Please fill in all fields.');
+      setError(t('common.fillAllFields'));
       return;
     }
     if (!isPasswordValid(password)) {
-      setError('Password does not meet the requirements below.');
+      setError(t('auth.passwordFailsRequirements'));
       return;
     }
     setLoading(true);
@@ -52,12 +54,12 @@ export default function RegisterScreen({ onSwitch }: Props) {
     return (
       <View style={styles.container}>
         <Text style={styles.paw}>📬</Text>
-        <Text style={styles.title}>Check your email</Text>
+        <Text style={styles.title}>{t('auth.checkEmailTitle')}</Text>
         <Text style={styles.subtitle}>
-          We sent a confirmation link to {email}. Click it then come back to sign in.
+          {t('auth.checkEmailConfirm', { email })}
         </Text>
         <TouchableOpacity style={styles.button} onPress={onSwitch}>
-          <Text style={styles.buttonText}>Go to sign in</Text>
+          <Text style={styles.buttonText}>{t('auth.goToSignIn')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -69,14 +71,14 @@ export default function RegisterScreen({ onSwitch }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <Text style={styles.paw}>🐾</Text>
-      <Text style={styles.title}>Create account</Text>
-      <Text style={styles.subtitle}>Start caring for your dog today</Text>
+      <Text style={styles.title}>{t('auth.createAccount')}</Text>
+      <Text style={styles.subtitle}>{t('auth.signUpSubtitle')}</Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <TextInput
         style={styles.input}
-        placeholder="Email"
+        placeholder={t('auth.email')}
         placeholderTextColor={theme.textMuted}
         value={email}
         onChangeText={setEmail}
@@ -85,7 +87,7 @@ export default function RegisterScreen({ onSwitch }: Props) {
       />
       <TextInput
         style={styles.input}
-        placeholder="Password"
+        placeholder={t('auth.password')}
         placeholderTextColor={theme.textMuted}
         value={password}
         onChangeText={setPassword}
@@ -96,8 +98,8 @@ export default function RegisterScreen({ onSwitch }: Props) {
         {PASSWORD_REQUIREMENTS.map((req) => {
           const met = req.test(password);
           return (
-            <Text key={req.label} style={[styles.checklistItem, met && styles.checklistItemMet]}>
-              {met ? '✓' : '○'} {req.label}
+            <Text key={req.labelKey} style={[styles.checklistItem, met && styles.checklistItemMet]}>
+              {met ? '✓' : '○'} {t(req.labelKey)}
             </Text>
           );
         })}
@@ -107,15 +109,15 @@ export default function RegisterScreen({ onSwitch }: Props) {
         {loading ? (
           <ActivityIndicator color="white" />
         ) : (
-          <Text style={styles.buttonText}>Create account</Text>
+          <Text style={styles.buttonText}>{t('auth.createAccount')}</Text>
         )}
       </TouchableOpacity>
 
       <SocialSignInButtons />
 
       <TouchableOpacity onPress={onSwitch} style={styles.switchRow}>
-        <Text style={styles.switchText}>Already have an account? </Text>
-        <Text style={styles.switchLink}>Sign in</Text>
+        <Text style={styles.switchText}>{t('auth.haveAccount')}</Text>
+        <Text style={styles.switchLink}>{t('auth.signIn')}</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
   );

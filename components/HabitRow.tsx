@@ -4,6 +4,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { Habit } from '../types';
 import ProgressRing from './ProgressRing';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 
 type Props = {
@@ -37,6 +38,7 @@ export default function HabitRow({
   onViewHistory,
 }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const swipeableRef = useRef<Swipeable>(null);
   const progress = target > 0 ? count / target : 0;
@@ -46,12 +48,12 @@ export default function HabitRow({
 
   const confirmDelete = () => {
     Alert.alert(
-      'Delete habit?',
-      `This permanently deletes "${habit.title}".`,
+      t('habitRow.deleteTitle'),
+      t('habitRow.deleteMessage', { title: habit.title }),
       [
-        { text: 'Cancel', style: 'cancel', onPress: () => swipeableRef.current?.close() },
+        { text: t('common.cancel'), style: 'cancel', onPress: () => swipeableRef.current?.close() },
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => {
             swipeableRef.current?.close();
@@ -68,16 +70,16 @@ export default function HabitRow({
         style={[styles.actionButton, styles.historyAction]}
         onPress={() => { swipeableRef.current?.close(); onViewHistory(); }}
       >
-        <Text style={styles.actionText}>History</Text>
+        <Text style={styles.actionText}>{t('habitRow.history')}</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={[styles.actionButton, styles.editAction]}
         onPress={() => { swipeableRef.current?.close(); onEdit(); }}
       >
-        <Text style={styles.actionText}>Edit</Text>
+        <Text style={styles.actionText}>{t('common.edit')}</Text>
       </TouchableOpacity>
       <TouchableOpacity style={[styles.actionButton, styles.deleteAction]} onPress={confirmDelete}>
-        <Text style={styles.actionText}>Delete</Text>
+        <Text style={styles.actionText}>{t('common.delete')}</Text>
       </TouchableOpacity>
     </View>
   );

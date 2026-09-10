@@ -9,6 +9,7 @@ import PetFormScreen from './PetFormScreen';
 import DogDetailScreen from './DogDetailScreen';
 import { RootTabParamList } from './AppTabs';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 
 type DogsState = ReturnType<typeof useDogs>;
@@ -37,6 +38,7 @@ export default function PetsScreen({
   selectDog,
 }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [mode, setMode] = useState<'switch' | 'form'>('switch');
   const [editingDog, setEditingDog] = useState<Dog | null>(null);
@@ -106,13 +108,13 @@ export default function PetsScreen({
         />
       ) : (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>No pets yet</Text>
-          <Text style={styles.emptyText}>Add your first pet to start tracking their care.</Text>
+          <Text style={styles.emptyTitle}>{t('pets.noPetsYet')}</Text>
+          <Text style={styles.emptyText}>{t('pets.noPetsSubtitle')}</Text>
           <TouchableOpacity
             style={styles.emptyButton}
             onPress={() => { setEditingDog(null); setMode('form'); }}
           >
-            <Text style={styles.emptyButtonText}>+ Add your first pet</Text>
+            <Text style={styles.emptyButtonText}>{t('pets.addFirstPet')}</Text>
           </TouchableOpacity>
         </View>
       )}

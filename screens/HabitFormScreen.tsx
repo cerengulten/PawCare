@@ -17,6 +17,7 @@ import DateTimePicker, {
 import { Habit, HabitType } from '../types';
 import { useHabits } from '../lib/hooks/useHabits';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 import { calculateWaterTargetMl } from '../lib/waterIntake';
@@ -26,6 +27,7 @@ type UseHabitsReturn = ReturnType<typeof useHabits>;
 type Props = {
   habit: Habit | null;
   presetType?: HabitType;
+  existingHabits?: Habit[];
   weightKg: number | null;
   feedingWetDryRatio: number | null;
   addHabit: UseHabitsReturn['addHabit'];
@@ -37,32 +39,32 @@ type Props = {
 
 const FREQUENCIES: Habit['frequency'][] = ['daily', 'weekly', 'custom'];
 const TIMES_PER_DAY_OPTIONS = [1, 2, 3, 4];
-const TIMES_PER_DAY_LABEL: Partial<Record<HabitType, string>> = {
-  feeding: 'Meals per day',
-  walking: 'Walks per day',
-  medication: 'Doses per day',
-  vitamin: 'Doses per day',
-  dental: 'Brushings per day',
-  custom: 'Times per day',
+const TIMES_PER_DAY_LABEL_KEY: Partial<Record<HabitType, string>> = {
+  feeding: 'habits.mealsPerDay',
+  walking: 'habits.walksPerDay',
+  medication: 'habits.dosesPerDay',
+  vitamin: 'habits.dosesPerDay',
+  dental: 'habits.brushingsPerDay',
+  custom: 'habits.timesPerDayGeneric',
 };
-const REMINDER_NOUN: Partial<Record<HabitType, string>> = {
-  feeding: 'Meal',
-  walking: 'Walk',
-  medication: 'Dose',
-  vitamin: 'Dose',
-  dental: 'Brushing',
+const REMINDER_NOUN_KEY: Partial<Record<HabitType, string>> = {
+  feeding: 'habits.reminderNoun.feeding',
+  walking: 'habits.reminderNoun.walking',
+  medication: 'habits.reminderNoun.medication',
+  vitamin: 'habits.reminderNoun.vitamin',
+  dental: 'habits.reminderNoun.dental',
 };
 const WET_DRY_OPTIONS = [0, 25, 50, 75, 100];
 const WALK_DURATION_PRESETS = [15, 30, 45, 60];
 const DOSAGE_UNITS = ['mg', 'ml', 'tablet', 'drop', 'other'];
-const WEEKDAYS: { value: number; label: string }[] = [
-  { value: 1, label: 'Sun' },
-  { value: 2, label: 'Mon' },
-  { value: 3, label: 'Tue' },
-  { value: 4, label: 'Wed' },
-  { value: 5, label: 'Thu' },
-  { value: 6, label: 'Fri' },
-  { value: 7, label: 'Sat' },
+const WEEKDAYS: { value: number; labelKey: string }[] = [
+  { value: 1, labelKey: 'habits.weekday.sun' },
+  { value: 2, labelKey: 'habits.weekday.mon' },
+  { value: 3, labelKey: 'habits.weekday.tue' },
+  { value: 4, labelKey: 'habits.weekday.wed' },
+  { value: 5, labelKey: 'habits.weekday.thu' },
+  { value: 6, labelKey: 'habits.weekday.fri' },
+  { value: 7, labelKey: 'habits.weekday.sat' },
 ];
 
 const HABIT_TYPE_CATEGORY: Record<HabitType, Habit['category']> = {
@@ -75,14 +77,13 @@ const HABIT_TYPE_CATEGORY: Record<HabitType, Habit['category']> = {
   custom: 'other',
 };
 
-const HABIT_TYPE_DEFAULT_TITLE: Record<HabitType, string> = {
-  feeding: 'Feeding',
-  water: 'Water',
-  walking: 'Walk',
-  medication: 'Medication',
-  vitamin: 'Vitamins',
-  dental: 'Tooth Brushing',
-  custom: '',
+const HABIT_TYPE_DEFAULT_TITLE_KEY: Partial<Record<HabitType, string>> = {
+  feeding: 'habits.defaultTitle.feeding',
+  water: 'habits.defaultTitle.water',
+  walking: 'habits.defaultTitle.walking',
+  medication: 'habits.defaultTitle.medication',
+  vitamin: 'habits.defaultTitle.vitamin',
+  dental: 'habits.defaultTitle.dental',
 };
 
 function toTimeString(d: Date): string {
@@ -106,6 +107,7 @@ function parseNumber(s: string): number | null {
 export default function HabitFormScreen({
   habit,
   presetType,
+  existingHabits = [],
   weightKg,
   feedingWetDryRatio,
   addHabit,
@@ -115,11 +117,13 @@ export default function HabitFormScreen({
   onCancel,
 }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const habitType: HabitType = habit?.habit_type ?? presetType ?? 'custom';
   const knownDosageUnits = ['mg', 'ml', 'tablet', 'drop'];
+  const defaultTitleKey = HABIT_TYPE_DEFAULT_TITLE_KEY[habitType];
 
-  const [title, setTitle] = useState(habit?.title ?? HABIT_TYPE_DEFAULT_TITLE[habitType]);
+  const [title, setTitle] = useState(habit?.title ?? (defaultTitleKey ? t(defaultTitleKey) : ''));
   const [frequency, setFrequency] = useState<Habit['frequency']>(habit?.frequency ?? 'daily');
   const [reminderTimes, setReminderTimes] = useState<(string | null)[]>(habit?.reminder_times ?? []);
   const [iosPickerIndex, setIosPickerIndex] = useState<number | null>(null);
@@ -141,11 +145,11 @@ export default function HabitFormScreen({
     habitType === 'dental' ||
     (habitType === 'custom' && customUsesTimesPerDay);
   const usesAmount = habitType === 'medication' || habitType === 'vitamin' || (habitType === 'custom' && customUsesAmount);
-  const amountLabel = habitType === 'medication' || habitType === 'vitamin' ? 'Dosage amount' : 'Amount';
-  const unitLabel = habitType === 'medication' || habitType === 'vitamin' ? 'Dosage unit' : 'Unit';
+  const amountLabel = habitType === 'medication' || habitType === 'vitamin' ? t('habits.dosageAmount') : t('habits.amountLabel');
+  const unitLabel = habitType === 'medication' || habitType === 'vitamin' ? t('habits.dosageUnit') : t('habits.unitLabel');
   const [timesPerDay, setTimesPerDay] = useState<number | null>(habit?.times_per_day ?? null);
   const reminderSlotCount = usesTimesPerDay && timesPerDay ? timesPerDay : 1;
-  const reminderNoun = REMINDER_NOUN[habitType] ?? 'Reminder';
+  const reminderNoun = REMINDER_NOUN_KEY[habitType] ? t(REMINDER_NOUN_KEY[habitType]!) : t('habits.reminderNoun.generic');
   const [portionGrams, setPortionGrams] = useState(
     habit?.portion_grams != null ? String(habit.portion_grams) : ''
   );
@@ -203,7 +207,49 @@ export default function HabitFormScreen({
   async function handleSave() {
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
-      setError('Title is required.');
+      setError(t('habits.titleRequired'));
+      return;
+    }
+
+    // Don't let the same pet have two of the same habit. Non-custom types are unique by
+    // type; custom habits are unique by title. Editing an existing habit is exempt.
+    if (!habit) {
+      const duplicate = existingHabits.some(h =>
+        habitType === 'custom'
+          ? h.title.trim().toLowerCase() === trimmedTitle.toLowerCase()
+          : h.habit_type === habitType
+      );
+      if (duplicate) {
+        setError(
+          habitType === 'custom'
+            ? t('habits.duplicateName')
+            : t('habits.duplicateType', {
+                type: (defaultTitleKey ? t(defaultTitleKey) : habitType).toLowerCase(),
+              })
+        );
+        return;
+      }
+    }
+
+    // Type-specific amounts must be a real number — otherwise the daily target silently
+    // falls back to 1, which is meaningless for a water goal or a meal portion.
+    if (usesTimesPerDay && !timesPerDay) {
+      const label = TIMES_PER_DAY_LABEL_KEY[habitType]
+        ? t(TIMES_PER_DAY_LABEL_KEY[habitType]!)
+        : t('habits.timesPerDayGeneric');
+      setError(t('habits.chooseTimesPerDay', { label: label.toLowerCase() }));
+      return;
+    }
+    if (habitType === 'water' && !((parseNumber(waterGoalMl) ?? 0) > 0)) {
+      setError(t('habits.enterWaterGoal'));
+      return;
+    }
+    if (habitType === 'feeding' && !((parseNumber(portionGrams) ?? 0) > 0)) {
+      setError(t('habits.enterPortion'));
+      return;
+    }
+    if (usesAmount && !((parseNumber(dosageAmount) ?? 0) > 0)) {
+      setError(t('habits.enterAmount', { label: amountLabel.toLowerCase() }));
       return;
     }
 
@@ -262,13 +308,13 @@ export default function HabitFormScreen({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>{habit ? 'Edit habit' : 'Add habit'}</Text>
+        <Text style={styles.title}>{habit ? t('habits.editTitle') : t('habits.addHabit')}</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <TextInput
           style={styles.input}
-          placeholder="Title"
+          placeholder={t('habits.title')}
           placeholderTextColor={theme.textMuted}
           value={title}
           onChangeText={setTitle}
@@ -276,9 +322,9 @@ export default function HabitFormScreen({
 
         {habitType === 'custom' && (
           <>
-            <Text style={styles.sectionLabel}>Add details (optional)</Text>
+            <Text style={styles.sectionLabel}>{t('habits.addDetailsOptional')}</Text>
             <Text style={styles.helperText}>
-              We don't know what this habit needs — turn on any extra fields you want to track.
+              {t('habits.customHint')}
             </Text>
             <View style={styles.chipRow}>
               <TouchableOpacity
@@ -286,7 +332,7 @@ export default function HabitFormScreen({
                 onPress={() => setCustomUsesTimesPerDay(v => !v)}
               >
                 <Text style={[styles.chipText, customUsesTimesPerDay && styles.chipTextSelected]}>
-                  Times per day
+                  {t('habits.timesPerDayChip')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -294,7 +340,7 @@ export default function HabitFormScreen({
                 onPress={() => setCustomUsesAmount(v => !v)}
               >
                 <Text style={[styles.chipText, customUsesAmount && styles.chipTextSelected]}>
-                  Amount
+                  {t('habits.amountChip')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -303,7 +349,9 @@ export default function HabitFormScreen({
 
         {usesTimesPerDay && (
           <>
-            <Text style={styles.sectionLabel}>{TIMES_PER_DAY_LABEL[habitType]}</Text>
+            <Text style={styles.sectionLabel}>
+              {TIMES_PER_DAY_LABEL_KEY[habitType] ? t(TIMES_PER_DAY_LABEL_KEY[habitType]!) : t('habits.timesPerDayGeneric')}
+            </Text>
             <View style={styles.chipRow}>
               {TIMES_PER_DAY_OPTIONS.map((n) => (
                 <TouchableOpacity
@@ -312,7 +360,7 @@ export default function HabitFormScreen({
                   onPress={() => setTimesPerDay(n)}
                 >
                   <Text style={[styles.chipText, timesPerDay === n && styles.chipTextSelected]}>
-                    {n}x/day
+                    {t('habits.perDay', { count: n })}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -322,26 +370,26 @@ export default function HabitFormScreen({
 
         {habitType === 'feeding' && (
           <>
-            <Text style={styles.sectionLabel}>Portion (grams)</Text>
+            <Text style={styles.sectionLabel}>{t('habits.portionGrams')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. 200"
+              placeholder={t('habits.portionPlaceholder')}
               placeholderTextColor={theme.textMuted}
               keyboardType="numeric"
               value={portionGrams}
               onChangeText={setPortionGrams}
             />
 
-            <Text style={styles.sectionLabel}>Food brand (optional)</Text>
+            <Text style={styles.sectionLabel}>{t('habits.foodBrandOptional')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. Purina"
+              placeholder={t('habits.foodBrandPlaceholder')}
               placeholderTextColor={theme.textMuted}
               value={foodBrand}
               onChangeText={setFoodBrand}
             />
 
-            <Text style={styles.sectionLabel}>Wet / dry ratio</Text>
+            <Text style={styles.sectionLabel}>{t('habits.wetDryRatio')}</Text>
             <View style={styles.chipRow}>
               {WET_DRY_OPTIONS.map((pct) => (
                 <TouchableOpacity
@@ -350,7 +398,7 @@ export default function HabitFormScreen({
                   onPress={() => setWetDryRatio(pct)}
                 >
                   <Text style={[styles.chipText, wetDryRatio === pct && styles.chipTextSelected]}>
-                    {pct}% wet
+                    {t('habits.percentWet', { pct })}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -360,27 +408,27 @@ export default function HabitFormScreen({
 
         {habitType === 'water' && (
           <>
-            <Text style={styles.sectionLabel}>Daily goal (ml)</Text>
+            <Text style={styles.sectionLabel}>{t('habits.dailyGoalMl')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. 500"
+              placeholder={t('habits.dailyGoalPlaceholder')}
               placeholderTextColor={theme.textMuted}
               keyboardType="numeric"
               value={waterGoalMl}
               onChangeText={(text) => { setWaterGoalMl(text); setWaterGoalManuallyEdited(true); }}
             />
             {!waterGoalManuallyEdited && suggestedWaterGoalMl != null ? (
-              <Text style={styles.helperText}>✨ Suggested based on weight</Text>
+              <Text style={styles.helperText}>{t('habits.suggestedByWeight')}</Text>
             ) : null}
           </>
         )}
 
         {habitType === 'walking' && (
           <>
-            <Text style={styles.sectionLabel}>Duration (minutes)</Text>
+            <Text style={styles.sectionLabel}>{t('habits.durationMinutes')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. 30"
+              placeholder={t('habits.durationPlaceholder')}
               placeholderTextColor={theme.textMuted}
               keyboardType="numeric"
               value={walkDuration}
@@ -394,7 +442,7 @@ export default function HabitFormScreen({
                   onPress={() => setWalkDuration(String(min))}
                 >
                   <Text style={[styles.chipText, walkDuration === String(min) && styles.chipTextSelected]}>
-                    {min} min
+                    {t('habits.minutesShort', { count: min })}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -407,7 +455,7 @@ export default function HabitFormScreen({
             <Text style={styles.sectionLabel}>{amountLabel}</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. 5"
+              placeholder={t('habits.amountPlaceholder')}
               placeholderTextColor={theme.textMuted}
               keyboardType="numeric"
               value={dosageAmount}
@@ -432,7 +480,7 @@ export default function HabitFormScreen({
             {showCustomUnit && (
               <TextInput
                 style={styles.input}
-                placeholder="Custom unit"
+                placeholder={t('habits.customUnit')}
                 placeholderTextColor={theme.textMuted}
                 value={customDosageUnit}
                 onChangeText={setCustomDosageUnit}
@@ -441,7 +489,7 @@ export default function HabitFormScreen({
           </>
         )}
 
-        <Text style={styles.sectionLabel}>Frequency</Text>
+        <Text style={styles.sectionLabel}>{t('habits.frequency')}</Text>
         <View style={styles.chipRow}>
           {FREQUENCIES.map((f) => (
             <TouchableOpacity
@@ -449,14 +497,14 @@ export default function HabitFormScreen({
               style={[styles.chip, frequency === f && styles.chipSelected]}
               onPress={() => setFrequency(f)}
             >
-              <Text style={[styles.chipText, frequency === f && styles.chipTextSelected]}>{f}</Text>
+              <Text style={[styles.chipText, frequency === f && styles.chipTextSelected]}>{t('habits.freq.' + f)}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
         {frequency === 'weekly' && (
           <>
-            <Text style={styles.sectionLabel}>Day of week</Text>
+            <Text style={styles.sectionLabel}>{t('habits.dayOfWeek')}</Text>
             <View style={styles.chipRow}>
               {WEEKDAYS.map((d) => (
                 <TouchableOpacity
@@ -465,7 +513,7 @@ export default function HabitFormScreen({
                   onPress={() => setReminderWeekday(d.value)}
                 >
                   <Text style={[styles.chipText, reminderWeekday === d.value && styles.chipTextSelected]}>
-                    {d.label}
+                    {t(d.labelKey)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -474,7 +522,7 @@ export default function HabitFormScreen({
         )}
 
         <Text style={styles.sectionLabel}>
-          {reminderSlotCount > 1 ? `${reminderNoun} reminders (optional)` : 'Reminder time (optional)'}
+          {reminderSlotCount > 1 ? t('habits.remindersOptional', { noun: reminderNoun }) : t('habits.reminderTimeOptional')}
         </Text>
         {Array.from({ length: reminderSlotCount }).map((_, index) => {
           const value = reminderTimes[index] ?? null;
@@ -485,7 +533,7 @@ export default function HabitFormScreen({
               ) : null}
               <TouchableOpacity style={styles.input} onPress={() => openTimePicker(index)}>
                 <Text style={value ? styles.inputText : styles.placeholderText}>
-                  {value ?? 'No reminder time set'}
+                  {value ?? t('habits.noReminderTime')}
                 </Text>
               </TouchableOpacity>
 
@@ -500,7 +548,7 @@ export default function HabitFormScreen({
                     }}
                   />
                   <TouchableOpacity onPress={() => setIosPickerIndex(null)}>
-                    <Text style={styles.switchLink}>Done</Text>
+                    <Text style={styles.switchLink}>{t('common.done')}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -512,17 +560,17 @@ export default function HabitFormScreen({
           {loading ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text style={styles.buttonText}>Save</Text>
+            <Text style={styles.buttonText}>{t('common.save')}</Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
-          <Text style={styles.switchLink}>Cancel</Text>
+          <Text style={styles.switchLink}>{t('common.cancel')}</Text>
         </TouchableOpacity>
 
         {habit ? (
           <TouchableOpacity onPress={handleDelete} style={styles.switchRow} disabled={loading}>
-            <Text style={styles.deleteLink}>Delete habit</Text>
+            <Text style={styles.deleteLink}>{t('habits.deleteHabit')}</Text>
           </TouchableOpacity>
         ) : null}
       </ScrollView>

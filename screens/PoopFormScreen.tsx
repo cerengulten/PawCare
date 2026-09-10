@@ -13,6 +13,7 @@ import {
 import { HealthLog, PoopConsistency, PoopColor } from '../types';
 import { useHealthLogs } from '../lib/hooks/useHealthLogs';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
@@ -27,20 +28,8 @@ type Props = {
   onCancel: () => void;
 };
 
-const CONSISTENCY_OPTIONS: { value: PoopConsistency; label: string }[] = [
-  { value: 'solid', label: 'Solid' },
-  { value: 'soft', label: 'Soft' },
-  { value: 'liquid', label: 'Liquid' },
-  { value: 'mucus', label: 'Mucus' },
-];
-
-const COLOR_OPTIONS: { value: PoopColor; label: string }[] = [
-  { value: 'brown', label: 'Brown' },
-  { value: 'yellow', label: 'Yellow' },
-  { value: 'green', label: 'Green' },
-  { value: 'black', label: 'Black' },
-  { value: 'red', label: 'Red' },
-];
+const CONSISTENCY_OPTIONS: PoopConsistency[] = ['solid', 'soft', 'liquid', 'mucus'];
+const COLOR_OPTIONS: PoopColor[] = ['brown', 'yellow', 'green', 'black', 'red'];
 
 export default function PoopFormScreen({
   log,
@@ -51,6 +40,7 @@ export default function PoopFormScreen({
   onCancel,
 }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const details = log?.details as { consistency: PoopConsistency; color: PoopColor; frequency: number } | undefined;
   const [consistency, setConsistency] = useState<PoopConsistency>(details?.consistency ?? 'solid');
@@ -63,7 +53,7 @@ export default function PoopFormScreen({
   async function handleSave() {
     const frequency = parseInt(frequencyText, 10);
     if (!frequencyText.trim() || Number.isNaN(frequency) || frequency < 1) {
-      setError('Frequency must be a number of 1 or more.');
+      setError(t('tracker.frequencyError'));
       return;
     }
 
@@ -106,43 +96,43 @@ export default function PoopFormScreen({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>{log ? 'Edit Poop' : 'Add Poop'}</Text>
+        <Text style={styles.title}>{log ? t('poop.editTitle') : t('poop.addTitle')}</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Text style={styles.fieldLabel}>Consistency</Text>
+        <Text style={styles.fieldLabel}>{t('poop.consistency')}</Text>
         <View style={styles.chipGrid}>
           {CONSISTENCY_OPTIONS.map(opt => {
-            const selected = consistency === opt.value;
+            const selected = consistency === opt;
             return (
               <TouchableOpacity
-                key={opt.value}
+                key={opt}
                 style={[styles.chipBtn, selected && styles.chipBtnSelected]}
-                onPress={() => setConsistency(opt.value)}
+                onPress={() => setConsistency(opt)}
               >
-                <Text style={styles.chipBtnLabel}>{opt.label}</Text>
+                <Text style={styles.chipBtnLabel}>{t('poop.consistencyOpt.' + opt)}</Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        <Text style={styles.fieldLabel}>Color</Text>
+        <Text style={styles.fieldLabel}>{t('poop.color')}</Text>
         <View style={styles.chipGrid}>
           {COLOR_OPTIONS.map(opt => {
-            const selected = color === opt.value;
+            const selected = color === opt;
             return (
               <TouchableOpacity
-                key={opt.value}
+                key={opt}
                 style={[styles.chipBtn, selected && styles.chipBtnSelected]}
-                onPress={() => setColor(opt.value)}
+                onPress={() => setColor(opt)}
               >
-                <Text style={styles.chipBtnLabel}>{opt.label}</Text>
+                <Text style={styles.chipBtnLabel}>{t('poop.colorOpt.' + opt)}</Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        <Text style={styles.fieldLabel}>Frequency</Text>
+        <Text style={styles.fieldLabel}>{t('tracker.frequency')}</Text>
         <TextInput
           style={styles.input}
           placeholder="1"
@@ -154,7 +144,7 @@ export default function PoopFormScreen({
 
         <TextInput
           style={[styles.input, styles.notesInput]}
-          placeholder="Notes (optional)"
+          placeholder={t('tracker.notesOptional')}
           placeholderTextColor={theme.textMuted}
           value={notes}
           onChangeText={setNotes}
@@ -165,17 +155,17 @@ export default function PoopFormScreen({
           {loading ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text style={styles.buttonText}>Save</Text>
+            <Text style={styles.buttonText}>{t('common.save')}</Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
-          <Text style={styles.switchLink}>Cancel</Text>
+          <Text style={styles.switchLink}>{t('common.cancel')}</Text>
         </TouchableOpacity>
 
         {log ? (
           <TouchableOpacity onPress={handleDelete} style={styles.switchRow} disabled={loading}>
-            <Text style={styles.deleteLink}>Delete</Text>
+            <Text style={styles.deleteLink}>{t('tracker.deleteEntry')}</Text>
           </TouchableOpacity>
         ) : null}
       </ScrollView>

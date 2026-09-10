@@ -2,18 +2,13 @@ import { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { HealthLog, PoopConsistency, PoopLogDetails } from '../types';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
+import { localeTag } from '../lib/i18n';
 import { ThemeTokens } from '../lib/themes';
 
 type Props = {
   log: HealthLog;
   onPress: () => void;
-};
-
-const CONSISTENCY_LABEL: Record<PoopConsistency, string> = {
-  solid: 'Solid',
-  soft: 'Soft',
-  liquid: 'Liquid',
-  mucus: 'Mucus',
 };
 
 function severityStyle(theme: ThemeTokens, consistency: PoopConsistency) {
@@ -28,12 +23,13 @@ function severityStyle(theme: ThemeTokens, consistency: PoopConsistency) {
 
 function formatLoggedAt(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-    + ' · ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return d.toLocaleDateString(localeTag(), { month: 'short', day: 'numeric' })
+    + ' · ' + d.toLocaleTimeString(localeTag(), { hour: 'numeric', minute: '2-digit' });
 }
 
 export default function PoopLogCard({ log, onPress }: Props) {
   const { theme } = useTheme();
+  const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const details = log.details as PoopLogDetails;
   const { dot, chipBg, chipText } = severityStyle(theme, details.consistency);
@@ -44,11 +40,11 @@ export default function PoopLogCard({ log, onPress }: Props) {
       <View style={styles.info}>
         <Text style={styles.title}>💩 {formatLoggedAt(log.logged_at)}</Text>
         <Text style={styles.meta} numberOfLines={1}>
-          {details.color} · {details.frequency}x{log.notes ? ` · ${log.notes}` : ''}
+          {t('poop.colorOpt.' + details.color)} · {details.frequency}x{log.notes ? ` · ${log.notes}` : ''}
         </Text>
       </View>
       <View style={[styles.chip, { backgroundColor: chipBg }]}>
-        <Text style={[styles.chipText, { color: chipText }]}>{CONSISTENCY_LABEL[details.consistency]}</Text>
+        <Text style={[styles.chipText, { color: chipText }]}>{t('poop.consistencyOpt.' + details.consistency)}</Text>
       </View>
     </TouchableOpacity>
   );
