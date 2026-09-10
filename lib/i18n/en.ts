@@ -703,6 +703,10 @@ const en = {
       s2Body: 'Tap a habit row to see its full history. Swipe left on any habit to edit or delete it.',
       s3Title: 'Add new habits',
       s3Body: 'Tap + to add a new habit for this pet — feeding, walks, medication, vitamins, and more.',
+      s4Title: 'Track her heat cycle',
+      s4Body: 'Log when a cycle starts to get phase predictions and a reminder before the next one.',
+      s5Title: 'Log digestive health',
+      s5Body: 'Record stool consistency, color, and frequency. Tap + Add for a new one, or See all for the history.',
     },
     more: {
       s1Title: 'Never miss a vet visit',

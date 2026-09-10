@@ -9,6 +9,8 @@ export type TourStep = {
   position: 'top' | 'bottom' | 'left' | 'right';
   title: string;
   body: string;
+  /** Runs when the step begins, before measuring — e.g. scroll the target into view. */
+  ensureVisible?: () => void;
 };
 
 type Props = {
@@ -77,6 +79,7 @@ export default function TabTour({ tab, steps, enabled }: Props) {
       body={current.body}
       targetRef={current.targetRef}
       position={current.position}
+      ensureVisible={current.ensureVisible}
       onNext={handleNext}
       onSkip={finish}
     />

@@ -704,6 +704,10 @@ const it: typeof en = {
       s2Body: 'Tocca la riga di un\'abitudine per vederne la cronologia completa. Scorri verso sinistra per modificarla o eliminarla.',
       s3Title: 'Aggiungi nuove abitudini',
       s3Body: 'Tocca + per aggiungere una nuova abitudine per questo animale — pasti, passeggiate, farmaci, vitamine e altro.',
+      s4Title: 'Monitora il ciclo di calore',
+      s4Body: 'Registra l\'inizio di un ciclo per ottenere previsioni delle fasi e un promemoria prima del successivo.',
+      s5Title: 'Registra la salute digestiva',
+      s5Body: 'Annota consistenza, colore e frequenza delle feci. Tocca + Aggiungi per una nuova voce o Vedi tutto per lo storico.',
     },
     more: {
       s1Title: 'Non perdere una visita dal veterinario',

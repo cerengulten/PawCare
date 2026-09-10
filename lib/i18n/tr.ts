@@ -704,6 +704,10 @@ const tr: typeof en = {
       s2Body: 'Tüm geçmişini görmek için bir alışkanlık satırına dokun. Düzenlemek veya silmek için sola kaydır.',
       s3Title: 'Yeni alışkanlıklar ekle',
       s3Body: 'Bu evcil hayvan için yeni bir alışkanlık eklemek üzere + simgesine dokun — besleme, yürüyüş, ilaç, vitamin ve daha fazlası.',
+      s4Title: 'Kızgınlık döngüsünü takip et',
+      s4Body: 'Faz tahminleri ve bir sonraki döngüden önce hatırlatma almak için döngü başladığında kaydet.',
+      s5Title: 'Sindirim sağlığını kaydet',
+      s5Body: 'Dışkı kıvamını, rengini ve sıklığını kaydet. Yeni bir kayıt için + Ekle\'ye, geçmiş için Tümünü gör\'e dokun.',
     },
     more: {
       s1Title: 'Veteriner ziyaretini kaçırma',

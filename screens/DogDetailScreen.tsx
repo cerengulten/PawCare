@@ -1,4 +1,4 @@
-import { RefObject, useMemo, useState } from 'react';
+import { RefObject, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, ScrollView, Alert, StyleSheet } from 'react-native';
 import { Dog, Habit, HabitType, DogMood, VaccineRecord, Allergen, HealthLog } from '../types';
 import { useHabits, getHabitTarget } from '../lib/hooks/useHabits';
@@ -30,6 +30,7 @@ import VomitFormScreen from './VomitFormScreen';
 import MealHistoryScreen from './MealHistoryScreen';
 import CycleHistoryScreen from './CycleHistoryScreen';
 import HeatCycleSection from '../components/HeatCycleSection';
+import TabTour from '../components/TabTour';
 import CycleStartSheet from '../components/CycleStartSheet';
 import { useCycleTracking } from '../lib/hooks/useCycleTracking';
 import { mapDogSpeciesToCycleSpecies } from '../lib/cycleLogic';
@@ -44,8 +45,7 @@ type Props = {
   onEdit: () => void;
   onDelete: () => void;
   tourRefs?: {
-    habitsSectionRef: RefObject<View | null>;
-    addHabitRef: RefObject<View | null>;
+    switcherRef: RefObject<View | null>;
   };
 };
 
@@ -84,6 +84,17 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
   const [mealDetailHabitId, setMealDetailHabitId] = useState<string | null>(null);
   const [waterSheetHabitId, setWaterSheetHabitId] = useState<string | null>(null);
   const [cycleStartSheetVisible, setCycleStartSheetVisible] = useState(false);
+
+  // Tour targets on the detail view. The lower sections are usually below the fold, so
+  // each tour step scrolls its target into view (via the recorded onLayout Y) first.
+  const scrollRef = useRef<ScrollView>(null);
+  const habitsSectionRef = useRef<View>(null);
+  const addHabitRef = useRef<View>(null);
+  const cycleSectionRef = useRef<View>(null);
+  const poopSectionRef = useRef<View>(null);
+  const tourY = useRef<{ habits?: number; cycle?: number; poop?: number }>({});
+  const scrollToTour = (y?: number) =>
+    scrollRef.current?.scrollTo({ y: Math.max(0, (y ?? 0) - 90), animated: true });
 
   const {
     habits,
@@ -368,7 +379,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
 
   return (
     <>
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.heroBand}>
         {dog.photo_url ? (
           <Image source={{ uri: dog.photo_url }} style={styles.photo} />
@@ -451,10 +462,15 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
         </View>
       </View>
 
-      <View ref={tourRefs?.habitsSectionRef} collapsable={false} style={styles.section}>
+      <View
+        ref={habitsSectionRef}
+        collapsable={false}
+        onLayout={(e) => { tourY.current.habits = e.nativeEvent.layout.y; }}
+        style={styles.section}
+      >
         <View style={styles.sectionTitleRow}>
           <Text style={styles.sectionTitle}>{t('dogDetail.todaysHabits')}</Text>
-          <View ref={tourRefs?.addHabitRef} collapsable={false}>
+          <View ref={addHabitRef} collapsable={false}>
             <TouchableOpacity
               onPress={() => { setEditingHabit(null); setMode('habit-quick-add'); }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -550,15 +566,26 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
       </View>
 
       {showHeatCycle && cycleSpecies ? (
-        <HeatCycleSection
-          dog={dog}
-          tracking={cycleTracking}
-          onStartCycle={() => setCycleStartSheetVisible(true)}
-          onViewHistory={() => setMode('cycle-history')}
-        />
+        <View
+          ref={cycleSectionRef}
+          collapsable={false}
+          onLayout={(e) => { tourY.current.cycle = e.nativeEvent.layout.y; }}
+        >
+          <HeatCycleSection
+            dog={dog}
+            tracking={cycleTracking}
+            onStartCycle={() => setCycleStartSheetVisible(true)}
+            onViewHistory={() => setMode('cycle-history')}
+          />
+        </View>
       ) : null}
 
-      <View style={styles.section}>
+      <View
+        ref={poopSectionRef}
+        collapsable={false}
+        onLayout={(e) => { tourY.current.poop = e.nativeEvent.layout.y; }}
+        style={styles.section}
+      >
         <View style={styles.sectionTitleRow}>
           <Text style={styles.sectionTitle}>{t('dogDetail.poopTracker')}</Text>
           <TouchableOpacity
@@ -629,6 +656,51 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
         <Text style={styles.vaccineLinkText}>{vaccineLabel}</Text>
       </TouchableOpacity>
     </ScrollView>
+    {tourRefs ? (
+      <TabTour
+        tab="pets"
+        enabled
+        steps={[
+          {
+            targetRef: tourRefs.switcherRef,
+            position: 'bottom',
+            title: t('tour.pets.s1Title'),
+            body: t('tour.pets.s1Body'),
+            ensureVisible: () => scrollRef.current?.scrollTo({ y: 0, animated: false }),
+          },
+          {
+            targetRef: habitsSectionRef,
+            position: 'bottom',
+            title: t('tour.pets.s2Title'),
+            body: t('tour.pets.s2Body'),
+            ensureVisible: () => scrollToTour(tourY.current.habits),
+          },
+          {
+            targetRef: addHabitRef,
+            position: 'bottom',
+            title: t('tour.pets.s3Title'),
+            body: t('tour.pets.s3Body'),
+            ensureVisible: () => scrollToTour(tourY.current.habits),
+          },
+          ...(showHeatCycle && cycleSpecies
+            ? [{
+                targetRef: cycleSectionRef,
+                position: 'bottom' as const,
+                title: t('tour.pets.s4Title'),
+                body: t('tour.pets.s4Body'),
+                ensureVisible: () => scrollToTour(tourY.current.cycle),
+              }]
+            : []),
+          {
+            targetRef: poopSectionRef,
+            position: 'bottom',
+            title: t('tour.pets.s5Title'),
+            body: t('tour.pets.s5Body'),
+            ensureVisible: () => scrollToTour(tourY.current.poop),
+          },
+        ]}
+      />
+    ) : null}
     <MealDetailSheet
       visible={mealDetailHabitId !== null}
       initial={mealDetailInitial}

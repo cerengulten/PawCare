@@ -21,6 +21,8 @@ type Props = {
   body: string;
   targetRef: RefObject<View | null>;
   position: 'top' | 'bottom' | 'left' | 'right';
+  /** Called once when the step begins, before measuring — e.g. to scroll the target into view. */
+  ensureVisible?: () => void;
   onNext: () => void;
   onSkip: () => void;
 };
@@ -36,6 +38,7 @@ export default function TourTooltip({
   body,
   targetRef,
   position,
+  ensureVisible,
   onNext,
   onSkip,
 }: Props) {
@@ -54,6 +57,8 @@ export default function TourTooltip({
   useEffect(() => {
     skippedRef.current = false;
     setRect(null);
+    ensureVisible?.();
+    const maxAttempts = ensureVisible ? 10 : 6;
     let attempts = 0;
     let timer: ReturnType<typeof setTimeout>;
 
@@ -73,7 +78,7 @@ export default function TourTooltip({
     };
     const retry = () => {
       attempts += 1;
-      if (attempts > 6) {
+      if (attempts > maxAttempts) {
         if (!skippedRef.current) {
           skippedRef.current = true;
           onNext();
@@ -83,7 +88,7 @@ export default function TourTooltip({
       timer = setTimeout(tryMeasure, 120);
     };
 
-    timer = setTimeout(tryMeasure, 60);
+    timer = setTimeout(tryMeasure, ensureVisible ? 400 : 60);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, targetRef]);

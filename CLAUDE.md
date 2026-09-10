@@ -32,19 +32,25 @@ https://docs.expo.dev/versions/v54.0.0/ before writing Expo-related code — don
   `hasSeenTour` fails closed on storage error). `components/TourTooltip.tsx` = one
   presentational step (measures its `targetRef` via `measureInWindow` with a short retry;
   auto-advances/skips a step whose target never measures — this is how Home's step 2
-  no-ops when the streak pill isn't rendered). `components/TabTour.tsx` = per-tab
-  orchestrator: waits **500 ms after the tab is focused** (`useIsFocused`), checks
-  `hasSeenTour`, walks the steps, calls `markTourSeen` on finish/skip. Tours are
-  independent — skipping one tab doesn't touch the others — and gated on real content
-  (`enabled={dogs.length > 0}` on Home, `!loading && !!selectedDog` on Pets, always on
-  More). Wiring: `HomeScreen.tsx` (refs on pet-summary strip wrapper + streak pill),
-  `PetsScreen.tsx` (ref on switcher row; passes `tourRefs={{ habitsSectionRef,
-  addHabitRef }}` down to `DogDetailScreen.tsx`, which attaches them to the "Today's
-  habits" `styles.section` and a wrapper around the `+` button — optional prop, no-op
-  when absent), `MoreScreen.tsx` (refs on the Upcoming + Coming-soon cards). Copy is
-  i18n'd under the `tour.*` namespace (en/tr/it). **Replay:** More › Settings ›
-  "Replay app tour" calls `resetAllTours()` + an `Alert`; re-visiting each tab
-  re-triggers.
+  no-ops when the streak pill isn't rendered; optional `ensureVisible()` runs first to
+  scroll the target on-screen, with a longer measure delay when it's set).
+  `components/TabTour.tsx` = per-tab orchestrator: waits **500 ms after the tab is
+  focused** (`useIsFocused`), checks `hasSeenTour`, walks the steps, calls `markTourSeen`
+  on finish/skip. Tours are independent — skipping one tab doesn't touch the others — and
+  gated on real content (`enabled={dogs.length > 0}` on Home, More always on).
+  - **Home** tour (2 steps): pet-summary strip, streak pill — rendered by `HomeScreen.tsx`.
+  - **More** tour (2 steps): Upcoming card, Coming-soon card — rendered by `MoreScreen.tsx`.
+  - **Pets** tour (4–5 steps) is rendered by **`DogDetailScreen.tsx`**, not `PetsScreen.tsx`
+    (it owns the detail `ScrollView` and 4 of the 5 targets, so it can scroll each into
+    view). `PetsScreen.tsx` only holds the switcher-row ref and passes it down as
+    `tourRefs={{ switcherRef }}` (optional prop; the tour renders only when present).
+    Steps: switcher row → "Today's habits" section → the `+` add-habit button → **Heat
+    Cycle section (only when `showHeatCycle && cycleSpecies`)** → **Poop Tracker section**.
+    The cycle/poop/habits targets record their `onLayout` Y into a `tourY` ref; each
+    step's `ensureVisible` does `scrollRef.current.scrollTo({ y: recordedY - 90 })`.
+  Copy is i18n'd under the `tour.*` namespace (en/tr/it; Pets steps are `s1`–`s5`).
+  **Replay:** More › Settings › "Replay app tour" calls `resetAllTours()` + an `Alert`;
+  re-visiting each tab re-triggers.
 - **Multi-language support — English / Turkish / Italian (2026-09-10):** app-wide i18n via
   `i18n-js` + `expo-localization`, modeled on the `ThemeContext` pattern. `lib/i18n/`
   (`en.ts` is the source of truth; `tr.ts`/`it.ts` are typed `: typeof en` so any key gap
