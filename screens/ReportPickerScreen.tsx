@@ -33,7 +33,7 @@ export default function ReportPickerScreen({ dog, onBack }: Props) {
   const { theme } = useTheme();
   const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  const { profile } = useProfile();
+  const { profile } = useProfile(dog.owner_id);
   const { historyByDate: moodHistoryByDate } = useMoodHistory(dog.id, 90);
   const { mealDetails } = useMealDetails(dog.id);
   const { logs } = useHealthLogs(dog.id);

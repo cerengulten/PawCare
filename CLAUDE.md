@@ -1105,7 +1105,29 @@ a full manual end-to-end pass, and the `v1.0` commit/tag.
 - Google: web-redirect flow (`expo-web-browser` + `expo-auth-session`) — works in Expo Go.
 - Apple: native `expo-apple-authentication` (exception — Expo docs confirm it works in Expo Go on iOS, unlike most native modules). **Disabled** via `APPLE_SIGN_IN_ENABLED` flag in `SocialSignInButtons.tsx` pending Apple Developer Program decision + Supabase provider config.
 - Don't move Google to a native SDK without first confirming the project has moved off Expo Go (most native auth modules need a dev client).
-- **Bugfix — pets not showing on cold app reopen while already signed in (2026-09-08):**
+- **Bugfix — pets/profile still occasionally missing on cold reopen, recurrence
+  (2026-09-11):** the 2026-09-08 fix below (swapping `getUser()` for `getSession()`) wasn't
+  actually sufficient — `getSession()` is not a pure local read either: per supabase-js, it
+  can refresh a near-expiry access token over the network before resolving, and that
+  refresh call can still race a cold launch (flaky network right at process start), leaving
+  `dogs`/`profile` empty for the rest of the session exactly like before. **Real fix:**
+  stop having `useDogs()`/`useProfile()` independently re-derive the user at all — they now
+  take the id as a required param (`useDogs(userId)`, `useProfile(userId)`) instead of
+  calling `getSession()` on mount. `App.tsx`'s `AuthedApp` already receives a non-null
+  `session: Session` prop (guaranteed — it only renders once `AppInner`'s own `getSession()`
+  has resolved), so it calls `useDogs(session.user.id)` / `useProfile(session.user.id)` —
+  zero async calls on the critical mount path, so there's no race left to lose. The two
+  other `useProfile()` call sites (`ReportPickerScreen.tsx`, `SymptomHistoryScreen.tsx`,
+  both read-only owner-info-for-a-PDF uses deep in an already-authenticated session) now
+  pass `dog.owner_id` — the dog row's own `owner_id` column is already the right user id,
+  no session lookup needed at all. Every write call inside both hooks (`addDog`/`updateDog`/
+  `deleteDog`/`completeOnboarding`/`updateProfile`) also dropped its now-redundant
+  `getSession()` call and just uses the passed-in `userId` directly. **If "empty on cold
+  start" resurfaces again, look for a hook that still derives its own user id via an auth
+  call on mount** — the fix is always to thread an already-known id down as a parameter
+  instead.
+- **Bugfix — pets not showing on cold app reopen while already signed in (2026-09-08,
+  superseded by the fix above):**
   `lib/hooks/useDogs.ts` (and `lib/hooks/useProfile.ts`, same vulnerability) resolved the
   current user via `supabase.auth.getUser()`, which — unlike `getSession()` — always makes a
   live network round-trip to re-verify the JWT with Supabase's servers. On a cold app launch

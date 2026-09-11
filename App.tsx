@@ -41,7 +41,7 @@ function AuthedApp({ session }: { session: Session }) {
   // never showed up on More until the app restarted. See the "onboarding's
   // first pet missing from Pets tab" bugfix note in CLAUDE.md for the same
   // pattern already applied to dogs.
-  const profileState = useProfile();
+  const profileState = useProfile(session.user.id);
   const { profile, loading: profileLoading } = profileState;
   const [onboardingActive, setOnboardingActive] = useState(false);
 
@@ -51,7 +51,7 @@ function AuthedApp({ session }: { session: Session }) {
   // lib/ThemeContext.tsx / lib/themes.ts. PetsScreen consumes this same state via
   // props passed down through AppTabs instead of owning its own useDogs()/
   // useSelectedPet() instances.
-  const dogsState = useDogs();
+  const dogsState = useDogs(session.user.id);
   const selectedPetState = useSelectedPet(dogsState.dogs);
   const selectedDog = selectedPetState.selectedDogId
     ? dogsState.dogs.find(d => d.id === selectedPetState.selectedDogId) ?? null

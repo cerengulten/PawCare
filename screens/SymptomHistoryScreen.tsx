@@ -93,7 +93,7 @@ function dayStatusStyle(theme: ThemeTokens, status: DayStatus) {
 export default function SymptomHistoryScreen({ dog, logs, vomitLogs, onSelectPoop, onSelectVomit, onBack }: Props) {
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  const { profile } = useProfile();
+  const { profile } = useProfile(dog.owner_id);
   const [exporting, setExporting] = useState(false);
 
   const now = new Date();
