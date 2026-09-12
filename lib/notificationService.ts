@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import { i18n } from './i18n';
 import { daysAway } from './vaccineDisplay';
 import { mapDogSpeciesToCycleSpecies, predictNextCycleStart } from './cycleLogic';
-import { computeStreak } from './hooks/useHabitHistory';
+import { computeStreak } from './streakLogic';
 import { NotificationActionType, NotificationType } from '../types';
 
 // Generates rows in the `notifications` table (screens/NotificationsScreen.tsx) — a

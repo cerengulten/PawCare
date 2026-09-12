@@ -1,19 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useIsFocused } from '@react-navigation/native';
 import { supabase } from '../supabase';
 import { AppNotification } from '../../types';
 
 const LIMIT = 50;
 
+// Deliberately does NOT use useIsFocused() — unlike most of this app's other hooks, this
+// one is also called from screens/AppTabs.tsx (for the More tab's unread dot), which sits
+// above/outside the NavigationContainer it renders, so useIsFocused() would throw
+// ("Couldn't find a navigation object") there. Plain mount-fetch + the existing
+// `refetch`/optimistic local updates are enough for an unread-count badge; some staleness
+// across tab switches is acceptable (same class as this app's other documented
+// duplicate-hook-instance cases).
 export function useNotifications(ownerId: string | null) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
-  const isFocused = useIsFocused();
 
   useEffect(() => {
-    if (!isFocused) return;
     fetchNotifications();
-  }, [ownerId, isFocused]);
+  }, [ownerId]);
 
   async function fetchNotifications() {
     if (!ownerId) { setNotifications([]); setLoading(false); return; }

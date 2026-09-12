@@ -4,27 +4,12 @@ import { supabase } from '../supabase';
 import { Habit } from '../../types';
 import { getHabitTarget } from './useHabits';
 
+export { computeStreak } from '../streakLogic';
+
 function dateStringDaysAgo(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() - days);
   return d.toISOString().split('T')[0];
-}
-
-export function computeStreak(dates: Map<string, number>, target: number, todayStr: string): number {
-  const isDone = (dateStr: string) => (dates.get(dateStr) ?? 0) >= target;
-
-  let cursor = new Date(todayStr);
-  if (!isDone(todayStr)) {
-    cursor.setDate(cursor.getDate() - 1);
-    if (!isDone(cursor.toISOString().split('T')[0])) return 0;
-  }
-
-  let streak = 0;
-  while (isDone(cursor.toISOString().split('T')[0])) {
-    streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  return streak;
 }
 
 export function computeBestStreak(dates: Map<string, number>, target: number): number {

@@ -96,6 +96,22 @@ https://docs.expo.dev/versions/v54.0.0/ before writing Expo-related code — don
     source now, see "Architecture" below).
   - i18n: extended the existing (previously push-only) `notifications` namespace with
     inbox UI copy and the per-type generated title/body templates (en/tr/it).
+  - **Bugfixes (2026-09-13), both surfaced on a real device build:** (1) a require cycle
+    (`notificationService.ts` → `hooks/useHabitHistory.ts` → `hooks/useHabits.ts` →
+    `notificationService.ts`, closed by `useHabits.ts` calling
+    `checkAndCreateWaterGoalNotif`) — fixed by extracting `computeStreak` out of
+    `useHabitHistory.ts` into a new dependency-free `lib/streakLogic.ts` (no
+    `Habit`/`getHabitTarget` import, unlike `computeBestStreak`/`computeWeekRecap` which
+    stayed put); `useHabitHistory.ts` now just re-exports it, so no other import site
+    needed to change. **If a require-cycle warning shows up again touching
+    `notificationService.ts`, check for a pure helper that can be split out the same way**
+    — anything `notificationService.ts` needs must not transitively import it back.
+    (2) `useNotifications.ts` used `useIsFocused()`, which throws ("Couldn't find a
+    navigation object") when called somewhere outside a `NavigationContainer` — exactly
+    `screens/AppTabs.tsx`'s badge instance, which sits above the `NavigationContainer` it
+    renders. Removed `useIsFocused()` from the hook entirely (plain mount-fetch instead);
+    unlike most hooks in this app, `useNotifications` must stay safe to call from outside
+    navigation context.
 - **Per-tab first-time tooltip tour (2026-09-10):** one-time guided tour that fires the
   first time each of the **Home** / **Pets** / **More** tabs is opened, highlighting 2–3
   key elements per tab with a tooltip card (dark backdrop via four dim bands around the
