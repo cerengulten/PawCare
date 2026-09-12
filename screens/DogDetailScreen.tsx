@@ -38,6 +38,7 @@ import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import { computeAge } from '../lib/petAge';
+import { checkAndCreateHealthAlert } from '../lib/notificationService';
 
 type Props = {
   dog: Dog;
@@ -452,7 +453,10 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
               <TouchableOpacity
                 key={opt.value}
                 style={[styles.moodBtn, selected && styles.moodBtnSelected]}
-                onPress={() => setTodayMood(opt.value)}
+                onPress={async () => {
+                  await setTodayMood(opt.value);
+                  checkAndCreateHealthAlert(dog.id, dog.owner_id);
+                }}
               >
                 <Text style={styles.moodEmoji}>{opt.emoji}</Text>
                 <Text style={styles.moodBtnLabel}>{t('mood.' + opt.value)}</Text>

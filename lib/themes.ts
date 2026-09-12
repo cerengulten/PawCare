@@ -60,6 +60,21 @@ export type ThemeTokens = {
   phaseDiestrus: string;
   phaseAnestrus: string;
 
+  // fixed notification-type colors (NotificationCard's left border + icon bg) — same
+  // value in every palette, per notification `type`, not brand identity
+  notifHealthBorder: string;
+  notifHealthBg: string;
+  notifStreakBorder: string;
+  notifStreakBg: string;
+  notifCycleBorder: string;
+  notifCycleBg: string;
+  notifVaccineBorder: string;
+  notifVaccineBg: string;
+  notifHydrationBorder: string;
+  notifHydrationBg: string;
+  notifInfoBorder: string;
+  notifInfoBg: string;
+
   // structural constant — same in every palette
   radiiCard: number;
 };
@@ -80,6 +95,18 @@ const SEMANTIC: Pick<
   | 'phaseEstrus'
   | 'phaseDiestrus'
   | 'phaseAnestrus'
+  | 'notifHealthBorder'
+  | 'notifHealthBg'
+  | 'notifStreakBorder'
+  | 'notifStreakBg'
+  | 'notifCycleBorder'
+  | 'notifCycleBg'
+  | 'notifVaccineBorder'
+  | 'notifVaccineBg'
+  | 'notifHydrationBorder'
+  | 'notifHydrationBg'
+  | 'notifInfoBorder'
+  | 'notifInfoBg'
   | 'radiiCard'
 > = {
   allergenBg: '#FDE8E8',
@@ -96,6 +123,18 @@ const SEMANTIC: Pick<
   phaseEstrus: '#D4607A',
   phaseDiestrus: '#A597B5',
   phaseAnestrus: '#D0D0DC',
+  notifHealthBorder: '#C4607A',
+  notifHealthBg: '#FDE8E8',
+  notifStreakBorder: '#E8B870',
+  notifStreakBg: '#FDF0DC',
+  notifCycleBorder: '#D4A0B0',
+  notifCycleBg: '#F5E8EE',
+  notifVaccineBorder: '#8FA080',
+  notifVaccineBg: '#EEF0EC',
+  notifHydrationBorder: '#8AAAC0',
+  notifHydrationBg: '#E0EEFF',
+  notifInfoBorder: '#DDD5C8',
+  notifInfoBg: '#F0EAE0',
   radiiCard: 14,
 };
 

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { supabase } from '../supabase';
 import { VaccineRecord } from '../../types';
+import { checkAndCreateVaccineAlert } from '../notificationService';
+import { daysAway } from '../vaccineDisplay';
 
 export type VaccineWithDog = VaccineRecord & { dogName: string };
 
@@ -35,6 +37,12 @@ export function useAllVaccines() {
 
     setVaccines(withNames);
     setLoading(false);
+
+    // Fire-and-forget: one check per pet that has a vaccine due within the alert window,
+    // not per vaccine row — checkAndCreateVaccineAlert re-queries that pet's vaccines
+    // itself and dedupes on the soonest one.
+    const petsDueSoon = new Set((vaccineRows ?? []).filter(v => daysAway(v.next_due_date) <= 7 && daysAway(v.next_due_date) >= 0).map(v => v.dog_id));
+    petsDueSoon.forEach(dogId => checkAndCreateVaccineAlert(dogId, user.id));
   }
 
   const overdue = vaccines.filter(v => v.next_due_date < today);

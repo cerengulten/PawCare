@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import HomeScreen from './HomeScreen';
 import PetsScreen from './PetsScreen';
@@ -13,6 +13,7 @@ import { useT } from '../lib/LanguageContext';
 import { useDogs } from '../lib/hooks/useDogs';
 import { useSelectedPet } from '../lib/hooks/useSelectedPet';
 import { useProfile } from '../lib/hooks/useProfile';
+import { useNotifications } from '../lib/hooks/useNotifications';
 
 export type RootTabParamList = {
   Home: undefined;
@@ -56,6 +57,10 @@ export default function AppTabs({
 }: Props) {
   const { theme } = useTheme();
   const { t } = useT();
+  // Read-only, used only to drive the unread dot on the More tab icon below — a second
+  // instance alongside MoreScreen's own (accepted duplicate-hook-instance, same class as
+  // the other known cases in this app; see CLAUDE.md's "Known issues").
+  const { unreadCount } = useNotifications(profile?.id ?? null);
   const [petsResetKey, setPetsResetKey] = useState(0);
   const [moreResetKey, setMoreResetKey] = useState(0);
 
@@ -155,7 +160,24 @@ export default function AppTabs({
             name="More"
             options={{
               tabBarLabel: t('tabs.more'),
-              tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>✨</Text>,
+              tabBarIcon: ({ color, size }) => (
+                <View>
+                  <Text style={{ fontSize: size, color }}>✨</Text>
+                  {unreadCount > 0 ? (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: -1,
+                        right: -3,
+                        width: 8,
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: theme.notifHealthBorder,
+                      }}
+                    />
+                  ) : null}
+                </View>
+              ),
             }}
             listeners={({ navigation }) => ({
               tabPress: () => {

@@ -3,6 +3,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { supabase } from '../supabase';
 import { Habit } from '../../types';
 import { scheduleHabitReminder, cancelHabitReminder } from '../notifications';
+import { checkAndCreateWaterGoalNotif } from '../notificationService';
 
 export function getHabitTarget(habit: Habit): number {
   if (habit.habit_type === 'water') return habit.water_goal_ml ?? 0;
@@ -168,6 +169,7 @@ export function useHabits(dogId: string | null) {
       amount_ml: amountMl,
       notes: notes ?? null,
     });
+    if (dogId) checkAndCreateWaterGoalNotif(dogId, user.id);
   }
 
   async function resetWaterToday(habitId: string) {

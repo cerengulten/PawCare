@@ -191,3 +191,31 @@ export type VetResult = {
   openingHours: string | null;
   distanceKm: number;
 };
+
+export type NotificationType =
+  | 'health_alert'
+  | 'streak'
+  | 'cycle'
+  | 'vaccine'
+  | 'hydration'
+  | 'habit_reminder'
+  | 'info';
+
+export type NotificationActionType =
+  | 'open_vet_finder'
+  | 'open_pet_habits'
+  | 'open_cycle_history'
+  | 'open_pet_profile';
+
+export type AppNotification = {
+  id: string;
+  owner_id: string;
+  pet_id: string | null;
+  type: NotificationType;
+  title: string;
+  body: string;
+  is_read: boolean;
+  action_type: NotificationActionType | null;
+  action_payload: Record<string, string> | null;
+  created_at: string;
+};

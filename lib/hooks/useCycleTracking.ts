@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabase';
 import { CycleRecord, CycleSymptom, CycleSpecies, CycleIntensity } from '../../types';
 import { predictPhases, predictNextCycleStart, getCurrentPhase } from '../cycleLogic';
+import { checkAndCreateCycleAlert } from '../notificationService';
 
 function toDateOnlyString(d: Date): string {
   const y = d.getFullYear();
@@ -57,6 +58,7 @@ export function useCycleTracking(dogId: string | null, breed?: string | null) {
     if (!cyclesRes.error && cyclesRes.data) setCycles(cyclesRes.data);
     if (!symptomsRes.error && symptomsRes.data) setSymptoms(symptomsRes.data);
     setLoading(false);
+    checkAndCreateCycleAlert(dogId, user.id);
   }
 
   async function startCycle(species: CycleSpecies, startDate: Date, notes?: string) {

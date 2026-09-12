@@ -6,8 +6,10 @@ import { Dog } from '../types';
 import { useProfile } from '../lib/hooks/useProfile';
 import { useDogs } from '../lib/hooks/useDogs';
 import { useAllVaccines } from '../lib/hooks/useAllVaccines';
+import { useNotifications } from '../lib/hooks/useNotifications';
 import VaccineCard from '../components/VaccineCard';
 import ReportPickerScreen from './ReportPickerScreen';
+import NotificationsScreen from './NotificationsScreen';
 import VetFinderScreen from './VetFinderScreen';
 import ChangePasswordScreen from './ChangePasswordScreen';
 import ChangeEmailScreen from './ChangeEmailScreen';
@@ -31,7 +33,8 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
   const { t, lang, setLang } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { upcoming, overdue } = useAllVaccines();
-  const [showNotifPlaceholder, setShowNotifPlaceholder] = useState(false);
+  const notificationsState = useNotifications(profile?.id ?? null);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [showLanguage, setShowLanguage] = useState(false);
   const [reportDog, setReportDog] = useState<Dog | null>(null);
   const [showVetFinder, setShowVetFinder] = useState(false);
@@ -80,20 +83,14 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
     return <DeleteAccountScreen onCancel={() => setShowDeleteAccount(false)} />;
   }
 
-  if (showNotifPlaceholder) {
+  if (showNotifications) {
     return (
-      <SwipeBackWrapper onBack={() => setShowNotifPlaceholder(false)}>
-      <View style={styles.container}>
-        <TouchableOpacity onPress={() => setShowNotifPlaceholder(false)} style={styles.backRow}>
-          <Text style={styles.backText}>‹ {t('common.back')}</Text>
-        </TouchableOpacity>
-        <View style={styles.center}>
-          <Text style={styles.placeholderEmoji}>🔔</Text>
-          <Text style={styles.placeholderTitle}>{t('settings.notificationSettings')}</Text>
-          <Text style={styles.placeholderSubtitle}>{t('common.comingSoon')}</Text>
-        </View>
-      </View>
-      </SwipeBackWrapper>
+      <NotificationsScreen
+        notificationsState={notificationsState}
+        onBack={() => setShowNotifications(false)}
+        onNavigateToPet={(dogId) => { setShowNotifications(false); navigation.navigate('Pets', { dogId }); }}
+        onOpenVetFinder={() => { setShowNotifications(false); setShowVetFinder(true); }}
+      />
     );
   }
 
@@ -234,11 +231,16 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
 
       <Text style={styles.sectionTitle}>{t('settings.title')}</Text>
       <View style={styles.card}>
-        <TouchableOpacity style={styles.row} onPress={() => setShowNotifPlaceholder(true)}>
+        <TouchableOpacity style={styles.row} onPress={() => setShowNotifications(true)}>
           <View style={styles.iconBox}><Text style={styles.iconText}>🔔</Text></View>
           <View style={styles.rowInfo}>
             <Text style={styles.rowTitle}>{t('settings.notifications')}</Text>
           </View>
+          {notificationsState.unreadCount > 0 ? (
+            <View style={styles.notifBadge}>
+              <Text style={styles.notifBadgeText}>{notificationsState.unreadCount}</Text>
+            </View>
+          ) : null}
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
         <View style={styles.divider} />
@@ -323,11 +325,6 @@ function makeStyles(theme: ThemeTokens) {
       padding: 16,
       paddingTop: 56,
     },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
     backRow: {
       padding: 16,
       paddingTop: 56,
@@ -337,19 +334,19 @@ function makeStyles(theme: ThemeTokens) {
       fontSize: 16,
       fontWeight: '600',
     },
-    placeholderEmoji: {
-      fontSize: 40,
-      marginBottom: 12,
+    notifBadge: {
+      backgroundColor: theme.primary,
+      borderRadius: 10,
+      minWidth: 20,
+      height: 20,
+      paddingHorizontal: 5,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    placeholderTitle: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: theme.textDark,
-      marginBottom: 4,
-    },
-    placeholderSubtitle: {
-      fontSize: 13,
-      color: theme.textMuted,
+    notifBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: 'white',
     },
     title: {
       fontSize: 18,

@@ -21,6 +21,81 @@ https://docs.expo.dev/versions/v54.0.0/ before writing Expo-related code — don
 ## Current state
 
 **Done:**
+- **In-app notifications inbox, "Option 2: timeline with type borders" (2026-09-12):** a
+  real notification history the app writes to itself and the user can revisit — separate
+  from `expo-notifications` OS push (`lib/notifications.ts`, untouched; the two coexist
+  independently, one is a device notification, the other a row in this table). New
+  `notifications` table (`supabase/sql/2026-09-12_notifications.sql`):
+  `id`/`owner_id`/`pet_id` (nullable — `streak` notifications aren't tied to one pet)/
+  `type` (check-constrained `'health_alert'|'streak'|'cycle'|'vaccine'|'hydration'|
+  'habit_reminder'|'info'`)/`title`/`body`/`is_read`/`action_type`/`action_payload` jsonb/
+  `created_at`, owner-scoped RLS, indexed on `(owner_id, created_at desc)` and
+  `(owner_id, is_read)`. `habit_reminder`/`info` are allowed by the CHECK constraint and
+  have icon/color mappings, but nothing generates them yet — reserved for future use.
+  - `lib/notificationService.ts` holds 5 **self-contained** `checkAndCreate*(petId,
+    ownerId)` functions (streak is `(ownerId)` only, not pet-specific) — each queries
+    everything it needs itself (dog name, mood history, cycle prediction via
+    `lib/cycleLogic.ts`'s `predictNextCycleStart`, vaccine rows, water habit + today's
+    count) rather than requiring the caller to pass pre-computed data, so every call site
+    is a one-line fire-and-forget call with zero new prop/data plumbing. Dedup lives
+    entirely in the `notifications` table itself (a shared `hasRecentNotification`/
+    `hasNotificationWithPayload` pair) — no separate tracking table: a rolling
+    1-day window for health/streak/hydration, a 7-day window keyed on
+    `action_payload.vaccine_id` for vaccine, and an exact match on
+    `action_payload.predicted_date` for cycle (its predicted date barely moves day to day,
+    so a day-window would under-notify near a boundary).
+    - `checkAndCreateHealthAlert` — call site: `DogDetailScreen.tsx`'s mood-button
+      `onPress`, right after `setTodayMood` resolves. 2+ of last 5 days' `dog_moods` are
+      `'off'|'sick'` → `open_vet_finder`.
+    - `checkAndCreateStreakAlert` — call site: `HomeScreen.tsx`, a `useEffect` on
+      `profile?.id`. After 18:00 local + owner-wide streak > 0 (via
+      `lib/hooks/useHabitHistory.ts`'s already-exported `computeStreak`) + any dog with an
+      incomplete habit today → `open_pet_habits`, `action_payload.pet_id` = the first
+      incomplete pet.
+    - `checkAndCreateCycleAlert` — call site: `lib/hooks/useCycleTracking.ts`'s
+      `fetchAll()`, after `user` resolves (not awaited). Predicted next cycle ≤5 days out
+      → `open_cycle_history`.
+    - `checkAndCreateVaccineAlert` — call site: `lib/hooks/useAllVaccines.ts`'s
+      `refetch()`, once per **unique pet** with a vaccine due within 7 days (not once per
+      vaccine row) → `open_pet_profile`.
+    - `checkAndCreateWaterGoalNotif` — call site: `lib/hooks/useHabits.ts`'s
+      `logWaterAmount()`, right after the existing RPC + `water_logs` insert. Today's water
+      habit total just met/exceeded `water_goal_ml` → no `action_type` (nothing to open).
+  - **`ownerId` at every call site comes from data already in scope** — `Dog.owner_id`
+    (`DogDetailScreen`), `profile.id` (`profiles.id` IS the user id — `HomeScreen`/
+    `MoreScreen`/`AppTabs` already receive `profile`), or the `user.id` a hook already
+    resolved internally — never a fresh `getSession()`/`getUser()` call, per the
+    2026-09-11 cold-start-race lesson below.
+  - `lib/hooks/useNotifications.ts` (modeled on `useAllVaccines.ts`'s
+    `useIsFocused`-driven refetch): `notifications`/`loading`/`unreadCount` (derived
+    `useMemo`), `markAsRead`/`markAllAsRead`/`deleteNotification` (optimistic local update
+    + write). Date-grouping ('Today'/'Yesterday'/'This week'/'Earlier') is computed in
+    `screens/NotificationsScreen.tsx` itself, not the hook — same split as
+    `MealHistoryScreen.tsx`'s own grouping.
+  - `screens/NotificationsScreen.tsx` + `components/NotificationCard.tsx` (new):
+    left-border-by-type timeline cards (30px icon square, unread dot, swipe-left-to-delete
+    via the same `Swipeable` pattern as `HabitRow.tsx`), a 3-row `Animated.loop` shimmer
+    skeleton while loading (no library, same constraint as `TourTooltip.tsx`), and an
+    empty state. `MoreScreen.tsx`'s previously-dead "Notifications" row (`showNotifPlaceholder`,
+    now removed) opens this screen and shows an unread-count badge; tapping a notification
+    marks it read and — for `open_vet_finder` — opens `MoreScreen`'s existing
+    `showVetFinder` mode-swap, or — for `open_pet_habits`/`open_pet_profile`/
+    `open_cycle_history` — navigates to the **Pets tab with `{ dogId }`** (reusing the
+    existing `RootTabParamList.Pets` param `HomeScreen`'s `PetSummaryCard` already uses)
+    rather than deep-linking straight into the Cycle History sub-screen, which would need
+    new param plumbing through `PetsScreen` → `DogDetailScreen`'s internal `Mode` state —
+    out of scope for this pass. `screens/AppTabs.tsx` holds a second `useNotifications`
+    instance (accepted duplicate, same class as the existing "Known issues" entry) purely
+    to draw a small red dot on the More tab's ✨ icon when `unreadCount > 0`.
+  - The 12 border/bg colors (`notifHealthBorder`/`Bg`, `notifStreakBorder`/`Bg`,
+    `notifCycleBorder`/`Bg`, `notifVaccineBorder`/`Bg`, `notifHydrationBorder`/`Bg`,
+    `notifInfoBorder`/`Bg`) are **fixed, not per-palette** — added to `lib/themes.ts`'s
+    `SEMANTIC` const + `ThemeTokens` type, exactly like the existing `phaseProestrus`-style
+    fixed cycle-phase tokens (`lib/theme.ts` doesn't exist; the spec's "add to
+    semanticColors in lib/theme.ts" note is stale — `lib/themes.ts` is the single color
+    source now, see "Architecture" below).
+  - i18n: extended the existing (previously push-only) `notifications` namespace with
+    inbox UI copy and the per-type generated title/body templates (en/tr/it).
 - **Per-tab first-time tooltip tour (2026-09-10):** one-time guided tour that fires the
   first time each of the **Home** / **Pets** / **More** tabs is opened, highlighting 2–3
   key elements per tab with a tooltip card (dark backdrop via four dim bands around the

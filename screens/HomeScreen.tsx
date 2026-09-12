@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useProfile } from '../lib/hooks/useProfile';
@@ -8,6 +8,7 @@ import { useOverallStreak } from '../lib/hooks/useOverallStreak';
 import PetSummaryCard from '../components/PetSummaryCard';
 import NearbyVetsSection from '../components/NearbyVetsSection';
 import TabTour from '../components/TabTour';
+import { checkAndCreateStreakAlert } from '../lib/notificationService';
 import ProfileScreen from './ProfileScreen';
 import { RootTabParamList } from './AppTabs';
 import { useTheme } from '../lib/ThemeContext';
@@ -33,6 +34,10 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
   const [showProfile, setShowProfile] = useState(false);
   const petStripRef = useRef<View>(null);
   const streakRef = useRef<View>(null);
+
+  useEffect(() => {
+    if (profile?.id) checkAndCreateStreakAlert(profile.id);
+  }, [profile?.id]);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? t('home.goodMorning') : hour < 18 ? t('home.goodAfternoon') : t('home.goodEvening');
