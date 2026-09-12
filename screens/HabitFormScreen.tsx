@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -127,6 +127,15 @@ export default function HabitFormScreen({
   const [frequency, setFrequency] = useState<Habit['frequency']>(habit?.frequency ?? 'daily');
   const [reminderTimes, setReminderTimes] = useState<(string | null)[]>(habit?.reminder_times ?? []);
   const [iosPickerIndex, setIosPickerIndex] = useState<number | null>(null);
+  // The iOS spinner's `value` is read from this ref, not from `reminderTimes` directly —
+  // if it were fed a freshly-recomputed Date every render (as it was before this fix), the
+  // native UIDatePicker sees "jump to this time" on every keystroke-of-scroll and fights
+  // the user's finger, which reads as the wheel being stuck (commonly right on the current
+  // hour, since the pre-selection fallback was an inline `new Date()` recomputed each
+  // render). Setting this once when the picker opens, and never reassigning it from
+  // onChange, makes the spinner behave like an uncontrolled native picker after that —
+  // onChange still reports the live selection up into reminderTimes as before.
+  const iosPickerValueRef = useRef<Date>(new Date());
   const [reminderWeekday, setReminderWeekday] = useState<number | null>(habit?.reminder_weekday ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -200,6 +209,7 @@ export default function HabitFormScreen({
         },
       });
     } else {
+      iosPickerValueRef.current = current ? parseTimeString(current) : new Date();
       setIosPickerIndex(index);
     }
   }
@@ -540,7 +550,7 @@ export default function HabitFormScreen({
               {Platform.OS === 'ios' && iosPickerIndex === index && (
                 <View>
                   <DateTimePicker
-                    value={value ? parseTimeString(value) : new Date()}
+                    value={iosPickerValueRef.current}
                     mode="time"
                     display="spinner"
                     onChange={(_e: DateTimePickerEvent, selected?: Date) => {

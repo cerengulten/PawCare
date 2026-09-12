@@ -129,7 +129,13 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
         enabled={dogs.length > 0}
         steps={[
           { targetRef: petStripRef, position: 'bottom', title: t('tour.home.s1Title'), body: t('tour.home.s1Body') },
-          { targetRef: streakRef, position: 'bottom', title: t('tour.home.s2Title'), body: t('tour.home.s2Body') },
+          // Only included once the streak pill actually renders (streak > 0) — otherwise
+          // there's nothing for this step to point at, and a brand-new user never has a
+          // streak yet, so the counter shouldn't claim a 2nd step that will just be
+          // silently skipped.
+          ...(streak > 0
+            ? [{ targetRef: streakRef, position: 'bottom' as const, title: t('tour.home.s2Title'), body: t('tour.home.s2Body') }]
+            : []),
         ]}
       />
     </ScrollView>

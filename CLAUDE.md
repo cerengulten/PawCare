@@ -21,6 +21,21 @@ https://docs.expo.dev/versions/v54.0.0/ before writing Expo-related code — don
 ## Current state
 
 **Done:**
+- **Bugfix — iOS habit reminder time spinner stuck on one time (2026-09-13):**
+  `HabitFormScreen.tsx`'s `mode="time" display="spinner"` picker fed its `value` prop from
+  `value ? parseTimeString(value) : new Date()`, recomputed inline on every render. Once
+  the user started scrolling, each `onChange` wrote into `reminderTimes` state, which
+  re-rendered the screen and handed the still-mounted `<DateTimePicker>` a **new** `value`
+  prop — native `UIDatePicker` in spinner mode treats a programmatic `value` change as
+  "jump to this time," so it kept snapping back and fighting the user's scroll gesture
+  (most visible as being "stuck" right around the current hour, since the pre-selection
+  fallback was a fresh `new Date()` every render). Fixed by reading `value` from a
+  `useRef<Date>` (`iosPickerValueRef`) set **once**, in `openTimePicker()`, and never
+  reassigned from `onChange` — the picker now behaves like an uncontrolled native spinner
+  after opening; `onChange` still reports the live selection up into `reminderTimes`
+  exactly as before. **This is the fix pattern for any future "native
+  spinner/wheel-style RN picker feels stuck/fights scrolling"** report — check whether its
+  `value` prop is being recomputed from state on every render instead of held in a ref.
 - **In-app notifications inbox, "Option 2: timeline with type borders" (2026-09-12):** a
   real notification history the app writes to itself and the user can revisit — separate
   from `expo-notifications` OS push (`lib/notifications.ts`, untouched; the two coexist
@@ -131,7 +146,12 @@ https://docs.expo.dev/versions/v54.0.0/ before writing Expo-related code — don
   focused** (`useIsFocused`), checks `hasSeenTour`, walks the steps, calls `markTourSeen`
   on finish/skip. Tours are independent — skipping one tab doesn't touch the others — and
   gated on real content (`enabled={dogs.length > 0}` on Home, More always on).
-  - **Home** tour (2 steps): pet-summary strip, streak pill — rendered by `HomeScreen.tsx`.
+  - **Home** tour (1–2 steps): pet-summary strip, then the streak pill — rendered by
+    `HomeScreen.tsx`. The streak step is only included in the `steps` array when
+    `streak > 0` (2026-09-13 fix) — a brand-new account never has a streak yet, so the
+    pill never renders and the step would just auto-skip via `TourTooltip`'s
+    can't-measure fallback anyway; building the step list content-aware means the counter
+    correctly says "1 of 1" instead of "1 of 2" right before silently dropping the 2nd.
   - **More** tour (2 steps): Upcoming card, Coming-soon card — rendered by `MoreScreen.tsx`.
   - **Pets** tour (4–5 steps) is rendered by **`DogDetailScreen.tsx`**, not `PetsScreen.tsx`
     (it owns the detail `ScrollView` and 4 of the 5 targets, so it can scroll each into
