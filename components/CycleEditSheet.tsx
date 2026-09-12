@@ -27,8 +27,13 @@ import { CycleRecord } from '../types';
 type Props = {
   visible: boolean;
   cycle: CycleRecord | null;
+  // Defaults to true (closed-cycle editing). When false — editing the still-open/active
+  // cycle — the End Date field is hidden entirely and `onSave` is called with `endDate:
+  // null`, meaning "leave it alone"; ending a cycle is a deliberate separate action
+  // ("End cycle"), not something this sheet should do as a side effect of a date edit.
+  allowEndDate?: boolean;
   onClose: () => void;
-  onSave: (startDate: Date, endDate: Date, notes: string | null) => Promise<void>;
+  onSave: (startDate: Date, endDate: Date | null, notes: string | null) => Promise<void>;
   onDelete: () => void;
 };
 
@@ -47,7 +52,7 @@ function parseDateOnly(s: string): Date {
   return new Date(y, m - 1, day);
 }
 
-export default function CycleEditSheet({ visible, cycle, onClose, onSave, onDelete }: Props) {
+export default function CycleEditSheet({ visible, cycle, allowEndDate = true, onClose, onSave, onDelete }: Props) {
   const { theme } = useTheme();
   const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -109,7 +114,7 @@ export default function CycleEditSheet({ visible, cycle, onClose, onSave, onDele
 
   async function handleSave() {
     setLoading(true);
-    await onSave(startDate, endDate, notes.trim() || null);
+    await onSave(startDate, allowEndDate ? endDate : null, notes.trim() || null);
     setLoading(false);
   }
 
@@ -159,26 +164,30 @@ export default function CycleEditSheet({ visible, cycle, onClose, onSave, onDele
             </TouchableOpacity>
           )}
 
-          <Text style={styles.fieldLabel}>{t('cycle.endDateLabel')}</Text>
-          {Platform.OS === 'ios' ? (
-            <View style={styles.dateFieldRow}>
-              <Text style={styles.inputText}>{toDateOnlyString(endDate)}</Text>
-              <DateTimePicker
-                value={endDate}
-                mode="date"
-                display="compact"
-                accentColor={theme.primary}
-                maximumDate={new Date()}
-                onChange={(_e: DateTimePickerEvent, selected?: Date) => {
-                  if (selected) setEndDate(selected);
-                }}
-              />
-            </View>
-          ) : (
-            <TouchableOpacity style={styles.dateFieldRow} onPress={openAndroidEndPicker}>
-              <Text style={styles.inputText}>{toDateOnlyString(endDate)}</Text>
-            </TouchableOpacity>
-          )}
+          {allowEndDate ? (
+            <>
+              <Text style={styles.fieldLabel}>{t('cycle.endDateLabel')}</Text>
+              {Platform.OS === 'ios' ? (
+                <View style={styles.dateFieldRow}>
+                  <Text style={styles.inputText}>{toDateOnlyString(endDate)}</Text>
+                  <DateTimePicker
+                    value={endDate}
+                    mode="date"
+                    display="compact"
+                    accentColor={theme.primary}
+                    maximumDate={new Date()}
+                    onChange={(_e: DateTimePickerEvent, selected?: Date) => {
+                      if (selected) setEndDate(selected);
+                    }}
+                  />
+                </View>
+              ) : (
+                <TouchableOpacity style={styles.dateFieldRow} onPress={openAndroidEndPicker}>
+                  <Text style={styles.inputText}>{toDateOnlyString(endDate)}</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          ) : null}
 
           <TextInput
             style={styles.input}

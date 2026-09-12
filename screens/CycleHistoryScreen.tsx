@@ -61,6 +61,11 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
 
   const closedCycles = cycles.filter(c => c.end_date);
 
+  function openEditSheet(cycleId: string) {
+    setSelectedCycleId(cycleId);
+    setEditSheetVisible(true);
+  }
+
   function toggleCalendar(cycleId: string, startDateStr: string) {
     if (selectedCycleId === cycleId) {
       setSelectedCycleId(null);
@@ -73,7 +78,9 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
     setSelectedDate(null);
   }
 
-  const selectedCycle = closedCycles.find(c => c.id === selectedCycleId) ?? null;
+  // Includes the active (open) cycle, not just closed ones — its dates/symptoms are now
+  // editable too via the same sheet/calendar, see the active-cycle card below.
+  const selectedCycle = cycles.find(c => c.id === selectedCycleId) ?? null;
   const cycleSymptoms = selectedCycle ? symptoms.filter(s => s.cycle_id === selectedCycle.id) : [];
   const symptomsByDate = new Map(cycleSymptoms.map(s => [s.logged_date, s]));
 
@@ -133,6 +140,95 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
     : [];
   const activeTotalDays = activeSegments.reduce((sum, s) => sum + s.days, 0);
 
+  // Shared by both the active-cycle card and each closed-cycle card below — only one
+  // cycle can be expanded/selected at a time (selectedCycleId), so each call site guards
+  // with `selectedCycleId === thisCard'sCycleId` before rendering it.
+  function renderCalendarBlock() {
+    if (!selectedCycle || viewYear == null || viewMonth == null) return null;
+    return (
+      <View style={styles.calendarCard}>
+        <Text style={styles.monthLabel}>{monthYearLabel(viewYear, viewMonth)}</Text>
+        <View style={styles.weekdayRow}>
+          {DAY_LABELS.map((label, i) => (
+            <Text key={i} style={styles.weekdayLabel}>{label}</Text>
+          ))}
+        </View>
+        <View style={styles.grid}>
+          {cells.map((cell, i) => {
+            const inRange = cell.inMonth && cell.dateStr >= selectedCycle.start_date && (!selectedCycle.end_date || cell.dateStr <= selectedCycle.end_date);
+            const entry = inRange ? symptomsByDate.get(cell.dateStr) : undefined;
+            const colors = entry ? intensityBg(theme, entry.intensity) : null;
+            const isSelected = cell.dateStr === selectedDate;
+            return (
+              <View key={i} style={styles.cell}>
+                <TouchableOpacity
+                  style={[
+                    styles.dayCell,
+                    colors && { backgroundColor: colors.bg },
+                    isSelected && styles.dayCellSelected,
+                    !inRange && styles.dayCellDisabled,
+                  ]}
+                  disabled={!inRange}
+                  onPress={() => setSelectedDate(cell.dateStr)}
+                >
+                  <Text style={[styles.dayNumber, colors && { color: colors.text }]}>{cell.dayNum}</Text>
+                </TouchableOpacity>
+              </View>
+            );
+          })}
+        </View>
+
+        {selectedDate ? (
+          <View style={styles.dayDetailCard}>
+            {selectedEntry ? (
+              <>
+                <View style={styles.dayDetailChipRow}>
+                  {selectedEntry.symptoms.map(key => (
+                    <View key={key} style={styles.dayDetailChip}>
+                      <Text style={styles.dayDetailChipText}>{symptomLabel(key)}</Text>
+                    </View>
+                  ))}
+                </View>
+                {selectedEntry.intensity ? (
+                  <Text style={styles.dayDetailIntensity}>
+                    {t('cycle.intensityLabel', { value: t('cycle.intensity.' + selectedEntry.intensity) })}
+                  </Text>
+                ) : null}
+                {selectedEntry.notes ? (
+                  <Text style={styles.dayDetailNotes}>{selectedEntry.notes}</Text>
+                ) : null}
+                <View style={styles.dayDetailActionsRow}>
+                  <TouchableOpacity onPress={() => setSymptomEditVisible(true)}>
+                    <Text style={styles.dayDetailActionText}>{t('common.edit')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      Alert.alert(t('cycle.deleteEntryTitle'), t('cycle.deleteEntryMessage'), [
+                        { text: t('common.cancel'), style: 'cancel' },
+                        {
+                          text: t('common.delete'),
+                          style: 'destructive',
+                          onPress: async () => {
+                            await deleteSymptomLog(selectedEntry.id);
+                            setSelectedDate(null);
+                          },
+                        },
+                      ]);
+                    }}
+                  >
+                    <Text style={[styles.dayDetailActionText, styles.dayDetailActionDelete]}>{t('common.delete')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <Text style={styles.emptyDayText}>{t('cycle.noSymptomsThisDay')}</Text>
+            )}
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
   return (
     <SwipeBackWrapper onBack={onBack}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -161,26 +257,42 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
         </View>
 
         {activeCycle && currentPhase && predictedPhases ? (
-          <View style={styles.activeCard}>
-            <Text style={styles.activeHeading}>
-              {t('cycle.phaseDay', { phase: phaseLabel(currentPhase.phaseName), day: currentPhase.dayOfPhase })}
-            </Text>
-            <Text style={styles.activeSubtext}>
-              {t('cycle.startedEnds', { start: formatLongDate(activeCycle.start_date), end: shortDate(currentPhase.phaseEndDate) })}
-            </Text>
-            <View style={styles.timelineBar}>
-              {activeSegments.map((seg, i) => (
-                <View key={`${seg.phase}-${i}`} style={[styles.timelineSegment, { flex: seg.days, backgroundColor: theme[phaseColorToken(seg.phase)] }]} />
-              ))}
-            </View>
-            <Text style={styles.timelineCaption}>{t('cycle.todayCaption', { day: currentPhase.dayOfCycle, total: activeTotalDays })}</Text>
+          <View style={styles.cycleCardWrapper}>
+            <View style={styles.activeCard}>
+              <Text style={styles.activeHeading}>
+                {t('cycle.phaseDay', { phase: phaseLabel(currentPhase.phaseName), day: currentPhase.dayOfPhase })}
+              </Text>
+              <Text style={styles.activeSubtext}>
+                {t('cycle.startedEnds', { start: formatLongDate(activeCycle.start_date), end: shortDate(currentPhase.phaseEndDate) })}
+              </Text>
+              <View style={styles.timelineBar}>
+                {activeSegments.map((seg, i) => (
+                  <View key={`${seg.phase}-${i}`} style={[styles.timelineSegment, { flex: seg.days, backgroundColor: theme[phaseColorToken(seg.phase)] }]} />
+                ))}
+              </View>
+              <Text style={styles.timelineCaption}>{t('cycle.todayCaption', { day: currentPhase.dayOfCycle, total: activeTotalDays })}</Text>
 
-            <TouchableOpacity style={styles.primaryBtn} onPress={() => setTodaySymptomSheetVisible(true)}>
-              <Text style={styles.primaryBtnText}>{t('cycle.logTodaySymptoms')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleEndCycle} style={styles.endCycleRow}>
-              <Text style={styles.endCycleText}>{t('cycle.endCycle')}</Text>
-            </TouchableOpacity>
+              <TouchableOpacity style={styles.primaryBtn} onPress={() => setTodaySymptomSheetVisible(true)}>
+                <Text style={styles.primaryBtnText}>{t('cycle.logTodaySymptoms')}</Text>
+              </TouchableOpacity>
+
+              <View style={styles.cardActionsRow}>
+                <TouchableOpacity onPress={() => toggleCalendar(activeCycle.id, activeCycle.start_date)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={styles.dayByDayLink}>
+                    {selectedCycleId === activeCycle.id ? t('cycle.hideDayLog') : t('cycle.viewDayLog')}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => openEditSheet(activeCycle.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={styles.editDatesLink}>{t('cycle.editDates')}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity onPress={handleEndCycle} style={styles.endCycleRow}>
+                <Text style={styles.endCycleText}>{t('cycle.endCycle')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {selectedCycleId === activeCycle.id ? renderCalendarBlock() : null}
           </View>
         ) : null}
 
@@ -258,98 +370,17 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
                     </>
                   ) : null}
 
-                  <TouchableOpacity onPress={() => toggleCalendar(cycle.id, cycle.start_date)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Text style={styles.dayByDayLink}>{expanded ? t('cycle.hideDayLog') : t('cycle.viewDayLog')}</Text>
-                  </TouchableOpacity>
+                  <View style={styles.cardActionsRow}>
+                    <TouchableOpacity onPress={() => toggleCalendar(cycle.id, cycle.start_date)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Text style={styles.dayByDayLink}>{expanded ? t('cycle.hideDayLog') : t('cycle.viewDayLog')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => openEditSheet(cycle.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Text style={styles.editDatesLink}>{t('cycle.editDates')}</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
-                {expanded && selectedCycle && viewYear != null && viewMonth != null ? (
-                  <View style={styles.calendarCard}>
-                    <View style={styles.monthNav}>
-                      <Text style={styles.monthLabel}>{monthYearLabel(viewYear, viewMonth)}</Text>
-                      <TouchableOpacity onPress={() => setEditSheetVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                        <Text style={styles.editDatesLink}>{t('cycle.editDates')}</Text>
-                      </TouchableOpacity>
-                    </View>
-                    <View style={styles.weekdayRow}>
-                      {DAY_LABELS.map((label, i) => (
-                        <Text key={i} style={styles.weekdayLabel}>{label}</Text>
-                      ))}
-                    </View>
-                    <View style={styles.grid}>
-                      {cells.map((cell, i) => {
-                        const inRange = cell.inMonth && cell.dateStr >= selectedCycle.start_date && (!selectedCycle.end_date || cell.dateStr <= selectedCycle.end_date);
-                        const entry = inRange ? symptomsByDate.get(cell.dateStr) : undefined;
-                        const colors = entry ? intensityBg(theme, entry.intensity) : null;
-                        const isSelected = cell.dateStr === selectedDate;
-                        return (
-                          <View key={i} style={styles.cell}>
-                            <TouchableOpacity
-                              style={[
-                                styles.dayCell,
-                                colors && { backgroundColor: colors.bg },
-                                isSelected && styles.dayCellSelected,
-                                !inRange && styles.dayCellDisabled,
-                              ]}
-                              disabled={!inRange}
-                              onPress={() => setSelectedDate(cell.dateStr)}
-                            >
-                              <Text style={[styles.dayNumber, colors && { color: colors.text }]}>{cell.dayNum}</Text>
-                            </TouchableOpacity>
-                          </View>
-                        );
-                      })}
-                    </View>
-
-                    {selectedDate ? (
-                      <View style={styles.dayDetailCard}>
-                        {selectedEntry ? (
-                          <>
-                            <View style={styles.dayDetailChipRow}>
-                              {selectedEntry.symptoms.map(key => (
-                                <View key={key} style={styles.dayDetailChip}>
-                                  <Text style={styles.dayDetailChipText}>{symptomLabel(key)}</Text>
-                                </View>
-                              ))}
-                            </View>
-                            {selectedEntry.intensity ? (
-                              <Text style={styles.dayDetailIntensity}>
-                                {t('cycle.intensityLabel', { value: t('cycle.intensity.' + selectedEntry.intensity) })}
-                              </Text>
-                            ) : null}
-                            {selectedEntry.notes ? (
-                              <Text style={styles.dayDetailNotes}>{selectedEntry.notes}</Text>
-                            ) : null}
-                            <View style={styles.dayDetailActionsRow}>
-                              <TouchableOpacity onPress={() => setSymptomEditVisible(true)}>
-                                <Text style={styles.dayDetailActionText}>{t('common.edit')}</Text>
-                              </TouchableOpacity>
-                              <TouchableOpacity
-                                onPress={() => {
-                                  Alert.alert(t('cycle.deleteEntryTitle'), t('cycle.deleteEntryMessage'), [
-                                    { text: t('common.cancel'), style: 'cancel' },
-                                    {
-                                      text: t('common.delete'),
-                                      style: 'destructive',
-                                      onPress: async () => {
-                                        await deleteSymptomLog(selectedEntry.id);
-                                        setSelectedDate(null);
-                                      },
-                                    },
-                                  ]);
-                                }}
-                              >
-                                <Text style={[styles.dayDetailActionText, styles.dayDetailActionDelete]}>{t('common.delete')}</Text>
-                              </TouchableOpacity>
-                            </View>
-                          </>
-                        ) : (
-                          <Text style={styles.emptyDayText}>{t('cycle.noSymptomsThisDay')}</Text>
-                        )}
-                      </View>
-                    ) : null}
-                  </View>
-                ) : null}
+                {expanded ? renderCalendarBlock() : null}
               </View>
             );
           })
@@ -366,12 +397,15 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
       <CycleEditSheet
         visible={editSheetVisible}
         cycle={selectedCycle}
+        // The active/open cycle has no end_date yet — editing it should only ever touch
+        // start_date/notes; ending a cycle deliberately goes through "End cycle" instead.
+        allowEndDate={!!selectedCycle?.end_date}
         onClose={() => setEditSheetVisible(false)}
         onSave={async (startDate, endDate, notes) => {
           if (!selectedCycle) return;
           const { error } = await updateCycle(selectedCycle.id, {
             start_date: toDateStr(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()),
-            end_date: toDateStr(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()),
+            ...(endDate ? { end_date: toDateStr(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()) } : {}),
             notes,
           });
           if (!error) setEditSheetVisible(false);
@@ -652,11 +686,16 @@ function makeStyles(theme: ThemeTokens) {
       fontWeight: '600',
       color: theme.textDark,
     },
+    cardActionsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 12,
+    },
     dayByDayLink: {
       fontSize: 12,
       fontWeight: '600',
       color: theme.primary,
-      marginTop: 12,
     },
     calendarCard: {
       backgroundColor: theme.surface,
@@ -666,16 +705,11 @@ function makeStyles(theme: ThemeTokens) {
       padding: 14,
       marginTop: 8,
     },
-    monthNav: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 12,
-    },
     monthLabel: {
       fontSize: 14,
       fontWeight: '700',
       color: theme.textDark,
+      marginBottom: 12,
     },
     editDatesLink: {
       fontSize: 12,

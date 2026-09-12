@@ -21,6 +21,36 @@ https://docs.expo.dev/versions/v54.0.0/ before writing Expo-related code — don
 ## Current state
 
 **Done:**
+- **Bugfix — Home "Nearby vets" preview stuck on the "Tap to find" placeholder on first
+  launch (2026-09-13):** `lib/hooks/useHomeVetPreview.ts` gave up after a single failed
+  location/Overpass attempt and fell into the placeholder state — indistinguishable from an
+  actual permission denial — even though the failure was usually just a transient cold-start
+  network hiccup (exactly the kind of race already documented for auth/dogs/profile). Now
+  retries up to 3 times (1.5s, then 3s apart) before falling back, only once permission is
+  actually granted — a real permission denial still shows the placeholder immediately, no
+  retry. The loading skeleton stays up during retries instead of flipping to the
+  placeholder and back.
+- **Bugfix — no way to edit/delete the active (still-open) heat cycle (2026-09-13):**
+  `CycleHistoryScreen.tsx`'s "Edit dates" link only ever existed inside a **closed**
+  cycle's expanded day-by-day calendar — the active/open cycle card had no edit or delete
+  affordance at all (only "Log today's symptoms" / "End cycle"), so a wrong start date or
+  a cycle logged by mistake couldn't be fixed or removed until it was ended. Fixed:
+  - `selectedCycle` now resolves from **all** `cycles`, not just closed ones, so the same
+    `CycleEditSheet` + day-by-day calendar work for the active cycle too.
+  - The day-by-day calendar rendering was extracted into a shared `renderCalendarBlock()`
+    (previously only inlined once, for closed cards) so it can be reused for the active
+    card without duplicating ~90 lines of JSX.
+  - Both the active card and every closed-cycle card now show a `cardActionsRow` with
+    **"View day-by-day log"** + **"Edit dates"** side by side, directly on the card (no
+    longer requiring the calendar to be expanded first to find "Edit dates" — that's the
+    "no sign of edit/delete" complaint this was reported as).
+  - `components/CycleEditSheet.tsx` gained `allowEndDate?: boolean` (default `true`) —
+    when editing the **active** cycle it's passed `false`, hiding the End Date field
+    entirely and calling `onSave` with `endDate: null` (meaning "don't touch it"); ending
+    a cycle stays a deliberate separate action via "End cycle", not a side effect of a
+    date edit. `onSave`'s signature is now `(startDate, endDate: Date | null, notes)`; the
+    call site only includes `end_date` in the `updateCycle` payload when `endDate` isn't
+    null. Delete (`onDelete`) was already generic and works unchanged for the active cycle.
 - **Bugfix — iOS habit reminder time spinner stuck on one time (2026-09-13):**
   `HabitFormScreen.tsx`'s `mode="time" display="spinner"` picker fed its `value` prop from
   `value ? parseTimeString(value) : new Date()`, recomputed inline on every render. Once
