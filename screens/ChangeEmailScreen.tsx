@@ -37,7 +37,7 @@ export default function ChangeEmailScreen({ onDone, onCancel }: Props) {
   const [sent, setSent] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setCurrentEmail(data.user?.email ?? null));
+    supabase.auth.getSession().then(({ data: { session } }) => setCurrentEmail(session?.user?.email ?? null));
   }, []);
 
   async function handleSave() {

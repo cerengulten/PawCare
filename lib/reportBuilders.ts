@@ -1,9 +1,10 @@
 import { colors } from './reportTheme';
 import { computeAge } from './petAge';
 import { daysAway, formatDate as formatDueDate } from './vaccineDisplay';
-import { ReportKeyValue } from './pdfReport';
+import { ReportKeyValue, escapeHtml } from './pdfReport';
 import { i18n } from './i18n';
 import { longDate, weekdayShort } from './i18n/calendar';
+import { parseLocalDate, toLocalDateString } from './dateUtils';
 import {
   Dog,
   Profile,
@@ -50,7 +51,7 @@ export type ReportBuild = ReportSection & {
 };
 
 function exportedLabel(formatDate: (d: string) => string): string {
-  const today = new Date().toISOString().split('T')[0];
+  const today = toLocalDateString();
   return t('reports.exportedValue', { date: formatDate(today) });
 }
 
@@ -89,7 +90,7 @@ export function buildMoodReport(
   const oldestDate = dates[dates.length - 1];
 
   const totalDaysInPeriod = Math.round(
-    (new Date(newestDate).getTime() - new Date(oldestDate).getTime()) / 86400000
+    (parseLocalDate(newestDate).getTime() - parseLocalDate(oldestDate).getTime()) / 86400000
   ) + 1;
 
   const moodCounts = new Map<DogMood['mood'], number>();
@@ -110,14 +111,14 @@ export function buildMoodReport(
 
   const tableRows = entriesNewestFirst.map(([date, mood], i) => `
     <tr style="background:${i % 2 === 1 ? '#F8FCF6' : '#FFFFFF'};">
-      <td>${formatMoodDate(date)}</td>
-      <td>${formatWeekday(date)}</td>
-      <td style="color:${MOOD_COLOR[mood]};font-weight:600;">${t('mood.' + mood)}</td>
+      <td>${escapeHtml(formatMoodDate(date))}</td>
+      <td>${escapeHtml(formatWeekday(date))}</td>
+      <td style="color:${MOOD_COLOR[mood]};font-weight:600;">${escapeHtml(t('mood.' + mood))}</td>
       <td>${MOOD_EMOJI[mood]}</td>
     </tr>
   `).join('');
 
-  const newest = new Date(newestDate);
+  const newest = parseLocalDate(newestDate);
   const monthAbbrev = newest.toLocaleDateString('en-US', { month: 'short' });
 
   return {
@@ -158,17 +159,17 @@ export function buildMealReport(dog: Dog, mealDetails: MealDetail[]): ReportBuil
     const brand = formatBrands(d).map(b => `${b.label}: ${b.brand}`).join(', ') || '—';
     return `
       <tr style="background:${i % 2 === 1 ? '#F8FCF6' : '#FFFFFF'};">
-        <td>${formatMealDate(mealDateKey(d.logged_at))}</td>
-        <td>${formatMealTime(d.logged_at)}</td>
-        <td>${mealNameFor(d.logged_at)}</td>
-        <td>${foodTypeLabel(d.food_type)}</td>
-        <td>${amount}</td>
-        <td>${brand}</td>
+        <td>${escapeHtml(formatMealDate(mealDateKey(d.logged_at)))}</td>
+        <td>${escapeHtml(formatMealTime(d.logged_at))}</td>
+        <td>${escapeHtml(mealNameFor(d.logged_at))}</td>
+        <td>${escapeHtml(foodTypeLabel(d.food_type))}</td>
+        <td>${escapeHtml(amount)}</td>
+        <td>${escapeHtml(brand)}</td>
       </tr>
     `;
   }).join('');
 
-  const newest = new Date(newestDate);
+  const newest = parseLocalDate(newestDate);
   const monthAbbrev = newest.toLocaleDateString('en-US', { month: 'short' });
 
   return {
@@ -225,17 +226,17 @@ export function buildSymptomReport(
     const frequency = (l.details as { frequency: number }).frequency;
     return `
       <tr style="background:${i % 2 === 1 ? '#F8FCF6' : '#FFFFFF'};">
-        <td>${formatSymptomDate(symptomDateKey(l.logged_at))}</td>
-        <td>${formatSymptomTime(l.logged_at)}</td>
-        <td style="color:${typeColor};font-weight:600;">${isPoop ? t('reports.poop') : t('reports.vomit')}</td>
-        <td>${details}</td>
-        <td>${frequency}</td>
-        <td>${l.notes ?? '—'}</td>
+        <td>${escapeHtml(formatSymptomDate(symptomDateKey(l.logged_at)))}</td>
+        <td>${escapeHtml(formatSymptomTime(l.logged_at))}</td>
+        <td style="color:${typeColor};font-weight:600;">${escapeHtml(isPoop ? t('reports.poop') : t('reports.vomit'))}</td>
+        <td>${escapeHtml(details)}</td>
+        <td>${escapeHtml(String(frequency))}</td>
+        <td>${escapeHtml(l.notes ?? '—')}</td>
       </tr>
     `;
   }).join('');
 
-  const newest = new Date(newestDate);
+  const newest = parseLocalDate(newestDate);
   const monthAbbrev = newest.toLocaleDateString('en-US', { month: 'short' });
 
   return {
@@ -275,11 +276,11 @@ export function buildVaccineReport(
     const status = statusFor(v);
     return `
       <tr style="background:${i % 2 === 1 ? '#F8FCF6' : '#FFFFFF'};">
-        <td>${v.vaccine_name}</td>
-        <td>${v.date_given ? formatDueDate(v.date_given) : '—'}</td>
-        <td>${formatDueDate(v.next_due_date)}</td>
-        <td style="color:${status.color};font-weight:600;">${status.label}</td>
-        <td>${v.notes ?? '—'}</td>
+        <td>${escapeHtml(v.vaccine_name)}</td>
+        <td>${escapeHtml(v.date_given ? formatDueDate(v.date_given) : '—')}</td>
+        <td>${escapeHtml(formatDueDate(v.next_due_date))}</td>
+        <td style="color:${status.color};font-weight:600;">${escapeHtml(status.label)}</td>
+        <td>${escapeHtml(v.notes ?? '—')}</td>
       </tr>
     `;
   }).join('');

@@ -23,7 +23,8 @@ export function useMealDetails(dogId: string) {
 
   async function fetchMealDetails() {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) {
       setMealDetails([]);
       setLoading(false);
@@ -43,7 +44,8 @@ export function useMealDetails(dogId: string) {
   }
 
   async function addMealDetail(completionId: string, dogId: string, details: MealDetailPayload) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return { data: null, error: new Error('Not authenticated') };
     const { data, error } = await supabase
       .from('meal_details')
@@ -60,7 +62,8 @@ export function useMealDetails(dogId: string) {
   }
 
   async function deleteMealDetail(id: string) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return { error: new Error('Not authenticated') };
     const { error } = await supabase
       .from('meal_details')

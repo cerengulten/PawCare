@@ -18,7 +18,8 @@ export function useHealthLogs(dogId: string | null) {
   async function fetchLogs() {
     if (!dogId) { setLogs([]); setLoading(false); return; }
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) { setLogs([]); setLoading(false); return; }
     const { data, error } = await supabase
       .from('health_logs')
@@ -33,7 +34,8 @@ export function useHealthLogs(dogId: string | null) {
 
   async function addLog(payload: LogPayload) {
     if (!dogId) return { data: null, error: new Error('No dog selected') };
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return { data: null, error: new Error('Not authenticated') };
     const { data, error } = await supabase
       .from('health_logs')
@@ -47,7 +49,8 @@ export function useHealthLogs(dogId: string | null) {
   }
 
   async function updateLog(id: string, payload: LogPayload) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return { error: new Error('Not authenticated') };
     const { error } = await supabase
       .from('health_logs')
@@ -61,7 +64,8 @@ export function useHealthLogs(dogId: string | null) {
   }
 
   async function deleteLog(id: string) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return { error: new Error('Not authenticated') };
     const { error } = await supabase
       .from('health_logs')

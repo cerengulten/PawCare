@@ -57,10 +57,9 @@ export default function AppTabs({
 }: Props) {
   const { theme } = useTheme();
   const { t } = useT();
-  // Read-only, used only to drive the unread dot on the More tab icon below — a second
-  // instance alongside MoreScreen's own (accepted duplicate-hook-instance, same class as
-  // the other known cases in this app; see CLAUDE.md's "Known issues").
-  const { unreadCount } = useNotifications(profile?.id ?? null);
+  // Shared single source of truth for notification state across the More tab icon badge and MoreScreen/NotificationsScreen
+  const notificationsState = useNotifications(profile?.id ?? null);
+  const { unreadCount } = notificationsState;
   const [petsResetKey, setPetsResetKey] = useState(0);
   const [moreResetKey, setMoreResetKey] = useState(0);
 
@@ -182,10 +181,19 @@ export default function AppTabs({
             listeners={({ navigation }) => ({
               tabPress: () => {
                 if (navigation.isFocused()) setMoreResetKey(k => k + 1);
+                notificationsState.refetch();
               },
             })}
           >
-            {(props) => <MoreScreen key={moreResetKey} {...props} dogs={dogs} profile={profile} />}
+            {(props) => (
+              <MoreScreen
+                key={moreResetKey}
+                {...props}
+                dogs={dogs}
+                profile={profile}
+                notificationsState={notificationsState}
+              />
+            )}
           </Tab.Screen>
         </Tab.Navigator>
       </NavigationContainer>

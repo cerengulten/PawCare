@@ -3,12 +3,13 @@ import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet, ActivityIn
 import { Dog, HealthLog, PoopConsistency, PoopColor, VomitSeverity, VomitCause } from '../types';
 import { useTheme } from '../lib/ThemeContext';
 import { ThemeTokens } from '../lib/themes';
+import { isoToLocalDateString, toLocalDateString } from '../lib/dateUtils';
 // Report export always renders in the fixed sage_clay palette regardless of the
 // active in-app theme (see lib/reportTheme.ts) — reports are documents, not live UI.
 import { colors as reportColors } from '../lib/reportTheme';
 import { useProfile } from '../lib/hooks/useProfile';
 import { computeAge } from '../lib/petAge';
-import { buildReportHtml } from '../lib/pdfReport';
+import { buildReportHtml, escapeHtml } from '../lib/pdfReport';
 import { shareHtmlAsPdf } from '../lib/pdfExport';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
@@ -56,7 +57,7 @@ export function formatLongDate(dateStr: string): string {
 }
 
 export function dateKey(iso: string): string {
-  return iso.split('T')[0];
+  return isoToLocalDateString(iso);
 }
 
 function toDateStr(y: number, m: number, d: number): string {
@@ -97,7 +98,7 @@ export default function SymptomHistoryScreen({ dog, logs, vomitLogs, onSelectPoo
   const [exporting, setExporting] = useState(false);
 
   const now = new Date();
-  const todayKey = dateKey(now.toISOString());
+  const todayKey = toLocalDateString(now);
 
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [viewYear, setViewYear] = useState(now.getFullYear());
@@ -231,12 +232,12 @@ export default function SymptomHistoryScreen({ dog, logs, vomitLogs, onSelectPoo
         const frequency = (l.details as { frequency: number }).frequency;
         return `
           <tr style="background:${i % 2 === 1 ? '#F8FCF6' : '#FFFFFF'};">
-            <td>${formatLongDate(dateKey(l.logged_at))}</td>
-            <td>${formatTime(l.logged_at)}</td>
+            <td>${escapeHtml(formatLongDate(dateKey(l.logged_at)))}</td>
+            <td>${escapeHtml(formatTime(l.logged_at))}</td>
             <td style="color:${typeColor};font-weight:600;">${isPoop ? 'Poop' : 'Vomit'}</td>
-            <td>${details}</td>
-            <td>${frequency}</td>
-            <td>${l.notes ?? '—'}</td>
+            <td>${escapeHtml(details)}</td>
+            <td>${escapeHtml(String(frequency))}</td>
+            <td>${escapeHtml(l.notes ?? '—')}</td>
           </tr>
         `;
       }).join('');

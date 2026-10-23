@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Alert, BackHandler, StyleSheet } from 'react-native';
 import { Dog, CycleIntensity } from '../types';
 import { useCycleTracking } from '../lib/hooks/useCycleTracking';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { monthYearLabel, weekdayLetters, longDate as i18nLongDate, shortDate as i18nShortDate } from '../lib/i18n/calendar';
+import { toLocalDateString } from '../lib/dateUtils';
 import { ThemeTokens } from '../lib/themes';
 import { symptomLabel, phaseLabel, predictPhases, phaseColorToken, matchBreedSizeTier } from '../lib/cycleLogic';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
@@ -59,6 +60,25 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
   const [symptomEditVisible, setSymptomEditVisible] = useState(false);
   const [todaySymptomSheetVisible, setTodaySymptomSheetVisible] = useState(false);
 
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (todaySymptomSheetVisible) {
+        setTodaySymptomSheetVisible(false);
+        return true;
+      }
+      if (symptomEditVisible) {
+        setSymptomEditVisible(false);
+        return true;
+      }
+      if (editSheetVisible) {
+        setEditSheetVisible(false);
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [todaySymptomSheetVisible, symptomEditVisible, editSheetVisible]);
+
   const closedCycles = cycles.filter(c => c.end_date);
 
   function openEditSheet(cycleId: string) {
@@ -112,7 +132,7 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
     ? Math.floor((parseDateOnly(selectedDate).getTime() - parseDateOnly(selectedCycle.start_date).getTime()) / 86400000) + 1
     : null;
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = toLocalDateString();
   const todaySymptomLog = activeCycle
     ? symptoms.find(s => s.cycle_id === activeCycle.id && s.logged_date === todayStr) ?? null
     : null;

@@ -23,6 +23,7 @@ import { useDogs } from '../lib/hooks/useDogs';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { THEMES, THEME_LABELS, ThemeFamily, ThemeTokens } from '../lib/themes';
+import { uploadImage } from '../lib/storage';
 import { suggestThemeFamily } from '../lib/themeSuggestion';
 import { PET_SPECIES } from '../lib/petSpecies';
 import { PET_SEX } from '../lib/petSex';
@@ -133,13 +134,19 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
     const species =
       selectedSpecies === 'Other' ? customSpeciesText.trim() || null : selectedSpecies;
 
+    let finalPhotoUrl = photoUri;
+    if (photoUri && !photoUri.startsWith('http://') && !photoUri.startsWith('https://')) {
+      const fileId = dog ? `pet_${dog.id}_${Date.now()}` : `pet_${Date.now()}`;
+      finalPhotoUrl = await uploadImage(photoUri, 'pet-photos', fileId);
+    }
+
     const payload = {
       name: trimmedName,
       species,
       breed: breed.trim() || null,
       birth_date: birthDate ? toDateOnlyString(birthDate) : null,
       weight_kg: weightValue,
-      photo_url: photoUri,
+      photo_url: finalPhotoUrl,
       theme_family: selectedTheme,
       sex,
       is_sterilized: isSterilized,

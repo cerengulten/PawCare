@@ -21,6 +21,7 @@ import PetFormScreen from './PetFormScreen';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
+import { uploadImage } from '../lib/storage';
 import { Dog } from '../types';
 
 type DogsState = ReturnType<typeof useDogs>;
@@ -41,6 +42,7 @@ type Step = 'identity' | 'pet' | 'addAnother';
 type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid';
 
 export default function OnboardingScreen({
+  session,
   profile,
   completeOnboarding,
   checkUsernameAvailable,
@@ -149,7 +151,14 @@ export default function OnboardingScreen({
     }
     setLoading(true);
     setError('');
-    const { error } = await completeOnboarding(trimmedName, trimmedUsername, photoUri);
+
+    let finalAvatarUrl = photoUri;
+    if (photoUri && !photoUri.startsWith('http://') && !photoUri.startsWith('https://')) {
+      const fileId = `avatar_${session?.user?.id ?? Date.now()}_${Date.now()}`;
+      finalAvatarUrl = await uploadImage(photoUri, 'avatars', fileId);
+    }
+
+    const { error } = await completeOnboarding(trimmedName, trimmedUsername, finalAvatarUrl);
     if (error) {
       if ((error as PostgrestError).code === '23505') {
         setError(t('onboarding.usernameJustTaken'));

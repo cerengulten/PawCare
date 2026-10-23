@@ -41,6 +41,8 @@ export async function scheduleVaccineReminder(
   vaccineName: string,
   dueDate: Date
 ): Promise<string | null> {
+  const granted = await requestNotificationPermissions();
+  if (!granted) return null;
   const trigger = new Date(dueDate);
   trigger.setHours(VACCINE_REMINDER_HOUR, 0, 0, 0);
   try {
@@ -74,6 +76,8 @@ export async function scheduleHabitReminder(
   frequency: 'daily' | 'weekly' | 'custom',
   weekday?: number | null
 ): Promise<string | null> {
+  const granted = await requestNotificationPermissions();
+  if (!granted) return null;
   const [hour, minute] = reminderTime.split(':').map(Number);
   if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
 
@@ -106,5 +110,13 @@ export async function cancelHabitReminder(notificationId: string | null): Promis
     await Notifications.cancelScheduledNotificationAsync(notificationId);
   } catch {
     // already fired or cancelled — nothing to do
+  }
+}
+
+export async function cancelAllLocalNotifications(): Promise<void> {
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+  } catch {
+    // nothing to do
   }
 }

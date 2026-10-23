@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Alert, BackHandler, StyleSheet } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Dog, MealDetail, FoodType } from '../types';
 import { useMealDetails } from '../lib/hooks/useMealDetails';
@@ -9,6 +9,7 @@ import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { i18n } from '../lib/i18n';
 import { weekdayShortMonFirst, shortDate, timeOfDay } from '../lib/i18n/calendar';
+import { isoToLocalDateString, toLocalDateString } from '../lib/dateUtils';
 import { ThemeTokens } from '../lib/themes';
 
 export function formatLongDate(dateStr: string): string {
@@ -57,7 +58,7 @@ const FILTER_OPTIONS: (FoodType | 'all')[] = ['all', 'wet', 'dry', 'mixed', 'raw
 const FILTER_EMOJI: Record<string, string> = { wet: '🥩 ', dry: '🌾 ', mixed: '🥣 ', raw: '🥚 ', all: '' };
 
 export function dateKey(iso: string): string {
-  return iso.split('T')[0];
+  return isoToLocalDateString(iso);
 }
 
 export function formatTime(iso: string): string {
@@ -224,11 +225,22 @@ export default function MealHistoryScreen({ dog, mealDetails, addMealDetail, del
   const [filter, setFilter] = useState<FoodType | 'all'>('all');
   const [editingDetail, setEditingDetail] = useState<MealDetail | null>(null);
 
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (editingDetail !== null) {
+        setEditingDetail(null);
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [editingDetail]);
+
   const now = new Date();
-  const todayKey = dateKey(now.toISOString());
+  const todayKey = toLocalDateString(now);
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayKey = dateKey(yesterday.toISOString());
+  const yesterdayKey = toLocalDateString(yesterday);
 
   // This screen's "week" is Monday-first (matching the mockup's bar chart), unlike the
   // Sunday-first month calendars elsewhere in the app (MoodHistoryScreen/SymptomHistoryScreen)
@@ -240,7 +252,7 @@ export default function MealHistoryScreen({ dog, mealDetails, addMealDetail, del
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(d.getDate() + i);
-    return { key: dateKey(d.toISOString()), label: WEEKDAY_LABELS[i] };
+    return { key: toLocalDateString(d), label: WEEKDAY_LABELS[i] };
   });
   const weekStartKey = weekDays[0].key;
   const weekEndKey = weekDays[6].key;

@@ -6,6 +6,7 @@ import { useHabitHistory, computeStreak, computeBestStreak } from '../lib/hooks/
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { monthYearLabel, weekdayLetters } from '../lib/i18n/calendar';
+import { toLocalDateString, isoToLocalDateString } from '../lib/dateUtils';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 
@@ -44,7 +45,7 @@ export default function HabitHistoryScreen({ habit, dog, onBack }: Props) {
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
 
-  const today = now.toISOString().split('T')[0];
+  const today = toLocalDateString(now);
   const streak = computeStreak(history, target, today);
   const bestStreak = computeBestStreak(history, target);
 
@@ -71,7 +72,7 @@ export default function HabitHistoryScreen({ habit, dog, onBack }: Props) {
     if ((history.get(dateStr) ?? 0) >= target) monthDoneCount += 1;
   }
 
-  const habitCreatedDate = habit.created_at.split('T')[0];
+  const habitCreatedDate = isoToLocalDateString(habit.created_at);
 
   return (
     <SwipeBackWrapper onBack={onBack}>

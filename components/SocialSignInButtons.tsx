@@ -7,10 +7,9 @@ import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 
-// Apple sign-in isn't configured in Supabase yet (pending the Apple Developer
-// Program membership decision). Flip this once that's done and the provider
-// is set up — the button would otherwise render but fail on tap.
-const APPLE_SIGN_IN_ENABLED = false;
+// Apple sign-in is required on iOS alongside Google Sign-In per App Store Guideline 4.8.
+// When running on iOS, AppleAuthentication.isAvailableAsync() determines availability.
+const APPLE_SIGN_IN_ENABLED = true;
 
 export default function SocialSignInButtons() {
   const { theme } = useTheme();
@@ -54,14 +53,6 @@ export default function SocialSignInButtons() {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <TouchableOpacity style={styles.button} onPress={handleGoogle} disabled={loadingProvider !== null}>
-        {loadingProvider === 'google' ? (
-          <ActivityIndicator color={theme.primary} />
-        ) : (
-          <Text style={styles.buttonText}>{t('auth.continueWithGoogle')}</Text>
-        )}
-      </TouchableOpacity>
-
       {APPLE_SIGN_IN_ENABLED && Platform.OS === 'ios' && appleAvailable ? (
         <TouchableOpacity style={styles.button} onPress={handleApple} disabled={loadingProvider !== null}>
           {loadingProvider === 'apple' ? (
@@ -71,6 +62,14 @@ export default function SocialSignInButtons() {
           )}
         </TouchableOpacity>
       ) : null}
+
+      <TouchableOpacity style={styles.button} onPress={handleGoogle} disabled={loadingProvider !== null}>
+        {loadingProvider === 'google' ? (
+          <ActivityIndicator color={theme.primary} />
+        ) : (
+          <Text style={styles.buttonText}>{t('auth.continueWithGoogle')}</Text>
+        )}
+      </TouchableOpacity>
     </View>
   );
 }

@@ -1,9 +1,10 @@
 import { i18n, localeTag } from './i18n';
+import { parseLocalDate } from './dateUtils';
 
 export const SOON_THRESHOLD_DAYS = 30;
 
 export function daysAway(dueDateStr: string): number {
-  const due = new Date(dueDateStr);
+  const due = parseLocalDate(dueDateStr);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   due.setHours(0, 0, 0, 0);
@@ -24,6 +25,6 @@ export function formatDaysAway(days: number, isOverdue: boolean): string {
 }
 
 export function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
+  const d = parseLocalDate(dateStr);
   return d.toLocaleDateString(localeTag(), { month: 'short', day: 'numeric' });
 }

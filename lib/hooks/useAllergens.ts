@@ -12,7 +12,8 @@ export function useAllergens(dogId: string) {
 
   async function fetchAllergens() {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) {
       setAllergens([]);
       setLoading(false);
@@ -29,7 +30,8 @@ export function useAllergens(dogId: string) {
   }
 
   async function addAllergen(allergen: string) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return { data: null, error: new Error('Not authenticated') };
     const { data, error } = await supabase
       .from('dog_allergens')
@@ -41,7 +43,8 @@ export function useAllergens(dogId: string) {
   }
 
   async function updateAllergen(id: string, allergen: string) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return { error: new Error('Not authenticated') };
     const { error } = await supabase
       .from('dog_allergens')
@@ -53,7 +56,8 @@ export function useAllergens(dogId: string) {
   }
 
   async function deleteAllergen(id: string) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return { error: new Error('Not authenticated') };
     const { error } = await supabase
       .from('dog_allergens')

@@ -2,15 +2,24 @@ import { colors } from './reportTheme';
 
 export type ReportKeyValue = { key: string; value: string };
 
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function infoRowsHtml(rows: ReportKeyValue[]): string {
   return rows.map(r => `
-    <div class="info-row"><span class="info-key">${r.key}</span><span class="info-val">${r.value}</span></div>
+    <div class="info-row"><span class="info-key">${escapeHtml(r.key)}</span><span class="info-val">${escapeHtml(r.value)}</span></div>
   `).join('');
 }
 
 function summaryRowsHtml(rows: ReportKeyValue[]): string {
   return rows.map(r => `
-    <div class="summary-row"><span class="summary-key">${r.key}</span><span class="summary-val">${r.value}</span></div>
+    <div class="summary-row"><span class="summary-key">${escapeHtml(r.key)}</span><span class="summary-val">${escapeHtml(r.value)}</span></div>
   `).join('');
 }
 
@@ -46,11 +55,11 @@ export function buildReportHtml(opts: {
       </head>
       <body>
         <div class="sheet">
-          <div class="title-row">${title}</div>
+          <div class="title-row">${escapeHtml(title)}</div>
           <div class="info-block">${infoRowsHtml(infoRows)}</div>
           <table>
             <thead>
-              <tr>${tableHeaders.map(h => `<th>${h}</th>`).join('')}</tr>
+              <tr>${tableHeaders.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr>
             </thead>
             <tbody>${tableRowsHtml}</tbody>
           </table>
@@ -74,11 +83,11 @@ export function buildMultiSectionReportHtml(opts: {
   const { title, infoRows, sections } = opts;
 
   const sectionsHtml = sections.map(section => `
-    <div class="section-heading">${section.heading}</div>
+    <div class="section-heading">${escapeHtml(section.heading)}</div>
     ${section.tableRowsHtml ? `
       <table>
         <thead>
-          <tr>${section.tableHeaders.map(h => `<th>${h}</th>`).join('')}</tr>
+          <tr>${section.tableHeaders.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr>
         </thead>
         <tbody>${section.tableRowsHtml}</tbody>
       </table>
@@ -111,7 +120,7 @@ export function buildMultiSectionReportHtml(opts: {
       </head>
       <body>
         <div class="sheet">
-          <div class="title-row">${title}</div>
+          <div class="title-row">${escapeHtml(title)}</div>
           <div class="info-block">${infoRowsHtml(infoRows)}</div>
           ${sectionsHtml}
         </div>

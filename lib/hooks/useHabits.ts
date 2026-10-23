@@ -4,6 +4,7 @@ import { supabase } from '../supabase';
 import { Habit } from '../../types';
 import { scheduleHabitReminder, cancelHabitReminder } from '../notifications';
 import { checkAndCreateWaterGoalNotif } from '../notificationService';
+import { toLocalDateString } from '../dateUtils';
 
 export function getHabitTarget(habit: Habit): number {
   if (habit.habit_type === 'water') return habit.water_goal_ml ?? 0;
@@ -42,7 +43,7 @@ export function useHabits(dogId: string | null) {
     return set;
   }, [habits, completedCounts]);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = toLocalDateString();
 
   useEffect(() => {
     if (!dogId || !isFocused) return;
@@ -53,7 +54,8 @@ export function useHabits(dogId: string | null) {
   }, [dogId, isFocused]);
 
   async function fetchHabits(): Promise<Habit[]> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) { setHabits([]); return []; }
     const { data, error } = await supabase
       .from('habits')
@@ -67,7 +69,8 @@ export function useHabits(dogId: string | null) {
 
   async function fetchCompletions(habitIds: string[]) {
     if (habitIds.length === 0) { setCompletedCounts(new Map()); setCompletionIds(new Map()); return; }
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) { setCompletedCounts(new Map()); setCompletionIds(new Map()); return; }
     const { data } = await supabase
       .from('habit_completions')
@@ -85,7 +88,8 @@ export function useHabits(dogId: string | null) {
   // for the isFocused-driven refetch above — logOccurrence's RPC only returns the new
   // count, not the row id, and toggleCompletion's upsert doesn't select it back either.
   async function fetchCompletionId(habitId: string) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return;
     const { data } = await supabase
       .from('habit_completions')
@@ -98,7 +102,8 @@ export function useHabits(dogId: string | null) {
   }
 
   async function toggleCompletion(habitId: string) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return;
     const habit = habits.find(h => h.id === habitId);
     const isDone = completedToday.has(habitId);
@@ -151,7 +156,8 @@ export function useHabits(dogId: string | null) {
   async function logWaterAmount(habitId: string, amountMl: number, notes?: string | null) {
     const habit = habits.find(h => h.id === habitId);
     if (!habit) return;
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return;
     const { data } = await supabase.rpc('increment_habit_amount', {
       p_habit_id: habitId,
@@ -173,7 +179,8 @@ export function useHabits(dogId: string | null) {
   }
 
   async function resetWaterToday(habitId: string) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return;
     await supabase
       .from('habit_completions')
@@ -201,7 +208,8 @@ export function useHabits(dogId: string | null) {
 
   async function addHabit(habit: Omit<Habit, 'id' | 'dog_id' | 'owner_id' | 'created_at' | 'notification_ids'>) {
     if (!dogId) return { data: null, error: new Error('No dog selected') };
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return { data: null, error: new Error('Not authenticated') };
     const { data, error } = await supabase
       .from('habits')
@@ -225,7 +233,8 @@ export function useHabits(dogId: string | null) {
   }
 
   async function updateHabit(id: string, updates: Partial<Omit<Habit, 'id' | 'dog_id' | 'owner_id' | 'created_at' | 'notification_ids'>>) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return { error: new Error('Not authenticated') };
 
     const existing = habits.find(h => h.id === id);
@@ -254,7 +263,8 @@ export function useHabits(dogId: string | null) {
   }
 
   async function deleteHabit(id: string) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return { error: new Error('Not authenticated') };
     const existing = habits.find(h => h.id === id);
     await cancelAllReminders(existing?.notification_ids ?? null);

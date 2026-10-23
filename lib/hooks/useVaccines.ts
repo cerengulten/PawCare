@@ -2,17 +2,17 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { VaccineRecord } from '../../types';
 import { scheduleVaccineReminder, cancelVaccineReminder } from '../notifications';
+import { parseLocalDate, toLocalDateString } from '../dateUtils';
 
 function parseDateOnly(s: string): Date {
-  const [y, m, day] = s.slice(0, 10).split('-').map(Number);
-  return new Date(y, m - 1, day);
+  return parseLocalDate(s);
 }
 
 export function useVaccines(dogId: string | null) {
   const [vaccines, setVaccines] = useState<VaccineRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = toLocalDateString();
 
   useEffect(() => {
     fetchVaccines();
@@ -20,7 +20,8 @@ export function useVaccines(dogId: string | null) {
 
   async function fetchVaccines() {
     if (!dogId) { setVaccines([]); setLoading(false); return; }
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) { setVaccines([]); setLoading(false); return; }
     const { data, error } = await supabase
       .from('vaccine_records')
@@ -34,7 +35,8 @@ export function useVaccines(dogId: string | null) {
 
   async function addVaccine(vaccine: Omit<VaccineRecord, 'id' | 'dog_id' | 'owner_id' | 'created_at' | 'notification_id'>) {
     if (!dogId) return { data: null, error: new Error('No dog selected') };
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return { data: null, error: new Error('Not authenticated') };
     const { data, error } = await supabase
       .from('vaccine_records')
@@ -55,7 +57,8 @@ export function useVaccines(dogId: string | null) {
   }
 
   async function updateVaccine(id: string, updates: Partial<Omit<VaccineRecord, 'id' | 'dog_id' | 'owner_id' | 'created_at' | 'notification_id'>>) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return { error: new Error('Not authenticated') };
 
     const existing = vaccines.find(v => v.id === id);
@@ -89,7 +92,8 @@ export function useVaccines(dogId: string | null) {
   }
 
   async function deleteVaccine(id: string) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return { error: new Error('Not authenticated') };
     const existing = vaccines.find(v => v.id === id);
     if (existing?.notification_id) await cancelVaccineReminder(existing.notification_id);

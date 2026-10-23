@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Image, ScrollView, Alert, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, Image, ScrollView, Alert, BackHandler, Linking, StyleSheet } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { supabase } from '../lib/supabase';
 import { Dog } from '../types';
@@ -22,18 +23,21 @@ import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 import TabTour from '../components/TabTour';
 import { resetAllTours } from '../lib/hooks/useTourState';
+import { cancelAllLocalNotifications } from '../lib/notifications';
 
 type Props = BottomTabScreenProps<RootTabParamList, 'More'> & {
   dogs: ReturnType<typeof useDogs>['dogs'];
   profile: ReturnType<typeof useProfile>['profile'];
+  notificationsState?: ReturnType<typeof useNotifications>;
 };
 
-export default function MoreScreen({ route, navigation, dogs, profile }: Props) {
+export default function MoreScreen({ route, navigation, dogs, profile, notificationsState: passedNotifications }: Props) {
   const { theme } = useTheme();
   const { t, lang, setLang } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { upcoming, overdue } = useAllVaccines();
-  const notificationsState = useNotifications(profile?.id ?? null);
+  const localNotifications = useNotifications(profile?.id ?? null);
+  const notificationsState = passedNotifications ?? localNotifications;
   const [showNotifications, setShowNotifications] = useState(false);
   const [showLanguage, setShowLanguage] = useState(false);
   const [reportDog, setReportDog] = useState<Dog | null>(null);
@@ -44,6 +48,47 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const upcomingRef = useRef<View>(null);
   const comingSoonRef = useRef<View>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (reportDog !== null) {
+          setReportDog(null);
+          return true;
+        }
+        if (showVetFinder) {
+          setShowVetFinder(false);
+          if (vetFinderFromHome) {
+            setVetFinderFromHome(false);
+            navigation.navigate('Home');
+          }
+          return true;
+        }
+        if (showChangePassword) {
+          setShowChangePassword(false);
+          return true;
+        }
+        if (showChangeEmail) {
+          setShowChangeEmail(false);
+          return true;
+        }
+        if (showDeleteAccount) {
+          setShowDeleteAccount(false);
+          return true;
+        }
+        if (showNotifications) {
+          setShowNotifications(false);
+          return true;
+        }
+        if (showLanguage) {
+          setShowLanguage(false);
+          return true;
+        }
+        return false;
+      });
+      return () => sub.remove();
+    }, [reportDog, showVetFinder, vetFinderFromHome, showChangePassword, showChangeEmail, showDeleteAccount, showNotifications, showLanguage, navigation])
+  );
 
   useEffect(() => {
     if (route.params?.openVetFinder) {
@@ -159,7 +204,7 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
                 vaccine={v}
                 isOverdue={overdue.includes(v)}
                 dogName={v.dogName}
-                onPress={() => {}}
+                onPress={() => navigation.navigate('Pets', { dogId: v.dog_id })}
               />
               {idx < allUpcoming.length - 1 ? <View style={styles.divider} /> : null}
             </View>
@@ -202,15 +247,6 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
       <Text style={styles.sectionTitle}>{t('more.comingSoonSection')}</Text>
       <View ref={comingSoonRef} collapsable={false} style={styles.card}>
         <View style={[styles.row, styles.rowDisabled]}>
-          <View style={styles.iconBox}><Text style={styles.iconText}>💬</Text></View>
-          <View style={styles.rowInfo}>
-            <Text style={styles.rowTitle}>{t('more.aiCareChat')}</Text>
-            <Text style={styles.rowSubtitle}>{t('more.aiCareChatSubtitle')}</Text>
-          </View>
-          <View style={styles.grayChip}><Text style={styles.grayChipText}>{t('more.soon')}</Text></View>
-        </View>
-        <View style={styles.divider} />
-        <View style={[styles.row, styles.rowDisabled]}>
           <View style={styles.iconBox}><Text style={styles.iconText}>🛡️</Text></View>
           <View style={styles.rowInfo}>
             <Text style={styles.rowTitle}>{t('more.allergyScanner')}</Text>
@@ -243,6 +279,7 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
           ) : null}
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
+
         <View style={styles.divider} />
         <TouchableOpacity
           style={styles.row}
@@ -283,7 +320,30 @@ export default function MoreScreen({ route, navigation, dogs, profile }: Props) 
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
         <View style={styles.divider} />
-        <TouchableOpacity style={styles.row} onPress={() => supabase.auth.signOut()}>
+        <TouchableOpacity style={styles.row} onPress={() => Linking.openURL('https://bisco.app/privacy')}>
+          <View style={styles.iconBox}><Text style={styles.iconText}>🛡️</Text></View>
+          <View style={styles.rowInfo}>
+            <Text style={styles.rowTitle}>{t('settings.privacyPolicy')}</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
+        <View style={styles.divider} />
+        <TouchableOpacity style={styles.row} onPress={() => Linking.openURL('https://bisco.app/terms')}>
+          <View style={styles.iconBox}><Text style={styles.iconText}>📜</Text></View>
+          <View style={styles.rowInfo}>
+            <Text style={styles.rowTitle}>{t('settings.termsOfService')}</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
+
+        <View style={styles.divider} />
+        <TouchableOpacity
+          style={styles.row}
+          onPress={async () => {
+            await cancelAllLocalNotifications();
+            await supabase.auth.signOut();
+          }}
+        >
           <View style={styles.iconBox}><Text style={styles.iconText}>🚪</Text></View>
           <View style={styles.rowInfo}>
             <Text style={styles.signOutTitle}>{t('settings.signOut')}</Text>

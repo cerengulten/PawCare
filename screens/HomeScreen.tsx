@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, Image, ScrollView, TouchableOpacity, BackHandler, StyleSheet } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useProfile } from '../lib/hooks/useProfile';
 import { useDogs } from '../lib/hooks/useDogs';
@@ -34,6 +35,19 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
   const [showProfile, setShowProfile] = useState(false);
   const petStripRef = useRef<View>(null);
   const streakRef = useRef<View>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (showProfile) {
+          setShowProfile(false);
+          return true;
+        }
+        return false;
+      });
+      return () => sub.remove();
+    }, [showProfile])
+  );
 
   useEffect(() => {
     if (profile?.id) checkAndCreateStreakAlert(profile.id);

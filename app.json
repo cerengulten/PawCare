@@ -8,21 +8,33 @@
     "icon": "./assets/bisco_logo_v1.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "platforms": ["ios", "android"],
     "splash": {
       "image": "./assets/bisco_logo_v1.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pawcare.bisco",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Bisco uses the camera so you can take a profile photo for your pet.",
+        "NSPhotoLibraryUsageDescription": "Bisco needs access to your photos so you can choose a profile photo for your pet."
+      }
     },
     "android": {
+      "package": "com.pawcare.bisco",
       "adaptiveIcon": {
         "foregroundImage": "./assets/bisco_logo_v1.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -33,7 +45,32 @@
         {
           "locationWhenInUsePermission": "Bisco uses your location to find veterinary clinics near you."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Bisco needs access to your photos so you can choose a profile photo for your pet.",
+          "cameraPermission": "Bisco uses the camera so you can take a profile photo for your pet."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/bisco_logo_v1.png",
+          "color": "#ffffff"
+        }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "963e4b30-26c6-4124-abf5-093bd90c21de"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/963e4b30-26c6-4124-abf5-093bd90c21de"
+    }
   }
 }

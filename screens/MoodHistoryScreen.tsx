@@ -5,6 +5,7 @@ import { useMoodHistory } from '../lib/hooks/useMoodHistory';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { monthYearLabel, weekdayLetters, shortDate } from '../lib/i18n/calendar';
+import { toLocalDateString } from '../lib/dateUtils';
 import { ThemeTokens } from '../lib/themes';
 // MOOD_COLOR below always uses the fixed sage_clay-derived report palette (see
 // lib/reportTheme.ts), not the active in-app theme — it's exported for lib/reportBuilders.ts's
@@ -64,7 +65,7 @@ export default function MoodHistoryScreen({ dog, onBack }: Props) {
   const { historyByDate } = useMoodHistory(dog.id, HISTORY_DAYS);
 
   const now = new Date();
-  const today = now.toISOString().split('T')[0];
+  const today = toLocalDateString(now);
 
   const [selectedDate, setSelectedDate] = useState(today);
   const [viewYear, setViewYear] = useState(now.getFullYear());
@@ -127,7 +128,7 @@ export default function MoodHistoryScreen({ dog, onBack }: Props) {
   let loggingStreak = 0;
   const cursor = new Date(now);
   while (true) {
-    const dateStr = cursor.toISOString().split('T')[0];
+    const dateStr = toLocalDateString(cursor);
     if (!historyByDate.get(dateStr)) break;
     loggingStreak += 1;
     cursor.setDate(cursor.getDate() - 1);

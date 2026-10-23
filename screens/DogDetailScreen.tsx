@@ -1,5 +1,6 @@
-import { RefObject, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Image, ScrollView, Alert, StyleSheet } from 'react-native';
+import { RefObject, useCallback, useMemo, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, Image, ScrollView, Alert, BackHandler, StyleSheet } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Dog, Habit, HabitType, DogMood, VaccineRecord, Allergen, HealthLog } from '../types';
 import { useHabits, getHabitTarget } from '../lib/hooks/useHabits';
 import { useVaccines } from '../lib/hooks/useVaccines';
@@ -85,6 +86,58 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
   const [mealDetailHabitId, setMealDetailHabitId] = useState<string | null>(null);
   const [waterSheetHabitId, setWaterSheetHabitId] = useState<string | null>(null);
   const [cycleStartSheetVisible, setCycleStartSheetVisible] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (waterSheetHabitId !== null) {
+          setWaterSheetHabitId(null);
+          return true;
+        }
+        if (mealDetailHabitId !== null) {
+          setMealDetailHabitId(null);
+          return true;
+        }
+        if (cycleStartSheetVisible) {
+          setCycleStartSheetVisible(false);
+          return true;
+        }
+        if (mode === 'habit-quick-add') {
+          setMode('detail');
+          return true;
+        }
+        if (mode === 'habit-form') {
+          setMode('detail');
+          setEditingHabit(null);
+          setPresetType(undefined);
+          return true;
+        }
+        if (mode === 'vaccine-form') {
+          setMode('vaccine-list');
+          setEditingVaccine(null);
+          return true;
+        }
+        if (mode === 'poop-form') {
+          setMode('health-list');
+          setEditingLog(null);
+          return true;
+        }
+        if (mode === 'vomit-form') {
+          setMode('vomit-list');
+          setEditingVomitLog(null);
+          return true;
+        }
+        if (mode !== 'detail') {
+          setMode('detail');
+          setHistoryTarget(null);
+          setEditingAllergen(null);
+          return true;
+        }
+        return false;
+      });
+      return () => sub.remove();
+    }, [waterSheetHabitId, mealDetailHabitId, cycleStartSheetVisible, mode])
+  );
 
   // Tour targets on the detail view. The lower sections are usually below the fold, so
   // each tour step scrolls its target into view (via the recorded onLayout Y) first.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  BackHandler,
   StyleSheet,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { Dog } from '../types';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
@@ -95,6 +97,19 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
       }
     });
   }, [navigation, route.params?.fromLink]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (swipeEnabled) {
+          onSwipeBack();
+          return true;
+        }
+        return false;
+      });
+      return () => sub.remove();
+    }, [swipeEnabled, onSwipeBack])
+  );
 
   async function handleSend() {
     const text = input.trim();

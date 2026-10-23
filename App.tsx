@@ -14,6 +14,8 @@ import { useDogs } from './lib/hooks/useDogs';
 import { useSelectedPet } from './lib/hooks/useSelectedPet';
 import { ThemeProvider, useTheme } from './lib/ThemeContext';
 import { LanguageProvider } from './lib/LanguageContext';
+import { cancelAllLocalNotifications } from './lib/notifications';
+import { clearHomeVetCache } from './lib/hooks/useHomeVetPreview';
 
 // Parses the `bisco://reset-password#access_token=...&refresh_token=...&type=recovery`
 // deep link Supabase's password-reset email sends the user to (see
@@ -52,7 +54,7 @@ function AuthedApp({ session }: { session: Session }) {
   // props passed down through AppTabs instead of owning its own useDogs()/
   // useSelectedPet() instances.
   const dogsState = useDogs(session.user.id);
-  const selectedPetState = useSelectedPet(dogsState.dogs);
+  const selectedPetState = useSelectedPet(dogsState.dogs, session.user.id);
   const selectedDog = selectedPetState.selectedDogId
     ? dogsState.dogs.find(d => d.id === selectedPetState.selectedDogId) ?? null
     : null;
@@ -128,7 +130,11 @@ function AppInner() {
       setLoading(false);
     });
 
-    supabase.auth.onAuthStateChange((_event, session) => {
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        cancelAllLocalNotifications();
+        clearHomeVetCache();
+      }
       setSession(session);
     });
   }, []);

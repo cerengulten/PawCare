@@ -9,15 +9,14 @@ import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { i18n } from '../lib/i18n';
 import { ThemeTokens } from '../lib/themes';
+import { localDateDaysAgo } from '../lib/dateUtils';
 
 const ALERT_MOODS: DogMood['mood'][] = ['off', 'sick'];
 const ALERT_LOOKBACK_DAYS = 7;
 const ALERT_STREAK_DAYS = 3;
 
 function dateStringDaysAgo(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString().split('T')[0];
+  return localDateDaysAgo(days);
 }
 
 function openDirections(vet: VetResult) {

@@ -4,17 +4,19 @@ import { Dog } from '../../types';
 
 const STORAGE_KEY = '@pawcare/selected_pet_id';
 
-export function useSelectedPet(dogs: Dog[]) {
+export function useSelectedPet(dogs: Dog[], userId?: string | null) {
   const [selectedDogId, setSelectedDogId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const storageKey = userId ? `@bisco/selected_pet_id_${userId}` : STORAGE_KEY;
+
   useEffect(() => {
     (async () => {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      const stored = await AsyncStorage.getItem(storageKey);
       setSelectedDogId(stored);
       setLoading(false);
     })();
-  }, []);
+  }, [storageKey]);
 
   useEffect(() => {
     if (loading || dogs.length === 0) return;
@@ -24,7 +26,7 @@ export function useSelectedPet(dogs: Dog[]) {
 
   async function selectDog(id: string) {
     setSelectedDogId(id);
-    await AsyncStorage.setItem(STORAGE_KEY, id);
+    await AsyncStorage.setItem(storageKey, id);
   }
 
   return { selectedDogId, selectDog, loading };

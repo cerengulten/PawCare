@@ -3,6 +3,7 @@ import { i18n } from './i18n';
 import { daysAway } from './vaccineDisplay';
 import { mapDogSpeciesToCycleSpecies, predictNextCycleStart } from './cycleLogic';
 import { computeStreak } from './streakLogic';
+import { localDateDaysAgo, toLocalDateString } from './dateUtils';
 import { NotificationActionType, NotificationType } from '../types';
 
 // Generates rows in the `notifications` table (screens/NotificationsScreen.tsx) — a
@@ -119,9 +120,7 @@ export async function checkAndCreateHealthAlert(petId: string, ownerId: string):
   try {
     if (await hasRecentNotification(ownerId, 'health_alert', petId, 1)) return;
 
-    const since = new Date();
-    since.setDate(since.getDate() - HEALTH_ALERT_LOOKBACK_DAYS);
-    const sinceStr = since.toISOString().split('T')[0];
+    const sinceStr = localDateDaysAgo(HEALTH_ALERT_LOOKBACK_DAYS);
 
     const { data } = await supabase
       .from('dog_moods')
@@ -159,10 +158,8 @@ export async function checkAndCreateStreakAlert(ownerId: string): Promise<void> 
     if (new Date().getHours() < STREAK_ALERT_HOUR) return;
     if (await hasRecentNotification(ownerId, 'streak', null, 1)) return;
 
-    const today = new Date().toISOString().split('T')[0];
-    const since90 = new Date();
-    since90.setDate(since90.getDate() - 90);
-    const since90Str = since90.toISOString().split('T')[0];
+    const today = toLocalDateString();
+    const since90Str = localDateDaysAgo(90);
 
     const [{ data: habits }, { data: completions }] = await Promise.all([
       supabase.from('habits').select('id, dog_id, times_per_day, habit_type, water_goal_ml').eq('owner_id', ownerId).eq('is_active', true),
@@ -223,7 +220,7 @@ export async function checkAndCreateCycleAlert(petId: string, ownerId: string): 
     const daysUntil = Math.round((predictedDate.getTime() - Date.now()) / 86400000);
     if (daysUntil < 0 || daysUntil > CYCLE_ALERT_WITHIN_DAYS) return;
 
-    const predictedDateStr = predictedDate.toISOString().split('T')[0];
+    const predictedDateStr = toLocalDateString(predictedDate);
     if (await hasNotificationWithPayload(ownerId, 'cycle', petId, 'predicted_date', predictedDateStr, 60)) return;
 
     await insertNotification({
@@ -296,7 +293,7 @@ export async function checkAndCreateWaterGoalNotif(petId: string, ownerId: strin
       .maybeSingle();
     if (!habit || !habit.water_goal_ml) return;
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = toLocalDateString();
     const { data: completion } = await supabase
       .from('habit_completions')
       .select('occurrence_count')

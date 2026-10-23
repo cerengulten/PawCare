@@ -7,6 +7,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   KeyboardAvoidingView,
+  ScrollView,
+  Linking,
   Platform,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
@@ -41,9 +43,11 @@ export default function RegisterScreen({ onSwitch }: Props) {
     }
     setLoading(true);
     setError('');
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
       setError(error.message);
+    } else if (data?.session) {
+      // User automatically signed in when email confirmation is disabled in Supabase
     } else {
       setSuccess(true);
     }
@@ -70,7 +74,8 @@ export default function RegisterScreen({ onSwitch }: Props) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Text style={styles.paw}>🐾</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <Text style={styles.paw}>🐾</Text>
       <Text style={styles.title}>{t('auth.createAccount')}</Text>
       <Text style={styles.subtitle}>{t('auth.signUpSubtitle')}</Text>
 
@@ -115,10 +120,24 @@ export default function RegisterScreen({ onSwitch }: Props) {
 
       <SocialSignInButtons />
 
+      <View style={styles.termsRow}>
+        <Text style={styles.termsNotice}>{t('auth.termsNotice')}</Text>
+        <View style={styles.termsLinks}>
+          <TouchableOpacity onPress={() => Linking.openURL('https://bisco.app/terms')}>
+            <Text style={styles.termsLink}>{t('settings.termsOfService')}</Text>
+          </TouchableOpacity>
+          <Text style={styles.termsDivider}> · </Text>
+          <TouchableOpacity onPress={() => Linking.openURL('https://bisco.app/privacy')}>
+            <Text style={styles.termsLink}>{t('settings.privacyPolicy')}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <TouchableOpacity onPress={onSwitch} style={styles.switchRow}>
         <Text style={styles.switchText}>{t('auth.haveAccount')}</Text>
         <Text style={styles.switchLink}>{t('auth.signIn')}</Text>
       </TouchableOpacity>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -128,9 +147,38 @@ function makeStyles(theme: ThemeTokens) {
     container: {
       flex: 1,
       backgroundColor: theme.background,
+    },
+    scrollContent: {
+      flexGrow: 1,
       alignItems: 'center',
       justifyContent: 'center',
       padding: 24,
+      paddingTop: 60,
+      paddingBottom: 40,
+    },
+    termsRow: {
+      marginTop: 20,
+      alignItems: 'center',
+      paddingHorizontal: 16,
+    },
+    termsNotice: {
+      fontSize: 12,
+      color: theme.textMuted,
+      textAlign: 'center',
+      marginBottom: 6,
+    },
+    termsLinks: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    termsLink: {
+      fontSize: 12,
+      color: theme.primary,
+      fontWeight: '600',
+    },
+    termsDivider: {
+      fontSize: 12,
+      color: theme.textMuted,
     },
     paw: {
       fontSize: 48,

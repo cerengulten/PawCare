@@ -2,11 +2,10 @@ import { useEffect, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { supabase } from '../supabase';
 import { DogMood } from '../../types';
+import { localDateDaysAgo } from '../dateUtils';
 
 function dateStringDaysAgo(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString().split('T')[0];
+  return localDateDaysAgo(days);
 }
 
 export function useMoodHistory(dogId: string | null, days: number) {
@@ -22,7 +21,8 @@ export function useMoodHistory(dogId: string | null, days: number) {
   async function refetch() {
     if (!dogId) { setHistoryByDate(new Map()); return; }
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) { setHistoryByDate(new Map()); setLoading(false); return; }
 
     const { data } = await supabase

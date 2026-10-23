@@ -4,6 +4,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  ScrollView,
   StyleSheet,
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -51,7 +52,8 @@ export default function LoginScreen({ onSwitch }: Props) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Text style={styles.paw}>🐾</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <Text style={styles.paw}>🐾</Text>
       <Text style={styles.title}>{t('auth.welcomeBack')}</Text>
       <Text style={styles.subtitle}>{t('auth.signInSubtitle')}</Text>
 
@@ -93,6 +95,7 @@ export default function LoginScreen({ onSwitch }: Props) {
         <Text style={styles.switchText}>{t('auth.noAccount')}</Text>
         <Text style={styles.switchLink}>{t('auth.signUp')}</Text>
       </TouchableOpacity>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -102,9 +105,14 @@ function makeStyles(theme: ThemeTokens) {
     container: {
       flex: 1,
       backgroundColor: theme.background,
+    },
+    scrollContent: {
+      flexGrow: 1,
       alignItems: 'center',
       justifyContent: 'center',
       padding: 24,
+      paddingTop: 60,
+      paddingBottom: 40,
     },
     paw: {
       fontSize: 48,

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { DogMood } from '../../types';
+import { toLocalDateString } from '../dateUtils';
 
 function todayDateString(): string {
-  return new Date().toISOString().split('T')[0];
+  return toLocalDateString();
 }
 
 export function useDogMood(dogId: string | null) {
@@ -18,7 +19,8 @@ export function useDogMood(dogId: string | null) {
   async function refetch() {
     if (!dogId) return;
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) { setMood(null); setLoading(false); return; }
 
     const { data } = await supabase
@@ -34,7 +36,8 @@ export function useDogMood(dogId: string | null) {
 
   async function setTodayMood(nextMood: DogMood['mood']) {
     if (!dogId) return { error: new Error('No dog selected') };
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) return { error: new Error('Not authenticated') };
 
     const { data, error } = await supabase

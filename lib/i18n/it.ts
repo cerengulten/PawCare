@@ -66,6 +66,7 @@ const it: typeof en = {
     orDivider: 'oppure',
     continueWithGoogle: 'Continua con Google',
     continueWithApple: 'Continua con Apple',
+    termsNotice: 'Continuando, accetti i nostri Termini di Servizio e l\'Informativa sulla Privacy',
   },
   notifications: {
     vaccineChannel: 'Promemoria vaccini',
@@ -638,6 +639,8 @@ const it: typeof en = {
     dangerZone: 'Zona pericolosa',
     deleteAccount: 'Elimina account',
     deleteAccountSubtitle: 'Elimina definitivamente il tuo account e tutti i dati',
+    privacyPolicy: 'Informativa sulla Privacy',
+    termsOfService: 'Termini di Servizio',
   },
   profile: {
     title: 'Profilo',

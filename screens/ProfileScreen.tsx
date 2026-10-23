@@ -25,6 +25,8 @@ import SwipeBackWrapper from '../components/SwipeBackWrapper';
 import ChangePasswordScreen from './ChangePasswordScreen';
 import ChangeEmailScreen from './ChangeEmailScreen';
 import DeleteAccountScreen from './DeleteAccountScreen';
+import { cancelAllLocalNotifications } from '../lib/notifications';
+import { uploadImage } from '../lib/storage';
 
 type UseProfileReturn = ReturnType<typeof useProfile>;
 
@@ -132,10 +134,17 @@ export default function ProfileScreen({ profile, updateProfile, checkUsernameAva
 
     setLoading(true);
     setError('');
+
+    let finalAvatarUrl = photoUri;
+    if (photoUri && !photoUri.startsWith('http://') && !photoUri.startsWith('https://')) {
+      const fileId = profile ? `avatar_${profile.id}_${Date.now()}` : `avatar_${Date.now()}`;
+      finalAvatarUrl = await uploadImage(photoUri, 'avatars', fileId);
+    }
+
     const { error } = await updateProfile({
       full_name: trimmedName,
       username: trimmedUsername,
-      avatar_url: photoUri,
+      avatar_url: finalAvatarUrl,
     });
     setLoading(false);
     if (error) {
@@ -152,8 +161,9 @@ export default function ProfileScreen({ profile, updateProfile, checkUsernameAva
     onDone();
   }
 
-  function handleSignOut() {
-    supabase.auth.signOut();
+  async function handleSignOut() {
+    await cancelAllLocalNotifications();
+    await supabase.auth.signOut();
   }
 
   if (subScreen === 'password') {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Dog } from '../../types';
+import { cancelHabitReminder, cancelVaccineReminder } from '../notifications';
 
 // Takes the already-resolved user id from the caller (AuthedApp's `session.user.id`)
 // instead of each mount independently calling supabase.auth.getSession(). getSession()
@@ -49,6 +50,25 @@ export function useDogs(userId: string) {
   }
 
   async function deleteDog(id: string) {
+    // Cancel any OS-scheduled local notifications for this pet's habits and vaccines
+    // before the DB cascade deletes the rows that hold their notification_ids.
+    const [{ data: habitRows }, { data: vaccineRows }] = await Promise.all([
+      supabase.from('habits').select('notification_ids').eq('dog_id', id).eq('owner_id', userId),
+      supabase.from('vaccine_records').select('notification_id').eq('dog_id', id).eq('owner_id', userId),
+    ]);
+    const notifPromises: Promise<void>[] = [];
+    for (const h of habitRows ?? []) {
+      for (const nid of (h.notification_ids as string[] | null) ?? []) {
+        notifPromises.push(cancelHabitReminder(nid));
+      }
+    }
+    for (const v of vaccineRows ?? []) {
+      if (v.notification_id) {
+        notifPromises.push(cancelVaccineReminder(v.notification_id as string));
+      }
+    }
+    if (notifPromises.length > 0) await Promise.all(notifPromises);
+
     const { error } = await supabase
       .from('dogs')
       .delete()

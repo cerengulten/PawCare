@@ -19,7 +19,8 @@ export function useWaterLogs(dogId: string | null, days: number) {
   async function fetchLogs() {
     if (!dogId) { setLogs([]); setLoading(false); return; }
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) { setLogs([]); setLoading(false); return; }
     const { data, error } = await supabase
       .from('water_logs')

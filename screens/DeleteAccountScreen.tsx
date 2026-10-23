@@ -16,6 +16,7 @@ import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
+import { cancelAllLocalNotifications } from '../lib/notifications';
 
 type Props = {
   onCancel: () => void;
@@ -45,6 +46,7 @@ export default function DeleteAccountScreen({ onCancel }: Props) {
       setError(error.message);
       return;
     }
+    await cancelAllLocalNotifications();
     await supabase.auth.signOut();
     // No onDone/navigation call needed past this point — App.tsx's
     // onAuthStateChange listener sees the cleared session and routes back

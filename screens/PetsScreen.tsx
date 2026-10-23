@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Image, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, Image, ScrollView, ActivityIndicator, BackHandler, StyleSheet } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Session } from '@supabase/supabase-js';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useDogs } from '../lib/hooks/useDogs';
@@ -43,6 +44,20 @@ export default function PetsScreen({
   const [mode, setMode] = useState<'switch' | 'form'>('switch');
   const [editingDog, setEditingDog] = useState<Dog | null>(null);
   const switcherRef = useRef<View>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (mode === 'form') {
+          setMode('switch');
+          setEditingDog(null);
+          return true;
+        }
+        return false;
+      });
+      return () => sub.remove();
+    }, [mode])
+  );
 
   useEffect(() => {
     const paramDogId = route.params?.dogId;

@@ -66,6 +66,7 @@ const tr: typeof en = {
     orDivider: 'veya',
     continueWithGoogle: 'Google ile devam et',
     continueWithApple: 'Apple ile devam et',
+    termsNotice: 'Devam ederek Kullanım Koşulları ve Gizlilik Politikamızı kabul etmiş olursunuz',
   },
   notifications: {
     vaccineChannel: 'Aşı hatırlatmaları',
@@ -638,6 +639,8 @@ const tr: typeof en = {
     dangerZone: 'Tehlikeli bölge',
     deleteAccount: 'Hesabı sil',
     deleteAccountSubtitle: 'Hesabını ve tüm verilerini kalıcı olarak sil',
+    privacyPolicy: 'Gizlilik Politikası',
+    termsOfService: 'Kullanım Koşulları',
   },
   profile: {
     title: 'Profil',

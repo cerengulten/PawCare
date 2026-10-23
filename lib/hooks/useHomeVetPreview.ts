@@ -7,6 +7,14 @@ import { fetchVetsNear, Coords } from './useNearbyVets';
 const CACHE_KEY = '@pawcare/vet_results_cache';
 const CACHE_TTL_MS = 10 * 60 * 1000;
 
+export async function clearHomeVetCache(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(CACHE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 // A cold first launch is exactly when GPS/network are least likely to be ready — a single
 // failed attempt used to fall straight into the dead-end "Tap to find vets near you"
 // placeholder, which looks identical to an actual permission denial and needs a manual tap

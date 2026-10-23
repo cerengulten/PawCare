@@ -63,6 +63,7 @@ const en = {
     confirmNewPassword: 'Confirm new password',
     passwordsDoNotMatch: 'Passwords do not match.',
     orDivider: 'or',
+    termsNotice: 'By continuing, you agree to our Terms of Service & Privacy Policy',
     continueWithGoogle: 'Continue with Google',
     continueWithApple: 'Continue with Apple',
   },
@@ -640,6 +641,8 @@ const en = {
     dangerZone: 'Danger zone',
     deleteAccount: 'Delete account',
     deleteAccountSubtitle: 'Permanently delete your account and all data',
+    privacyPolicy: 'Privacy Policy',
+    termsOfService: 'Terms of Service',
   },
   profile: {
     title: 'Profile',

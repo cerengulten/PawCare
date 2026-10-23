@@ -5,11 +5,10 @@ import { Habit } from '../../types';
 import { getHabitTarget } from './useHabits';
 
 export { computeStreak } from '../streakLogic';
+import { localDateDaysAgo, parseLocalDate, toLocalDateString } from '../dateUtils';
 
 function dateStringDaysAgo(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString().split('T')[0];
+  return localDateDaysAgo(days);
 }
 
 export function computeBestStreak(dates: Map<string, number>, target: number): number {
@@ -23,7 +22,7 @@ export function computeBestStreak(dates: Map<string, number>, target: number): n
   let prevDate: Date | null = null;
 
   for (const dateStr of doneDates) {
-    const d = new Date(dateStr);
+    const d = parseLocalDate(dateStr);
     if (prevDate) {
       const dayDiff = Math.round((d.getTime() - prevDate.getTime()) / 86400000);
       current = dayDiff === 1 ? current + 1 : 1;
@@ -38,9 +37,9 @@ export function computeBestStreak(dates: Map<string, number>, target: number): n
 
 function last7Dates(todayStr: string): string[] {
   const dates: string[] = [];
-  const cursor = new Date(todayStr);
+  const cursor = parseLocalDate(todayStr);
   for (let i = 0; i < 7; i++) {
-    dates.push(cursor.toISOString().split('T')[0]);
+    dates.push(toLocalDateString(cursor));
     cursor.setDate(cursor.getDate() - 1);
   }
   return dates;
@@ -78,7 +77,8 @@ export function useHabitHistory(dogId: string | null, habits: Habit[], days: num
   async function refetch() {
     if (habitIds.length === 0) { setHistoryByHabit(new Map()); return; }
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) { setHistoryByHabit(new Map()); setLoading(false); return; }
 
     const sinceDate = dateStringDaysAgo(days);

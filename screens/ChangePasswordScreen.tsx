@@ -36,14 +36,15 @@ export default function ChangePasswordScreen({ onDone, onCancel }: Props) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setEmail(data.user?.email ?? null);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const user = session?.user;
+      setEmail(user?.email ?? null);
       // Google-only accounts have no password to verify — skip the
       // current-password gate for them rather than show a field that can
       // never be filled correctly.
       setHasPassword(
-        data.user?.app_metadata?.provider === 'email' ||
-          (data.user?.identities ?? []).some((i) => i.provider === 'email')
+        user?.app_metadata?.provider === 'email' ||
+          (user?.identities ?? []).some((i) => i.provider === 'email')
       );
     });
   }, []);

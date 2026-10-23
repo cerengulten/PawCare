@@ -2,15 +2,14 @@ import { useEffect, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { supabase } from '../supabase';
 import { computeStreak } from './useHabitHistory';
+import { localDateDaysAgo, toLocalDateString } from '../dateUtils';
 
 function dateStringDaysAgo(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString().split('T')[0];
+  return localDateDaysAgo(days);
 }
 
 function todayDateString(): string {
-  return new Date().toISOString().split('T')[0];
+  return toLocalDateString();
 }
 
 export function usePetStreak(dogId: string | null, habitIds: string[]) {
@@ -28,7 +27,8 @@ export function usePetStreak(dogId: string | null, habitIds: string[]) {
   async function refetch() {
     if (habitIdsKey.length === 0) { setStreak(0); return; }
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) { setStreak(0); setLoading(false); return; }
 
     const { data } = await supabase

@@ -1,4 +1,5 @@
 import { localeTag } from './index';
+import { parseLocalDate } from '../dateUtils';
 
 /** Localized "September 2026" style label for a calendar month header. */
 export function monthYearLabel(year: number, month: number): string {
@@ -19,17 +20,17 @@ export function weekdayLetters(): string[] {
 
 /** Localized "Mon", "Tue" style short weekday for a date string. */
 export function weekdayShort(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString(localeTag(), { weekday: 'short' });
+  return parseLocalDate(dateStr).toLocaleDateString(localeTag(), { weekday: 'short' });
 }
 
 /** Localized "Sep 3, 2026" style long date. */
 export function longDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString(localeTag(), { month: 'short', day: 'numeric', year: 'numeric' });
+  return parseLocalDate(dateStr).toLocaleDateString(localeTag(), { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 /** Localized "Sep 3" style short date. */
 export function shortDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString(localeTag(), { month: 'short', day: 'numeric' });
+  return parseLocalDate(dateStr).toLocaleDateString(localeTag(), { month: 'short', day: 'numeric' });
 }
 
 /** Seven short weekday labels, Monday-first. */

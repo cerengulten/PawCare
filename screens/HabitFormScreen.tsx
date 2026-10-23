@@ -16,6 +16,7 @@ import DateTimePicker, {
 } from '@react-native-community/datetimepicker';
 import { Habit, HabitType } from '../types';
 import { useHabits } from '../lib/hooks/useHabits';
+import { requestNotificationPermissions } from '../lib/notifications';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
@@ -263,11 +264,19 @@ export default function HabitFormScreen({
       return;
     }
 
-    setLoading(true);
-    setError('');
-
     const resolvedDosageUnit = showCustomUnit ? customDosageUnit.trim() || null : dosageUnit;
     const activeReminderTimes = reminderTimes.slice(0, reminderSlotCount).filter((t): t is string => !!t);
+
+    if (activeReminderTimes.length > 0) {
+      const granted = await requestNotificationPermissions();
+      if (!granted) {
+        setError(t('vaccineForm.notifPermission'));
+        return;
+      }
+    }
+
+    setLoading(true);
+    setError('');
 
     const payload = {
       title: trimmedTitle,

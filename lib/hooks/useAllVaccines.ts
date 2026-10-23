@@ -4,6 +4,7 @@ import { supabase } from '../supabase';
 import { VaccineRecord } from '../../types';
 import { checkAndCreateVaccineAlert } from '../notificationService';
 import { daysAway } from '../vaccineDisplay';
+import { toLocalDateString } from '../dateUtils';
 
 export type VaccineWithDog = VaccineRecord & { dogName: string };
 
@@ -12,7 +13,7 @@ export function useAllVaccines() {
   const [loading, setLoading] = useState(true);
   const isFocused = useIsFocused();
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = toLocalDateString();
 
   useEffect(() => {
     if (!isFocused) return;
@@ -21,7 +22,8 @@ export function useAllVaccines() {
 
   async function refetch() {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) { setVaccines([]); setLoading(false); return; }
 
     const [{ data: dogRows }, { data: vaccineRows }] = await Promise.all([
