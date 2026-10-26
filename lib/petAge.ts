@@ -1,6 +1,8 @@
+import { parseLocalDate } from './dateUtils';
+
 export function computeAge(birthDate: string | null): string {
   if (!birthDate) return '';
-  const dob = new Date(birthDate);
+  const dob = parseLocalDate(birthDate);
   const now = new Date();
   let years = now.getFullYear() - dob.getFullYear();
   let months = now.getMonth() - dob.getMonth();

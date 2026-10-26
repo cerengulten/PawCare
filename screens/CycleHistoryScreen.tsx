@@ -329,7 +329,7 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
         ) : (
           closedCycles.map(cycle => {
             const durationDays = cycle.end_date
-              ? Math.round((new Date(cycle.end_date).getTime() - new Date(cycle.start_date).getTime()) / 86400000) + 1
+              ? Math.round((parseDateOnly(cycle.end_date).getTime() - parseDateOnly(cycle.start_date).getTime()) / 86400000) + 1
               : null;
             const cycleSymptomRows = symptoms.filter(s => s.cycle_id === cycle.id);
             const tally = new Map<string, number>();

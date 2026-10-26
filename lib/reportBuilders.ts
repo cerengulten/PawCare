@@ -204,8 +204,8 @@ export function buildSymptomReport(
 
   const consistencyCounts = new Map<PoopConsistency, number>();
   for (const l of logs) {
-    const c = (l.details as { consistency: PoopConsistency }).consistency;
-    consistencyCounts.set(c, (consistencyCounts.get(c) ?? 0) + 1);
+    const c = (l.details as { consistency?: PoopConsistency } | undefined)?.consistency;
+    if (c) consistencyCounts.set(c, (consistencyCounts.get(c) ?? 0) + 1);
   }
   let mostCommonConsistency: PoopConsistency | null = null;
   let mostCommonCount = 0;
@@ -220,10 +220,11 @@ export function buildSymptomReport(
   const tableRows = entriesNewestFirst.map((l, i) => {
     const isPoop = l.type === 'poop';
     const typeColor = isPoop ? colors.pendingAmberText : colors.allergenText;
+    const detailsObj = (l.details || {}) as Record<string, unknown>;
     const details = isPoop
-      ? `${t('poop.consistencyOpt.' + (l.details as { consistency: PoopConsistency }).consistency)} · ${t('poop.colorOpt.' + (l.details as { color: PoopColor }).color)}`
-      : `${t('vomit.severityOpt.' + (l.details as { severity: VomitSeverity }).severity)} · ${t('vomit.causeOpt.' + (l.details as { possibleCause: string }).possibleCause)}`;
-    const frequency = (l.details as { frequency: number }).frequency;
+      ? `${detailsObj.consistency ? t('poop.consistencyOpt.' + detailsObj.consistency) : '—'} · ${detailsObj.color ? t('poop.colorOpt.' + detailsObj.color) : '—'}`
+      : `${detailsObj.severity ? t('vomit.severityOpt.' + detailsObj.severity) : '—'} · ${detailsObj.possibleCause ? t('vomit.causeOpt.' + detailsObj.possibleCause) : '—'}`;
+    const frequency = typeof detailsObj.frequency === 'number' ? detailsObj.frequency : 1;
     return `
       <tr style="background:${i % 2 === 1 ? '#F8FCF6' : '#FFFFFF'};">
         <td>${escapeHtml(formatSymptomDate(symptomDateKey(l.logged_at)))}</td>

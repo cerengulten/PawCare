@@ -176,8 +176,8 @@ export default function SymptomHistoryScreen({ dog, logs, vomitLogs, onSelectPoo
     if (weekPoopLogs.length === 0) return null;
     const counts = new Map<PoopConsistency, number>();
     for (const l of weekPoopLogs) {
-      const c = (l.details as { consistency: PoopConsistency }).consistency;
-      counts.set(c, (counts.get(c) ?? 0) + 1);
+      const c = (l.details as { consistency?: PoopConsistency } | undefined)?.consistency;
+      if (c) counts.set(c, (counts.get(c) ?? 0) + 1);
     }
     let best: PoopConsistency | null = null;
     let bestCount = 0;
@@ -202,8 +202,8 @@ export default function SymptomHistoryScreen({ dog, logs, vomitLogs, onSelectPoo
 
       const consistencyCounts = new Map<PoopConsistency, number>();
       for (const l of logs) {
-        const c = (l.details as { consistency: PoopConsistency }).consistency;
-        consistencyCounts.set(c, (consistencyCounts.get(c) ?? 0) + 1);
+        const c = (l.details as { consistency?: PoopConsistency } | undefined)?.consistency;
+        if (c) consistencyCounts.set(c, (consistencyCounts.get(c) ?? 0) + 1);
       }
       let mostCommonConsistency: PoopConsistency | null = null;
       let mostCommonCount = 0;
@@ -223,13 +223,14 @@ export default function SymptomHistoryScreen({ dog, logs, vomitLogs, onSelectPoo
       const tableRows = entriesNewestFirst.map((l, i) => {
         const isPoop = l.type === 'poop';
         const typeColor = isPoop ? reportColors.pendingAmberText : reportColors.allergenText;
+        const detailsObj = (l.details || {}) as Record<string, unknown>;
         const details = isPoop
-          ? `${CONSISTENCY_LABEL[(l.details as { consistency: PoopConsistency }).consistency]} · ${(() => {
-              const color = (l.details as { color: PoopColor }).color;
+          ? `${CONSISTENCY_LABEL[detailsObj.consistency as PoopConsistency] ?? 'Solid'} · ${(() => {
+              const color = (detailsObj.color as PoopColor) ?? 'brown';
               return color[0].toUpperCase() + color.slice(1);
             })()}`
-          : `${SEVERITY_LABEL[(l.details as { severity: VomitSeverity }).severity]} · ${CAUSE_LABEL[(l.details as { possibleCause: VomitCause }).possibleCause]}`;
-        const frequency = (l.details as { frequency: number }).frequency;
+          : `${SEVERITY_LABEL[detailsObj.severity as VomitSeverity] ?? 'Mild'} · ${CAUSE_LABEL[detailsObj.possibleCause as VomitCause] ?? 'Unknown'}`;
+        const frequency = typeof detailsObj.frequency === 'number' ? detailsObj.frequency : 1;
         return `
           <tr style="background:${i % 2 === 1 ? '#F8FCF6' : '#FFFFFF'};">
             <td>${escapeHtml(formatLongDate(dateKey(l.logged_at)))}</td>
@@ -394,16 +395,20 @@ export default function SymptomHistoryScreen({ dog, logs, vomitLogs, onSelectPoo
         <View style={styles.cardFlat}>
           {selectedEntries.map((l, idx) => {
             const isPoop = l.type === 'poop';
+            const detailsObj = (l.details || {}) as Record<string, unknown>;
             const chip = isPoop
-              ? poopColorChipStyle(theme, (l.details as { color: PoopColor }).color)
-              : vomitSeverityChipStyle(theme, (l.details as { severity: VomitSeverity }).severity);
+              ? poopColorChipStyle(theme, (detailsObj.color as PoopColor) ?? 'brown')
+              : vomitSeverityChipStyle(theme, (detailsObj.severity as VomitSeverity) ?? 'mild');
             const subtype = isPoop
-              ? CONSISTENCY_LABEL[(l.details as { consistency: PoopConsistency }).consistency]
-              : SEVERITY_LABEL[(l.details as { severity: VomitSeverity }).severity];
+              ? (CONSISTENCY_LABEL[detailsObj.consistency as PoopConsistency] ?? 'Solid')
+              : (SEVERITY_LABEL[detailsObj.severity as VomitSeverity] ?? 'Mild');
             const chipLabel = isPoop
-              ? (l.details as { color: PoopColor }).color[0].toUpperCase() + (l.details as { color: PoopColor }).color.slice(1)
-              : SEVERITY_LABEL[(l.details as { severity: VomitSeverity }).severity];
-            const frequency = (l.details as { frequency: number }).frequency;
+              ? (() => {
+                  const color = (detailsObj.color as PoopColor) ?? 'brown';
+                  return color[0].toUpperCase() + color.slice(1);
+                })()
+              : (SEVERITY_LABEL[detailsObj.severity as VomitSeverity] ?? 'Mild');
+            const frequency = typeof detailsObj.frequency === 'number' ? detailsObj.frequency : 1;
 
             return (
               <View key={l.id}>

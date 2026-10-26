@@ -97,14 +97,22 @@ export default function VetFinderScreen({ onBack }: Props) {
                       {v.address ? <Text style={styles.vetSubtitle}>{v.address}</Text> : null}
                       <Text style={styles.vetDistance}>{t('vetFinder.kmAway', { km: v.distanceKm.toFixed(1) })}</Text>
                     </View>
-                    {v.phone ? (
+                    <View style={styles.actionRow}>
                       <TouchableOpacity
-                        style={styles.callButton}
-                        onPress={() => Linking.openURL(`tel:${v.phone}`)}
+                        style={styles.actionButton}
+                        onPress={() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${v.lat},${v.lon}`)}
                       >
-                        <Text style={styles.callButtonText}>📞</Text>
+                        <Text style={styles.actionButtonText}>🧭</Text>
                       </TouchableOpacity>
-                    ) : null}
+                      {v.phone ? (
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={() => Linking.openURL(`tel:${v.phone}`)}
+                        >
+                          <Text style={styles.actionButtonText}>📞</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
                   </View>
                   {idx < vets.length - 1 ? <View style={styles.divider} /> : null}
                 </View>
@@ -242,7 +250,12 @@ function makeStyles(theme: ThemeTokens) {
       fontWeight: '500',
       marginTop: 2,
     },
-    callButton: {
+    actionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    actionButton: {
       width: 40,
       height: 40,
       borderRadius: 11,
@@ -250,7 +263,7 @@ function makeStyles(theme: ThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    callButtonText: {
+    actionButtonText: {
       fontSize: 18,
     },
     divider: {

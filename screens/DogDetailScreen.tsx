@@ -572,7 +572,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
                       onCustom={() => setWaterSheetHabitId(h.id)}
                     />
                   ) : null}
-                  {h.habit_type === 'feeding' && done && completionIds.get(h.id) ? (
+                  {h.habit_type === 'feeding' && (done || count > 0) && completionIds.get(h.id) ? (
                     <MealDetailLink
                       detail={getMealDetail(completionIds.get(h.id)!)}
                       onPress={() => setMealDetailHabitId(h.id)}

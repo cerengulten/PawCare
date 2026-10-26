@@ -101,7 +101,20 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
             ))}
           </ScrollView>
         </View>
-      ) : null}
+      ) : (
+        <TouchableOpacity
+          style={styles.emptyPetCard}
+          onPress={() => navigation.navigate('Pets')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.emptyPetIcon}>🐾</Text>
+          <View style={styles.emptyPetTextGroup}>
+            <Text style={styles.emptyPetTitle}>{t('pets.addFirstPet')}</Text>
+            <Text style={styles.emptyPetSubtitle}>{t('pets.noPetsSubtitle')}</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
+      )}
 
       {streak > 0 ? (
         <View ref={streakRef} collapsable={false} style={styles.streakPill}>
@@ -202,6 +215,34 @@ function makeStyles(theme: ThemeTokens) {
     },
     strip: {
       marginBottom: 20,
+    },
+    emptyPetCard: {
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      borderStyle: 'dashed',
+      padding: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 20,
+    },
+    emptyPetIcon: {
+      fontSize: 24,
+    },
+    emptyPetTextGroup: {
+      flex: 1,
+    },
+    emptyPetTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: theme.primary,
+      marginBottom: 2,
+    },
+    emptyPetSubtitle: {
+      fontSize: 13,
+      color: theme.textMuted,
     },
     streakPill: {
       backgroundColor: theme.streakBg,

@@ -31,8 +31,11 @@ export default function VomitLogCard({ log, onPress }: Props) {
   const { theme } = useTheme();
   const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  const details = log.details as VomitLogDetails;
-  const { dot, chipBg, chipText } = severityStyle(theme, details.severity);
+  const details = (log.details || {}) as Partial<VomitLogDetails>;
+  const severity = details.severity ?? 'mild';
+  const possibleCause = details.possibleCause ?? 'unknown';
+  const frequency = details.frequency ?? 1;
+  const { dot, chipBg, chipText } = severityStyle(theme, severity);
 
   return (
     <TouchableOpacity style={styles.row} onPress={onPress}>
@@ -40,11 +43,11 @@ export default function VomitLogCard({ log, onPress }: Props) {
       <View style={styles.info}>
         <Text style={styles.title}>🤮 {formatLoggedAt(log.logged_at)}</Text>
         <Text style={styles.meta} numberOfLines={1}>
-          {t('vomit.causeOpt.' + details.possibleCause)} · {details.frequency}x{log.notes ? ` · ${log.notes}` : ''}
+          {t('vomit.causeOpt.' + possibleCause)} · {frequency}x{log.notes ? ` · ${log.notes}` : ''}
         </Text>
       </View>
       <View style={[styles.chip, { backgroundColor: chipBg }]}>
-        <Text style={[styles.chipText, { color: chipText }]}>{t('vomit.severityOpt.' + details.severity)}</Text>
+        <Text style={[styles.chipText, { color: chipText }]}>{t('vomit.severityOpt.' + severity)}</Text>
       </View>
     </TouchableOpacity>
   );

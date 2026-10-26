@@ -56,8 +56,8 @@ export function buildDogContextSummary(dog: Dog, ctx: DogChatContext): string {
     lines.push(
       `Poop logs, last 7 days: ${recentPoop
         .map(l => {
-          const d = l.details as PoopLogDetails;
-          return `${l.logged_at.slice(0, 10)} consistency=${d.consistency} color=${d.color} frequency=${d.frequency}`;
+          const d = (l.details || {}) as Partial<PoopLogDetails>;
+          return `${l.logged_at.slice(0, 10)} consistency=${d.consistency ?? 'unknown'} color=${d.color ?? 'unknown'} frequency=${d.frequency ?? 1}`;
         })
         .join('; ')}`
     );
@@ -70,8 +70,8 @@ export function buildDogContextSummary(dog: Dog, ctx: DogChatContext): string {
     lines.push(
       `Vomit logs, last 7 days: ${recentVomit
         .map(l => {
-          const d = l.details as VomitLogDetails;
-          return `${l.logged_at.slice(0, 10)} severity=${d.severity} possibleCause=${d.possibleCause} frequency=${d.frequency}`;
+          const d = (l.details || {}) as Partial<VomitLogDetails>;
+          return `${l.logged_at.slice(0, 10)} severity=${d.severity ?? 'unknown'} possibleCause=${d.possibleCause ?? 'unknown'} frequency=${d.frequency ?? 1}`;
         })
         .join('; ')}`
     );

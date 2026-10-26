@@ -31,8 +31,11 @@ export default function PoopLogCard({ log, onPress }: Props) {
   const { theme } = useTheme();
   const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  const details = log.details as PoopLogDetails;
-  const { dot, chipBg, chipText } = severityStyle(theme, details.consistency);
+  const details = (log.details || {}) as Partial<PoopLogDetails>;
+  const consistency = details.consistency ?? 'solid';
+  const color = details.color ?? 'brown';
+  const frequency = details.frequency ?? 1;
+  const { dot, chipBg, chipText } = severityStyle(theme, consistency);
 
   return (
     <TouchableOpacity style={styles.row} onPress={onPress}>
@@ -40,11 +43,11 @@ export default function PoopLogCard({ log, onPress }: Props) {
       <View style={styles.info}>
         <Text style={styles.title}>💩 {formatLoggedAt(log.logged_at)}</Text>
         <Text style={styles.meta} numberOfLines={1}>
-          {t('poop.colorOpt.' + details.color)} · {details.frequency}x{log.notes ? ` · ${log.notes}` : ''}
+          {t('poop.colorOpt.' + color)} · {frequency}x{log.notes ? ` · ${log.notes}` : ''}
         </Text>
       </View>
       <View style={[styles.chip, { backgroundColor: chipBg }]}>
-        <Text style={[styles.chipText, { color: chipText }]}>{t('poop.consistencyOpt.' + details.consistency)}</Text>
+        <Text style={[styles.chipText, { color: chipText }]}>{t('poop.consistencyOpt.' + consistency)}</Text>
       </View>
     </TouchableOpacity>
   );

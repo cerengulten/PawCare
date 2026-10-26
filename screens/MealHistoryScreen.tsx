@@ -8,12 +8,12 @@ import SwipeBackWrapper from '../components/SwipeBackWrapper';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { i18n } from '../lib/i18n';
-import { weekdayShortMonFirst, shortDate, timeOfDay } from '../lib/i18n/calendar';
+import { weekdayShortMonFirst, shortDate, longDate as i18nLongDate, timeOfDay } from '../lib/i18n/calendar';
 import { isoToLocalDateString, toLocalDateString } from '../lib/dateUtils';
 import { ThemeTokens } from '../lib/themes';
 
 export function formatLongDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return i18nLongDate(dateStr);
 }
 
 type Props = {
