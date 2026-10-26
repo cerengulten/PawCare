@@ -130,7 +130,7 @@ const tr: typeof en = {
     greeting: '%{name} için yemek, su tüketimi veya belirtiler hakkında bana soru sor!',
     addPetFirst: 'Sohbete başlamak için önce bir evcil hayvan ekle.',
     notSetUp: 'Yapay Zekâ Bakım Sohbeti henüz ayarlanmadı — EXPO_PUBLIC_GEMINI_API_KEY eksik.',
-    disclaimer: '⚠️ Veteriner bakımının yerini tutmaz',
+    disclaimer: 'Bisco AI bir veteriner hekimi değildir ve teşhis koyamaz. Hastalıklar, tıbbi durumlar ve acil durumlar için daima veterinerinize danışın.',
     inputPlaceholder: '%{name} hakkında sor...',
     sendFailed: 'Üzgünüm, yanıt alınamadı. Lütfen tekrar deneyin.',
     respondInLanguage: '%{language} dilinde yanıt ver.',

@@ -17,6 +17,7 @@ import SocialSignInButtons from '../components/SocialSignInButtons';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
+import LegalDocScreen from './LegalDocScreen';
 
 type Props = {
   onSwitch: () => void;
@@ -30,6 +31,11 @@ export default function RegisterScreen({ onSwitch }: Props) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [legalDoc, setLegalDoc] = useState<'terms' | 'privacy' | null>(null);
+
+  if (legalDoc !== null) {
+    return <LegalDocScreen type={legalDoc} onBack={() => setLegalDoc(null)} />;
+  }
   const [success, setSuccess] = useState(false);
 
   async function handleRegister() {
@@ -123,11 +129,11 @@ export default function RegisterScreen({ onSwitch }: Props) {
       <View style={styles.termsRow}>
         <Text style={styles.termsNotice}>{t('auth.termsNotice')}</Text>
         <View style={styles.termsLinks}>
-          <TouchableOpacity onPress={() => Linking.openURL('https://bisco.app/terms')}>
+          <TouchableOpacity onPress={() => setLegalDoc('terms')}>
             <Text style={styles.termsLink}>{t('settings.termsOfService')}</Text>
           </TouchableOpacity>
           <Text style={styles.termsDivider}> · </Text>
-          <TouchableOpacity onPress={() => Linking.openURL('https://bisco.app/privacy')}>
+          <TouchableOpacity onPress={() => setLegalDoc('privacy')}>
             <Text style={styles.termsLink}>{t('settings.privacyPolicy')}</Text>
           </TouchableOpacity>
         </View>

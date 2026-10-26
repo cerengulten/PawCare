@@ -130,7 +130,7 @@ const it: typeof en = {
     greeting: "Ciao! Chiedimi del cibo, dell'idratazione o dei sintomi di %{name}.",
     addPetFirst: 'Aggiungi prima un animale per iniziare a chattare.',
     notSetUp: 'La Chat Assistenza IA non è ancora configurata — manca EXPO_PUBLIC_GEMINI_API_KEY.',
-    disclaimer: '⚠️ Non sostituisce le cure veterinarie',
+    disclaimer: 'Bisco AI non è un veterinario e non fornisce diagnosi. Per malattie, cure mediche o emergenze, consulta sempre il tuo veterinario.',
     inputPlaceholder: 'Chiedi di %{name}...',
     sendFailed: 'Spiacente, non sono riuscito a ottenere una risposta. Riprova.',
     respondInLanguage: 'Rispondi in %{language}.',

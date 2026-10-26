@@ -23,6 +23,8 @@ import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import { CycleSpecies } from '../types';
 import { cycleStartTip } from '../lib/cycleLogic';
+import { longDate } from '../lib/i18n/calendar';
+import { toLocalDateString } from '../lib/dateUtils';
 
 type Props = {
   visible: boolean;
@@ -31,7 +33,7 @@ type Props = {
   onSave: (startDate: Date, notes: string | null) => Promise<void>;
 };
 
-const SHEET_HEIGHT = Math.round(Dimensions.get('window').height * 0.45);
+const SHEET_HEIGHT = Math.round(Dimensions.get('window').height * 0.65);
 const DISMISS_THRESHOLD = 100;
 
 function toDateOnlyString(d: Date): string {
@@ -48,6 +50,7 @@ export default function CycleStartSheet({ visible, species, onClose, onSave }: P
   const [startDate, setStartDate] = useState(new Date());
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showIOSPicker, setShowIOSPicker] = useState(false);
 
   const translateY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
 
@@ -55,6 +58,7 @@ export default function CycleStartSheet({ visible, species, onClose, onSave }: P
     if (visible) {
       setStartDate(new Date());
       setNotes('');
+      setShowIOSPicker(false);
       translateY.setValue(SHEET_HEIGHT);
       Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
     }
@@ -62,7 +66,7 @@ export default function CycleStartSheet({ visible, species, onClose, onSave }: P
 
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 4,
+      onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 6,
       onPanResponderMove: (_, gesture) => {
         if (gesture.dy > 0) translateY.setValue(gesture.dy);
       },
@@ -77,15 +81,41 @@ export default function CycleStartSheet({ visible, species, onClose, onSave }: P
     })
   ).current;
 
-  function openAndroidDatePicker() {
-    DateTimePickerAndroid.open({
-      value: startDate,
-      mode: 'date',
-      maximumDate: new Date(),
-      onChange: (_event: DateTimePickerEvent, selected?: Date) => {
-        if (selected) setStartDate(selected);
-      },
-    });
+  const todayStr = toLocalDateString(new Date());
+  const yesterdayObj = new Date();
+  yesterdayObj.setDate(yesterdayObj.getDate() - 1);
+  const yesterdayStr = toLocalDateString(yesterdayObj);
+  const currentSelectedStr = toDateOnlyString(startDate);
+
+  const isToday = currentSelectedStr === todayStr;
+  const isYesterday = currentSelectedStr === yesterdayStr;
+  const isCustom = !isToday && !isYesterday;
+
+  function selectToday() {
+    setStartDate(new Date());
+    setShowIOSPicker(false);
+  }
+
+  function selectYesterday() {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    setStartDate(d);
+    setShowIOSPicker(false);
+  }
+
+  function openDatePicker() {
+    if (Platform.OS === 'android') {
+      DateTimePickerAndroid.open({
+        value: startDate,
+        mode: 'date',
+        maximumDate: new Date(),
+        onChange: (_event: DateTimePickerEvent, selected?: Date) => {
+          if (selected) setStartDate(selected);
+        },
+      });
+    } else {
+      setShowIOSPicker(prev => !prev);
+    }
   }
 
   async function handleSave() {
@@ -110,15 +140,74 @@ export default function CycleStartSheet({ visible, species, onClose, onSave }: P
             <View style={styles.handle} />
           </View>
 
-          <Text style={styles.title}>{t('cycle.startSheetTitle')}</Text>
+          <View style={styles.headerRow}>
+            <View style={styles.iconCircle}>
+              <Text style={styles.headerEmoji}>🌸</Text>
+            </View>
+            <View style={styles.headerTextGroup}>
+              <Text style={styles.title}>{t('cycle.startSheetTitle')}</Text>
+              <Text style={styles.subtitle}>
+                {t('cycle.startDateLabel')}
+              </Text>
+            </View>
+          </View>
 
-          {Platform.OS === 'ios' ? (
-            <View style={styles.dateFieldRow}>
-              <Text style={styles.inputText}>{toDateOnlyString(startDate)}</Text>
+          <View style={styles.presetRow}>
+            <TouchableOpacity
+              style={[styles.presetChip, isToday && styles.presetChipActive]}
+              onPress={selectToday}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.presetChipText, isToday && styles.presetChipTextActive]}>
+                {t('mealHistory.today')}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.presetChip, isYesterday && styles.presetChipActive]}
+              onPress={selectYesterday}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.presetChipText, isYesterday && styles.presetChipTextActive]}>
+                {t('mealHistory.yesterday')}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.presetChip, isCustom && styles.presetChipActive]}
+              onPress={openDatePicker}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.presetChipText, isCustom && styles.presetChipTextActive]}>
+                📅 {t('common.edit')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={styles.dateDisplayCard}
+            onPress={openDatePicker}
+            activeOpacity={0.8}
+          >
+            <View style={styles.dateDisplayLeft}>
+              <Text style={styles.dateDisplayLabel}>{t('cycle.startDateLabel')}</Text>
+              <Text style={styles.dateDisplayValue}>
+                {longDate(currentSelectedStr)}
+              </Text>
+            </View>
+            <View style={styles.dateActionPill}>
+              <Text style={styles.dateActionText}>
+                {Platform.OS === 'ios' && showIOSPicker ? '▲' : '▼'}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {Platform.OS === 'ios' && showIOSPicker ? (
+            <View style={styles.iosPickerContainer}>
               <DateTimePicker
                 value={startDate}
                 mode="date"
-                display="compact"
+                display="inline"
                 accentColor={theme.primary}
                 maximumDate={new Date()}
                 onChange={(_e: DateTimePickerEvent, selected?: Date) => {
@@ -126,11 +215,7 @@ export default function CycleStartSheet({ visible, species, onClose, onSave }: P
                 }}
               />
             </View>
-          ) : (
-            <TouchableOpacity style={styles.dateFieldRow} onPress={openAndroidDatePicker}>
-              <Text style={styles.inputText}>{toDateOnlyString(startDate)}</Text>
-            </TouchableOpacity>
-          )}
+          ) : null}
 
           <TextInput
             style={styles.input}
@@ -138,11 +223,14 @@ export default function CycleStartSheet({ visible, species, onClose, onSave }: P
             placeholderTextColor={theme.textMuted}
             value={notes}
             onChangeText={setNotes}
+            multiline
           />
 
-          <Text style={styles.tip}>💡 {cycleStartTip(species)}</Text>
+          <View style={styles.tipCard}>
+            <Text style={styles.tipText}>💡 {cycleStartTip(species)}</Text>
+          </View>
 
-          <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading}>
+          <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading} activeOpacity={0.85}>
             {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>{t('cycle.startSheetButton')}</Text>}
           </TouchableOpacity>
         </Animated.View>
@@ -155,7 +243,7 @@ function makeStyles(theme: ThemeTokens) {
   return StyleSheet.create({
     backdrop: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(0,0,0,0.35)',
+      backgroundColor: 'rgba(0,0,0,0.45)',
     },
     sheetWrapper: {
       flex: 1,
@@ -163,62 +251,163 @@ function makeStyles(theme: ThemeTokens) {
     },
     sheet: {
       backgroundColor: theme.surface,
-      borderTopLeftRadius: theme.radiiCard,
-      borderTopRightRadius: theme.radiiCard,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
       padding: 20,
-      paddingBottom: 32,
+      paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+      borderTopWidth: 1,
+      borderColor: theme.border,
+      maxHeight: Dimensions.get('window').height * 0.85,
     },
     handleArea: {
       alignItems: 'center',
       paddingBottom: 12,
     },
     handle: {
-      width: 36,
+      width: 40,
       height: 4,
       borderRadius: 2,
       backgroundColor: theme.border,
+    },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 16,
+    },
+    iconCircle: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      backgroundColor: theme.moodSelBg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerEmoji: {
+      fontSize: 22,
+    },
+    headerTextGroup: {
+      flex: 1,
     },
     title: {
       fontSize: 18,
       fontWeight: '700',
       color: theme.textDark,
+    },
+    subtitle: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 2,
+    },
+    presetRow: {
+      flexDirection: 'row',
+      gap: 8,
       marginBottom: 12,
     },
-    dateFieldRow: {
+    presetChip: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: theme.radiiCard,
+      backgroundColor: theme.background,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    presetChipActive: {
+      backgroundColor: theme.moodSelBg,
+      borderColor: theme.primary,
+    },
+    presetChipText: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: theme.textDark,
+    },
+    presetChipTextActive: {
+      color: theme.primary,
+      fontWeight: '700',
+    },
+    dateDisplayCard: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       backgroundColor: theme.background,
       borderRadius: theme.radiiCard,
-      padding: 14,
-      marginBottom: 10,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+      marginBottom: 12,
+    },
+    dateDisplayLeft: {
+      flex: 1,
+    },
+    dateDisplayLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 2,
+    },
+    dateDisplayValue: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    dateActionPill: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: theme.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
       borderWidth: 1,
       borderColor: theme.border,
     },
-    inputText: {
-      fontSize: 15,
-      color: theme.textDark,
+    dateActionText: {
+      fontSize: 12,
+      color: theme.primary,
+      fontWeight: '600',
+    },
+    iosPickerContainer: {
+      backgroundColor: theme.background,
+      borderRadius: theme.radiiCard,
+      padding: 8,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
     },
     input: {
       backgroundColor: theme.background,
       borderRadius: theme.radiiCard,
       padding: 14,
-      fontSize: 15,
+      fontSize: 14,
       color: theme.textDark,
-      marginBottom: 10,
+      marginBottom: 12,
       borderWidth: 1,
       borderColor: theme.border,
+      minHeight: 48,
     },
-    tip: {
-      fontSize: 12,
-      color: theme.textMuted,
+    tipCard: {
+      backgroundColor: theme.moodSelBg,
+      borderRadius: theme.radiiCard,
+      padding: 12,
       marginBottom: 16,
+      borderWidth: 0.5,
+      borderColor: theme.primary,
+    },
+    tipText: {
+      fontSize: 12,
+      color: theme.primary,
+      lineHeight: 17,
     },
     button: {
       backgroundColor: theme.primary,
       borderRadius: theme.radiiCard,
-      padding: 16,
+      paddingVertical: 16,
       alignItems: 'center',
+      justifyContent: 'center',
     },
     buttonText: {
       color: 'white',

@@ -15,6 +15,7 @@ import VetFinderScreen from './VetFinderScreen';
 import ChangePasswordScreen from './ChangePasswordScreen';
 import ChangeEmailScreen from './ChangeEmailScreen';
 import DeleteAccountScreen from './DeleteAccountScreen';
+import LegalDocScreen from './LegalDocScreen';
 import { RootTabParamList } from './AppTabs';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
@@ -46,12 +47,17 @@ export default function MoreScreen({ route, navigation, dogs, profile, notificat
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showChangeEmail, setShowChangeEmail] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [legalDoc, setLegalDoc] = useState<'terms' | 'privacy' | null>(null);
   const upcomingRef = useRef<View>(null);
   const comingSoonRef = useRef<View>(null);
 
   useFocusEffect(
     useCallback(() => {
       const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (legalDoc !== null) {
+          setLegalDoc(null);
+          return true;
+        }
         if (reportDog !== null) {
           setReportDog(null);
           return true;
@@ -87,20 +93,23 @@ export default function MoreScreen({ route, navigation, dogs, profile, notificat
         return false;
       });
       return () => sub.remove();
-    }, [reportDog, showVetFinder, vetFinderFromHome, showChangePassword, showChangeEmail, showDeleteAccount, showNotifications, showLanguage, navigation])
+    }, [legalDoc, reportDog, showVetFinder, vetFinderFromHome, showChangePassword, showChangeEmail, showDeleteAccount, showNotifications, showLanguage, navigation])
   );
 
   useEffect(() => {
     if (route.params?.openVetFinder) {
+      setReportDog(null);
+      setShowNotifications(false);
+      setShowLanguage(false);
+      setShowChangePassword(false);
+      setShowChangeEmail(false);
+      setShowDeleteAccount(false);
+      setLegalDoc(null);
       setShowVetFinder(true);
       setVetFinderFromHome(true);
       navigation.setParams({ openVetFinder: undefined });
     }
   }, [route.params?.openVetFinder]);
-
-  if (reportDog) {
-    return <ReportPickerScreen dog={reportDog} onBack={() => setReportDog(null)} />;
-  }
 
   if (showVetFinder) {
     return (
@@ -114,6 +123,14 @@ export default function MoreScreen({ route, navigation, dogs, profile, notificat
         }}
       />
     );
+  }
+
+  if (legalDoc !== null) {
+    return <LegalDocScreen type={legalDoc} onBack={() => setLegalDoc(null)} />;
+  }
+
+  if (reportDog) {
+    return <ReportPickerScreen dog={reportDog} onBack={() => setReportDog(null)} />;
   }
 
   if (showChangePassword) {
@@ -320,7 +337,7 @@ export default function MoreScreen({ route, navigation, dogs, profile, notificat
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
         <View style={styles.divider} />
-        <TouchableOpacity style={styles.row} onPress={() => Linking.openURL('https://bisco.app/privacy')}>
+        <TouchableOpacity style={styles.row} onPress={() => setLegalDoc('privacy')}>
           <View style={styles.iconBox}><Text style={styles.iconText}>🛡️</Text></View>
           <View style={styles.rowInfo}>
             <Text style={styles.rowTitle}>{t('settings.privacyPolicy')}</Text>
@@ -328,7 +345,7 @@ export default function MoreScreen({ route, navigation, dogs, profile, notificat
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
         <View style={styles.divider} />
-        <TouchableOpacity style={styles.row} onPress={() => Linking.openURL('https://bisco.app/terms')}>
+        <TouchableOpacity style={styles.row} onPress={() => setLegalDoc('terms')}>
           <View style={styles.iconBox}><Text style={styles.iconText}>📜</Text></View>
           <View style={styles.rowInfo}>
             <Text style={styles.rowTitle}>{t('settings.termsOfService')}</Text>

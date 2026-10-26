@@ -5,7 +5,7 @@ import { supabase } from './supabase';
 // gemini-3.6-flash is the current flash model still open to new users and supporting
 // generateContent.
 const GEMINI_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent';
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent';
 
 export type ChatTurn = { role: 'user' | 'model'; text: string };
 
@@ -39,8 +39,10 @@ export async function sendChatMessage(history: ChatTurn[], systemInstruction: st
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: systemInstruction }] },
       contents: history.map(turn => ({ role: turn.role, parts: [{ text: turn.text }] })),
-      // gemini-3.6-flash thinkingBudget practical minimum
-      generationConfig: { thinkingConfig: { thinkingBudget: 1 } },
+      generationConfig: {
+        maxOutputTokens: 600,
+        temperature: 0.7,
+      },
     }),
   });
 

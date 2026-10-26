@@ -132,7 +132,7 @@ const en = {
     greeting: "Hi! Ask me about %{name}'s food, hydration, or symptoms.",
     addPetFirst: 'Add a pet first to start chatting.',
     notSetUp: "AI Care Chat isn't set up yet — missing EXPO_PUBLIC_GEMINI_API_KEY.",
-    disclaimer: '⚠️ Not a substitute for veterinary care',
+    disclaimer: 'Bisco AI is not a veterinarian and cannot diagnose. For medical advice, illnesses, or emergencies, always consult your vet.',
     inputPlaceholder: 'Ask about %{name}...',
     sendFailed: "Sorry, I couldn't get a response. Please try again.",
     respondInLanguage: 'Respond in %{language}.',

@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const GEMINI_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent';
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -33,7 +33,10 @@ serve(async (req) => {
           role: turn.role,
           parts: [{ text: turn.text }],
         })),
-        generationConfig: { thinkingConfig: { thinkingBudget: 1 } },
+        generationConfig: {
+          maxOutputTokens: 600,
+          temperature: 0.7,
+        },
       }),
     });
 

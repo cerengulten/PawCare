@@ -3,9 +3,14 @@ import * as Location from 'expo-location';
 import { VetResult } from '../../types';
 import { i18n } from '../i18n';
 
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+const OVERPASS_ENDPOINTS = [
+  'https://overpass.openstreetmap.fr/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
+];
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 const SEARCH_RADIUS_METERS = 5000;
+const USER_AGENT = 'BiscoPetCare/1.0 (https://bisco.app; contact@bisco.app)';
 
 export type Coords = { lat: number; lon: number };
 
@@ -21,8 +26,9 @@ function haversineKm(a: Coords, b: Coords): number {
 
 type OverpassElement = {
   id: number;
-  lat: number;
-  lon: number;
+  lat?: number;
+  lon?: number;
+  center?: { lat: number; lon: number };
   tags?: Record<string, string>;
 };
 
@@ -33,34 +39,85 @@ function addressFromTags(tags: Record<string, string> | undefined): string | nul
 }
 
 export async function fetchVetsNear(center: Coords): Promise<VetResult[]> {
-  const query = `[out:json];node["amenity"="veterinary"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon});out body;`;
-  const response = await fetch(OVERPASS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `data=${encodeURIComponent(query)}`,
-  });
-  if (!response.ok) throw new Error('Overpass request failed');
-  const json = await response.json();
-  const elements: OverpassElement[] = json.elements ?? [];
+  const query = `[out:json][timeout:10];(node["amenity"="veterinary"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon});way["amenity"="veterinary"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon}););out center 25;`;
 
-  return elements
-    .map(el => ({
-      id: String(el.id),
-      name: el.tags?.name ?? String(i18n.t('vetFinder.defaultName')),
-      lat: el.lat,
-      lon: el.lon,
-      address: addressFromTags(el.tags),
-      phone: el.tags?.phone ?? el.tags?.['contact:phone'] ?? null,
-      openingHours: el.tags?.opening_hours ?? null,
-      distanceKm: haversineKm(center, { lat: el.lat, lon: el.lon }),
-    }))
-    .sort((a, b) => a.distanceKm - b.distanceKm);
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': USER_AGENT,
+        },
+        body: `data=${encodeURIComponent(query)}`,
+      });
+
+      if (response.ok) {
+        const json = await response.json();
+        const elements: OverpassElement[] = json.elements ?? [];
+        if (elements.length > 0) {
+          return elements
+            .map(el => {
+              const lat = el.lat ?? el.center?.lat ?? center.lat;
+              const lon = el.lon ?? el.center?.lon ?? center.lon;
+              return {
+                id: String(el.id),
+                name: el.tags?.name ?? String(i18n.t('vetFinder.defaultName')),
+                lat,
+                lon,
+                address: addressFromTags(el.tags),
+                phone: el.tags?.phone ?? el.tags?.['contact:phone'] ?? null,
+                openingHours: el.tags?.opening_hours ?? null,
+                distanceKm: haversineKm(center, { lat, lon }),
+              };
+            })
+            .sort((a, b) => a.distanceKm - b.distanceKm);
+        }
+      }
+    } catch {
+      // try next mirror
+    }
+  }
+
+  // Resilient fallback to Nominatim search around the center if Overpass is temporarily busy
+  try {
+    const delta = 0.08;
+    const minLon = center.lon - delta;
+    const maxLon = center.lon + delta;
+    const minLat = center.lat - delta;
+    const maxLat = center.lat + delta;
+    const nomUrl = `${NOMINATIM_URL}?amenity=veterinary&viewbox=${minLon},${maxLat},${maxLon},${minLat}&bounded=1&format=json&limit=15`;
+    const res = await fetch(nomUrl, { headers: { 'User-Agent': USER_AGENT } });
+    if (res.ok) {
+      const items = await res.json();
+      if (Array.isArray(items) && items.length > 0) {
+        return items.map((item: any) => {
+          const lat = parseFloat(item.lat);
+          const lon = parseFloat(item.lon);
+          return {
+            id: String(item.place_id || item.osm_id),
+            name: item.name || item.display_name?.split(',')[0] || String(i18n.t('vetFinder.defaultName')),
+            lat,
+            lon,
+            address: item.display_name ?? null,
+            phone: null,
+            openingHours: null,
+            distanceKm: haversineKm(center, { lat, lon }),
+          };
+        }).sort((a, b) => a.distanceKm - b.distanceKm);
+      }
+    }
+  } catch {
+    // fallback failed
+  }
+
+  return [];
 }
 
 async function geocodeAddress(query: string): Promise<Coords | null> {
   const url = `${NOMINATIM_URL}?q=${encodeURIComponent(query)}&format=json&limit=1`;
   const response = await fetch(url, {
-    headers: { 'User-Agent': 'Bisco/1.0 (bisco app; vet finder)' },
+    headers: { 'User-Agent': USER_AGENT },
   });
   if (!response.ok) throw new Error('Address lookup failed');
   const json = await response.json();
@@ -86,7 +143,18 @@ export function useNearbyVets() {
         setLoading(false);
         return;
       }
-      const position = await Location.getCurrentPositionAsync({});
+
+      // Fast initial check: use last known position immediately if available
+      const lastKnown = await Location.getLastKnownPositionAsync().catch(() => null);
+      if (lastKnown) {
+        const center = { lat: lastKnown.coords.latitude, lon: lastKnown.coords.longitude };
+        setUserLocation(center);
+        fetchVetsNear(center).then(results => {
+          if (results.length > 0) setVets(results);
+        }).catch(() => {});
+      }
+
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const center = { lat: position.coords.latitude, lon: position.coords.longitude };
       setUserLocation(center);
       const results = await fetchVetsNear(center);
@@ -98,18 +166,19 @@ export function useNearbyVets() {
     }
   }
 
-  async function searchByAddress(query: string) {
+  async function searchByAddress(address: string) {
+    const trimmed = address.trim();
+    if (!trimmed) return;
     setLoading(true);
     setError(null);
     try {
-      const center = await geocodeAddress(query);
-      if (!center) {
+      const coords = await geocodeAddress(trimmed);
+      if (!coords) {
         setError(i18n.t('vetFinder.addressNotFound'));
-        setLoading(false);
         return;
       }
-      setUserLocation(center);
-      const results = await fetchVetsNear(center);
+      setUserLocation(coords);
+      const results = await fetchVetsNear(coords);
       setVets(results);
     } catch {
       setError(i18n.t('vetFinder.loadFailed'));
@@ -118,5 +187,13 @@ export function useNearbyVets() {
     }
   }
 
-  return { vets, userLocation, loading, error, permissionDenied, searchNearMe, searchByAddress };
+  return {
+    vets,
+    userLocation,
+    loading,
+    error,
+    permissionDenied,
+    searchNearMe,
+    searchByAddress,
+  };
 }

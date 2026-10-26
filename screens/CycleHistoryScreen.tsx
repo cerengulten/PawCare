@@ -7,9 +7,10 @@ import { useT } from '../lib/LanguageContext';
 import { monthYearLabel, weekdayLetters, longDate as i18nLongDate, shortDate as i18nShortDate } from '../lib/i18n/calendar';
 import { toLocalDateString } from '../lib/dateUtils';
 import { ThemeTokens } from '../lib/themes';
-import { symptomLabel, phaseLabel, predictPhases, phaseColorToken, matchBreedSizeTier } from '../lib/cycleLogic';
+import { symptomLabel, phaseLabel, predictPhases, phaseColorToken, matchBreedSizeTier, mapDogSpeciesToCycleSpecies } from '../lib/cycleLogic';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 import CycleEditSheet from '../components/CycleEditSheet';
+import CycleStartSheet from '../components/CycleStartSheet';
 import SymptomLogSheet from '../components/SymptomLogSheet';
 
 type Props = {
@@ -59,9 +60,14 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
   const [editSheetVisible, setEditSheetVisible] = useState(false);
   const [symptomEditVisible, setSymptomEditVisible] = useState(false);
   const [todaySymptomSheetVisible, setTodaySymptomSheetVisible] = useState(false);
+  const [startSheetVisible, setStartSheetVisible] = useState(false);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (startSheetVisible) {
+        setStartSheetVisible(false);
+        return true;
+      }
       if (todaySymptomSheetVisible) {
         setTodaySymptomSheetVisible(false);
         return true;
@@ -77,7 +83,7 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
       return false;
     });
     return () => sub.remove();
-  }, [todaySymptomSheetVisible, symptomEditVisible, editSheetVisible]);
+  }, [startSheetVisible, todaySymptomSheetVisible, symptomEditVisible, editSheetVisible]);
 
   const closedCycles = cycles.filter(c => c.end_date);
 
@@ -133,6 +139,7 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
     : null;
 
   const todayStr = toLocalDateString();
+  const cycleSpecies = mapDogSpeciesToCycleSpecies(dog.species);
   const todaySymptomLog = activeCycle
     ? symptoms.find(s => s.cycle_id === activeCycle.id && s.logged_date === todayStr) ?? null
     : null;
@@ -317,7 +324,7 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
         ) : null}
 
         {!activeCycle ? (
-          <TouchableOpacity style={styles.startBtn} onPress={onStartCycle}>
+          <TouchableOpacity style={styles.startBtn} onPress={() => setStartSheetVisible(true)}>
             <Text style={styles.startBtnText}>{t('cycle.startNewCycle')}</Text>
           </TouchableOpacity>
         ) : null}
@@ -472,6 +479,17 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
             const { error } = await logSymptoms(activeCycle.id, dog.id, new Date(), syms, intensity, notes ?? undefined);
             if (!error) setTodaySymptomSheetVisible(false);
             return { error };
+          }}
+        />
+      ) : null}
+      {cycleSpecies ? (
+        <CycleStartSheet
+          visible={startSheetVisible}
+          species={cycleSpecies}
+          onClose={() => setStartSheetVisible(false)}
+          onSave={async (startDate, notes) => {
+            await tracking.startCycle(cycleSpecies, startDate, notes ?? undefined);
+            setStartSheetVisible(false);
           }}
         />
       ) : null}

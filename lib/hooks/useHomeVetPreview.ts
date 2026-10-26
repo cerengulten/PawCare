@@ -68,7 +68,8 @@ export function useHomeVetPreview() {
 
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         try {
-          const position = await Location.getCurrentPositionAsync({});
+          const lastKnown = await Location.getLastKnownPositionAsync().catch(() => null);
+          const position = lastKnown ?? await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
           const center = { lat: position.coords.latitude, lon: position.coords.longitude };
           const results = await fetchVetsNear(center);
           if (cancelled) return;

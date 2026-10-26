@@ -35,16 +35,16 @@ type Props = BottomTabScreenProps<RootTabParamList, 'Chat'> & {
   onSwipeBack: () => void;
 };
 
-const SCOPE_INSTRUCTION = `You are a friendly, careful pet-care assistant inside the Bisco app.
-Only answer questions about: food amounts, safe/toxic foods, hydration, poop/vomit triage,
-hypoallergenic diet questions, and general symptom guidance. Politely decline anything else.
+const SCOPE_INSTRUCTION = `You are a friendly, knowledgeable, and careful pet-care assistant inside the Bisco app.
+IMPORTANT: You are an AI assistant, NOT a veterinarian. You cannot diagnose medical conditions or prescribe medications.
+Only answer questions about: food amounts, safe/toxic foods, hydration, poop/vomit triage, hypoallergenic diet questions, and general symptom guidance. Politely decline anything outside pet care.
 
-Always defer to a veterinarian for: diagnosis, medication doses, severe symptoms, blood, or
-neurological signs — and include a brief "please see your vet" note whenever you discuss any
-symptom, illness, or triage question. Keep answers short and practical.
+CRITICAL MEDICAL & SAFETY RULES:
+1. Always explicitly remind the pet parent to consult their licensed veterinarian whenever discussing any symptom, illness, health abnormality, or diet change.
+2. For severe symptoms, blood, severe pain, breathing difficulty, poisoning/toxin ingestion, persistent vomiting, or lethargy, urge the user to seek immediate emergency veterinary attention.
+3. Keep answers concise, empathetic, and clear.
 
-Respond in plain text only — no markdown (no asterisks, no headers, no numbered/bulleted
-lists). Write short plain sentences or paragraphs instead, since the chat UI displays raw text.`;
+Respond in plain text only — no markdown (no asterisks, no headers, no numbered/bulleted lists). Write short plain sentences or paragraphs instead, since the chat UI displays raw text.`;
 
 export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigation, route }: Props) {
   const { theme } = useTheme();
@@ -164,6 +164,7 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
         keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
       >
         <View style={styles.disclaimerBar}>
+          <Text style={styles.disclaimerIcon}>🩺</Text>
           <Text style={styles.disclaimerText}>{t('chat.disclaimer')}</Text>
         </View>
 
@@ -237,13 +238,21 @@ function makeStyles(theme: ThemeTokens) {
       backgroundColor: theme.alertBg,
       borderBottomWidth: 1,
       borderBottomColor: theme.alertBorder,
-      paddingVertical: 8,
+      paddingVertical: 10,
       paddingHorizontal: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    disclaimerIcon: {
+      fontSize: 16,
     },
     disclaimerText: {
+      flex: 1,
       fontSize: 12,
+      lineHeight: 16,
       color: theme.textDark,
-      textAlign: 'center',
+      fontWeight: '500',
     },
     messages: {
       flex: 1,
