@@ -6,8 +6,13 @@ import { useProfile } from '../lib/hooks/useProfile';
 import { useDogs } from '../lib/hooks/useDogs';
 import { useSelectedPet } from '../lib/hooks/useSelectedPet';
 import { useOverallStreak } from '../lib/hooks/useOverallStreak';
+import { useVetAppointments } from '../lib/hooks/useVetAppointments';
+import { VetAppointment } from '../lib/vetAppointments';
+import { getDailyVetTip } from '../lib/vetTips';
 import PetSummaryCard from '../components/PetSummaryCard';
 import NearbyVetsSection from '../components/NearbyVetsSection';
+import VetAppointmentCard from '../components/VetAppointmentCard';
+import VetAppointmentModal from '../components/VetAppointmentModal';
 import TabTour from '../components/TabTour';
 import { checkAndCreateStreakAlert } from '../lib/notificationService';
 import ProfileScreen from './ProfileScreen';
@@ -33,12 +38,31 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { streak } = useOverallStreak();
   const [showProfile, setShowProfile] = useState(false);
+  const [showVetModal, setShowVetModal] = useState(false);
+  const [editingAppointment, setEditingAppointment] = useState<VetAppointment | null>(null);
+  const [tipOffset, setTipOffset] = useState(0);
+
+  const {
+    nextAppointment,
+    addAppointment,
+    editAppointment,
+    removeAppointment,
+    markCompleted,
+  } = useVetAppointments();
+
+  const currentTip = useMemo(() => getDailyVetTip(tipOffset), [tipOffset]);
+
   const petStripRef = useRef<View>(null);
   const streakRef = useRef<View>(null);
 
   useFocusEffect(
     useCallback(() => {
       const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (showVetModal) {
+          setShowVetModal(false);
+          setEditingAppointment(null);
+          return true;
+        }
         if (showProfile) {
           setShowProfile(false);
           return true;
@@ -46,7 +70,7 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
         return false;
       });
       return () => sub.remove();
-    }, [showProfile])
+    }, [showProfile, showVetModal])
   );
 
   useEffect(() => {
@@ -72,100 +96,153 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greetingLabel}>{greeting}</Text>
-          <Text style={styles.greetingName}>{firstName} 👋</Text>
-        </View>
-        <TouchableOpacity onPress={() => setShowProfile(true)}>
-          {profile?.avatar_url ? (
-            <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarEmoji}>🐾</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {dogs.length > 0 ? (
-        <View ref={petStripRef} collapsable={false}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.strip}>
-            {dogs.map(dog => (
-              <PetSummaryCard
-                key={dog.id}
-                dog={dog}
-                onPress={() => navigation.navigate('Pets', { dogId: dog.id })}
-              />
-            ))}
-          </ScrollView>
-        </View>
-      ) : (
-        <TouchableOpacity
-          style={styles.emptyPetCard}
-          onPress={() => navigation.navigate('Pets')}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.emptyPetIcon}>🐾</Text>
-          <View style={styles.emptyPetTextGroup}>
-            <Text style={styles.emptyPetTitle}>{t('pets.addFirstPet')}</Text>
-            <Text style={styles.emptyPetSubtitle}>{t('pets.noPetsSubtitle')}</Text>
+    <>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.greetingLabel}>{greeting}</Text>
+            <Text style={styles.greetingName}>{firstName} 👋</Text>
           </View>
+          <TouchableOpacity onPress={() => setShowProfile(true)}>
+            {profile?.avatar_url ? (
+              <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarEmoji}>🐾</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {dogs.length > 0 ? (
+          <View ref={petStripRef} collapsable={false}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.strip}>
+              {dogs.map(dog => (
+                <PetSummaryCard
+                  key={dog.id}
+                  dog={dog}
+                  onPress={() => navigation.navigate('Pets', { dogId: dog.id })}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.emptyPetCard}
+            onPress={() => navigation.navigate('Pets')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.emptyPetIcon}>🐾</Text>
+            <View style={styles.emptyPetTextGroup}>
+              <Text style={styles.emptyPetTitle}>{t('pets.addFirstPet')}</Text>
+              <Text style={styles.emptyPetSubtitle}>{t('pets.noPetsSubtitle')}</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+        )}
+
+        {streak > 0 ? (
+          <View ref={streakRef} collapsable={false} style={styles.streakPill}>
+            <Text style={styles.streakEmoji}>🔥</Text>
+            <View style={styles.streakTextGroup}>
+              <Text style={styles.streakTitle}>{t('home.streakTitle', { count: streak })}</Text>
+              <Text style={styles.streakSubtitle}>{t('home.streakSubtitle')}</Text>
+            </View>
+            <View style={styles.weekChip}>
+              <Text style={styles.weekChipText}>{t('home.week', { count: Math.ceil(streak / 7) })}</Text>
+            </View>
+          </View>
+        ) : null}
+
+        {/* Vet Appointment Reminder Section */}
+        <VetAppointmentCard
+          appointment={nextAppointment}
+          onSchedulePress={() => {
+            setEditingAppointment(null);
+            setShowVetModal(true);
+          }}
+          onEditPress={(appt) => {
+            setEditingAppointment(appt);
+            setShowVetModal(true);
+          }}
+          onCompletePress={(id) => markCompleted(id)}
+        />
+
+        <NearbyVetsSection
+          dog={activeDog}
+          onOpenVetFinder={() => navigation.navigate('More', { openVetFinder: true })}
+        />
+
+        <TouchableOpacity style={styles.aiBar} onPress={() => navigation.navigate('Chat', { fromLink: true })}>
+          <Text style={styles.aiIcon}>💬</Text>
+          <Text style={styles.aiText} numberOfLines={1}>{t('home.askNutrition', { name: activeDogName })}</Text>
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
-      )}
 
-      {streak > 0 ? (
-        <View ref={streakRef} collapsable={false} style={styles.streakPill}>
-          <Text style={styles.streakEmoji}>🔥</Text>
-          <View style={styles.streakTextGroup}>
-            <Text style={styles.streakTitle}>{t('home.streakTitle', { count: streak })}</Text>
-            <Text style={styles.streakSubtitle}>{t('home.streakSubtitle')}</Text>
+        {/* Curated Daily Vet Bite & Nutrition Tip (Replaces old 'Community Soon' placeholder) */}
+        <View style={styles.tipCard}>
+          <View style={styles.tipHeaderRow}>
+            <View style={styles.tipBadge}>
+              <Text style={styles.tipBadgeText}>
+                {currentTip.emoji} {currentTip.badge}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setTipOffset((prev) => prev + 1)}
+              style={styles.nextTipBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.nextTipText}>↻ Next tip</Text>
+            </TouchableOpacity>
           </View>
-          <View style={styles.weekChip}>
-            <Text style={styles.weekChipText}>{t('home.week', { count: Math.ceil(streak / 7) })}</Text>
-          </View>
+
+          <Text style={styles.tipTitle}>{currentTip.title}</Text>
+          <Text style={styles.tipBody}>{currentTip.body}</Text>
+
+          <TouchableOpacity
+            style={styles.tipAiRow}
+            onPress={() => navigation.navigate('Chat', { fromLink: true })}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.tipAiText}>💬 Ask Bisco AI about this</Text>
+            <Text style={styles.tipAiChevron}>›</Text>
+          </TouchableOpacity>
         </View>
-      ) : null}
 
-      <NearbyVetsSection
-        dog={activeDog}
-        onOpenVetFinder={() => navigation.navigate('More', { openVetFinder: true })}
+        <TabTour
+          tab="home"
+          enabled={dogs.length > 0}
+          steps={[
+            { targetRef: petStripRef, position: 'bottom', title: t('tour.home.s1Title'), body: t('tour.home.s1Body') },
+            ...(streak > 0
+              ? [{ targetRef: streakRef, position: 'bottom' as const, title: t('tour.home.s2Title'), body: t('tour.home.s2Body') }]
+              : []),
+          ]}
+        />
+      </ScrollView>
+
+      {/* Vet Appointment Schedule & Edit Modal */}
+      <VetAppointmentModal
+        visible={showVetModal}
+        appointment={editingAppointment}
+        dogs={dogs}
+        selectedDogId={selectedDogId}
+        onClose={() => {
+          setShowVetModal(false);
+          setEditingAppointment(null);
+        }}
+        onSave={async (data) => {
+          if (editingAppointment) {
+            await editAppointment({ ...editingAppointment, ...data });
+          } else {
+            await addAppointment(data);
+          }
+        }}
+        onDelete={async (id) => {
+          await removeAppointment(id);
+        }}
       />
-
-      <TouchableOpacity style={styles.aiBar} onPress={() => navigation.navigate('Chat', { fromLink: true })}>
-        <Text style={styles.aiIcon}>💬</Text>
-        <Text style={styles.aiText} numberOfLines={1}>{t('home.askNutrition', { name: activeDogName })}</Text>
-        <Text style={styles.chevron}>›</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.sectionTitle}>{t('home.communityTip')}</Text>
-      <View style={styles.tipCard}>
-        <Text style={styles.tipTitle}>{t('home.tipTitle')}</Text>
-        <Text style={styles.tipBody}>
-          {t('home.tipBody')}
-        </Text>
-        <View style={styles.blueChip}>
-          <Text style={styles.blueChipText}>{t('home.communitySoon')}</Text>
-        </View>
-      </View>
-
-      <TabTour
-        tab="home"
-        enabled={dogs.length > 0}
-        steps={[
-          { targetRef: petStripRef, position: 'bottom', title: t('tour.home.s1Title'), body: t('tour.home.s1Body') },
-          // Only included once the streak pill actually renders (streak > 0) — otherwise
-          // there's nothing for this step to point at, and a brand-new user never has a
-          // streak yet, so the counter shouldn't claim a 2nd step that will just be
-          // silently skipped.
-          ...(streak > 0
-            ? [{ targetRef: streakRef, position: 'bottom' as const, title: t('tour.home.s2Title'), body: t('tour.home.s2Body') }]
-            : []),
-        ]}
-      />
-    </ScrollView>
+    </>
   );
 }
 
@@ -176,34 +253,34 @@ function makeStyles(theme: ThemeTokens) {
       backgroundColor: theme.background,
     },
     content: {
-      padding: 20,
-      paddingTop: 60,
+      padding: 16,
+      paddingTop: 56,
       paddingBottom: 32,
     },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 22,
+      marginBottom: 20,
     },
     greetingLabel: {
-      fontSize: 14,
+      fontSize: 13,
       color: theme.textMuted,
     },
     greetingName: {
-      fontSize: 24,
+      fontSize: 22,
       fontWeight: '600',
       color: theme.textDark,
     },
     avatar: {
-      width: 46,
-      height: 46,
-      borderRadius: 23,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
     },
     avatarPlaceholder: {
-      width: 46,
-      height: 46,
-      borderRadius: 23,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       backgroundColor: theme.moodSelBg,
       borderWidth: 1.5,
       borderColor: theme.border,
@@ -214,7 +291,7 @@ function makeStyles(theme: ThemeTokens) {
       fontSize: 20,
     },
     strip: {
-      marginBottom: 20,
+      marginBottom: 16,
     },
     emptyPetCard: {
       backgroundColor: theme.surface,
@@ -226,7 +303,7 @@ function makeStyles(theme: ThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
-      marginBottom: 20,
+      marginBottom: 18,
     },
     emptyPetIcon: {
       fontSize: 24,
@@ -249,11 +326,11 @@ function makeStyles(theme: ThemeTokens) {
       borderWidth: 0.5,
       borderColor: theme.streakBorder,
       borderRadius: 14,
-      padding: 14,
+      padding: 12,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
-      marginBottom: 24,
+      marginBottom: 16,
     },
     streakEmoji: {
       fontSize: 20,
@@ -262,46 +339,38 @@ function makeStyles(theme: ThemeTokens) {
       flex: 1,
     },
     streakTitle: {
-      fontSize: 16,
-      fontWeight: '500',
+      fontSize: 15,
+      fontWeight: '600',
       color: theme.pendingAmberText,
     },
     streakSubtitle: {
-      fontSize: 13,
+      fontSize: 12,
       color: theme.pendingAmberText,
     },
     weekChip: {
       backgroundColor: theme.surface,
       borderRadius: 20,
       paddingHorizontal: 10,
-      paddingVertical: 4,
+      paddingVertical: 3,
     },
     weekChipText: {
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: '600',
       color: theme.pendingAmberText,
-    },
-    sectionTitle: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: theme.textMuted,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-      marginBottom: 8,
     },
     aiBar: {
       backgroundColor: theme.surface,
       borderRadius: theme.radiiCard,
       borderWidth: 0.5,
       borderColor: theme.border,
-      padding: 16,
+      padding: 14,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
-      marginBottom: 24,
+      marginBottom: 18,
     },
     aiIcon: {
-      fontSize: 20,
+      fontSize: 18,
     },
     aiText: {
       flex: 1,
@@ -309,7 +378,7 @@ function makeStyles(theme: ThemeTokens) {
       color: theme.textMuted,
     },
     chevron: {
-      fontSize: 20,
+      fontSize: 18,
       color: theme.textMuted,
     },
     tipCard: {
@@ -317,42 +386,62 @@ function makeStyles(theme: ThemeTokens) {
       borderRadius: theme.radiiCard,
       borderWidth: 0.5,
       borderColor: theme.border,
-      padding: 16,
+      padding: 15,
+      marginBottom: 18,
+    },
+    tipHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    tipBadge: {
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 12,
+      paddingHorizontal: 9,
+      paddingVertical: 3,
+    },
+    tipBadgeText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.primaryDark,
+    },
+    nextTipBtn: {
+      paddingHorizontal: 4,
+    },
+    nextTipText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.primary,
     },
     tipTitle: {
       fontSize: 15,
-      fontWeight: '500',
+      fontWeight: '600',
       color: theme.textDark,
-      marginBottom: 6,
+      marginBottom: 5,
     },
     tipBody: {
       fontSize: 13,
       color: theme.textMuted,
-      lineHeight: 19,
-      marginBottom: 8,
+      lineHeight: 18,
+      marginBottom: 10,
     },
-    grayChip: {
-      backgroundColor: theme.notStartedBg,
-      borderRadius: 20,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
+    tipAiRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingTop: 8,
+      borderTopWidth: 0.5,
+      borderTopColor: theme.divider,
     },
-    grayChipText: {
+    tipAiText: {
       fontSize: 12,
-      fontWeight: '500',
-      color: theme.notStartedText,
+      fontWeight: '600',
+      color: theme.primary,
     },
-    blueChip: {
-      backgroundColor: theme.communityBlueBg,
-      borderRadius: 20,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      alignSelf: 'flex-start',
-    },
-    blueChipText: {
-      fontSize: 12,
-      fontWeight: '500',
-      color: theme.communityBlueText,
+    tipAiChevron: {
+      fontSize: 14,
+      color: theme.primary,
     },
   });
 }

@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Image, ScrollView, Alert, BackHandler, Linking, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+  ScrollView,
+  Alert,
+  BackHandler,
+  Switch,
+  StyleSheet,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { supabase } from '../lib/supabase';
@@ -26,14 +37,55 @@ import TabTour from '../components/TabTour';
 import { resetAllTours } from '../lib/hooks/useTourState';
 import { cancelAllLocalNotifications } from '../lib/notifications';
 
+const ROADMAP_VOTES_KEY = '@pawcare_roadmap_votes';
+
 type Props = BottomTabScreenProps<RootTabParamList, 'More'> & {
   dogs: ReturnType<typeof useDogs>['dogs'];
   profile: ReturnType<typeof useProfile>['profile'];
   notificationsState?: ReturnType<typeof useNotifications>;
 };
 
+type WishlistItem = {
+  id: string;
+  icon: string;
+  title: string;
+  subtitle: string;
+  baseVotes: number;
+};
+
+const WISHLIST_ITEMS: WishlistItem[] = [
+  {
+    id: 'food_scanner',
+    icon: '🔍',
+    title: 'Smart Barcode & Food Scanner',
+    subtitle: 'Scan ingredient labels to detect allergens, low-grade fillers & safety ratings',
+    baseVotes: 142,
+  },
+  {
+    id: 'community_qa',
+    icon: '👥',
+    title: 'Pet Parent Community Q&A',
+    subtitle: 'Connect with verified owners of the same breed and local playdate groups',
+    baseVotes: 98,
+  },
+  {
+    id: 'prescription_tracker',
+    icon: '💊',
+    title: 'Medication Refill Tracker',
+    subtitle: 'Auto-countdown doses and alert you before prescription refills run out',
+    baseVotes: 87,
+  },
+  {
+    id: 'telehealth_chat',
+    icon: '🩺',
+    title: 'Vet Telehealth Quick-Chat',
+    subtitle: '24/7 triage guidance with certified veterinary technicians',
+    baseVotes: 165,
+  },
+];
+
 export default function MoreScreen({ route, navigation, dogs, profile, notificationsState: passedNotifications }: Props) {
-  const { theme } = useTheme();
+  const { theme, isDarkMode, toggleDarkMode } = useTheme();
   const { t, lang, setLang } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { upcoming, overdue } = useAllVaccines();
@@ -48,8 +100,34 @@ export default function MoreScreen({ route, navigation, dogs, profile, notificat
   const [showChangeEmail, setShowChangeEmail] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const [legalDoc, setLegalDoc] = useState<'terms' | 'privacy' | null>(null);
+  const [userVotes, setUserVotes] = useState<Record<string, boolean>>({});
+
   const upcomingRef = useRef<View>(null);
-  const comingSoonRef = useRef<View>(null);
+  const roadmapRef = useRef<View>(null);
+
+  useEffect(() => {
+    AsyncStorage.getItem(ROADMAP_VOTES_KEY)
+      .then((raw) => {
+        if (raw) setUserVotes(JSON.parse(raw));
+      })
+      .catch(() => {});
+  }, []);
+
+  const toggleVote = async (id: string) => {
+    const nextState = { ...userVotes, [id]: !userVotes[id] };
+    setUserVotes(nextState);
+    try {
+      await AsyncStorage.setItem(ROADMAP_VOTES_KEY, JSON.stringify(nextState));
+      if (nextState[id]) {
+        Alert.alert(
+          'Vote Recorded! 🎉',
+          'Thank you for helping shape PawCare! We prioritize upcoming features based on your votes.'
+        );
+      }
+    } catch {
+      // ignore persistence error
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -261,29 +339,62 @@ export default function MoreScreen({ route, navigation, dogs, profile, notificat
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.sectionTitle}>{t('more.comingSoonSection')}</Text>
-      <View ref={comingSoonRef} collapsable={false} style={styles.card}>
-        <View style={[styles.row, styles.rowDisabled]}>
-          <View style={styles.iconBox}><Text style={styles.iconText}>🛡️</Text></View>
-          <View style={styles.rowInfo}>
-            <Text style={styles.rowTitle}>{t('more.allergyScanner')}</Text>
-            <Text style={styles.rowSubtitle}>{t('more.allergyScannerSubtitle')}</Text>
-          </View>
-          <View style={styles.grayChip}><Text style={styles.grayChipText}>{t('more.soon')}</Text></View>
-        </View>
-        <View style={styles.divider} />
-        <View style={[styles.row, styles.rowDisabled]}>
-          <View style={styles.iconBox}><Text style={styles.iconText}>👥</Text></View>
-          <View style={styles.rowInfo}>
-            <Text style={styles.rowTitle}>{t('more.community')}</Text>
-            <Text style={styles.rowSubtitle}>{t('more.communitySubtitle')}</Text>
-          </View>
-          <View style={styles.grayChip}><Text style={styles.grayChipText}>{t('more.soon')}</Text></View>
-        </View>
+      {/* Feature Wishlist & Roadmap Section (Eliminates dead 'Coming Soon' gray block) */}
+      <Text style={styles.sectionTitle}>PawCare Roadmap & Wishlist</Text>
+      <View ref={roadmapRef} collapsable={false} style={styles.card}>
+        <Text style={styles.wishlistHeaderSubtitle}>
+          Vote for upcoming capabilities you want our team to build next:
+        </Text>
+        {WISHLIST_ITEMS.map((item, idx) => {
+          const hasVoted = !!userVotes[item.id];
+          const voteCount = item.baseVotes + (hasVoted ? 1 : 0);
+          return (
+            <View key={item.id}>
+              <View style={styles.wishlistRow}>
+                <View style={styles.iconBox}><Text style={styles.iconText}>{item.icon}</Text></View>
+                <View style={styles.rowInfo}>
+                  <Text style={styles.rowTitle}>{item.title}</Text>
+                  <Text style={styles.rowSubtitle}>{item.subtitle}</Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.voteButton, hasVoted && styles.voteButtonActive]}
+                  onPress={() => toggleVote(item.id)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.voteButtonText, hasVoted && styles.voteButtonTextActive]}>
+                    {hasVoted ? `✓ ${voteCount}` : `👍 ${voteCount}`}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              {idx < WISHLIST_ITEMS.length - 1 ? <View style={styles.divider} /> : null}
+            </View>
+          );
+        })}
       </View>
 
       <Text style={styles.sectionTitle}>{t('settings.title')}</Text>
       <View style={styles.card}>
+        {/* Dark Theme Toggle */}
+        <View style={styles.row}>
+          <View style={styles.iconBox}>
+            <Text style={styles.iconText}>{isDarkMode ? '🌙' : '☀️'}</Text>
+          </View>
+          <View style={styles.rowInfo}>
+            <Text style={styles.rowTitle}>Dark Mode</Text>
+            <Text style={styles.rowSubtitle}>
+              {isDarkMode ? 'Warm charcoal & midnight' : 'Warm oat linen & terracotta'}
+            </Text>
+          </View>
+          <Switch
+            value={isDarkMode}
+            onValueChange={toggleDarkMode}
+            trackColor={{ false: theme.border, true: theme.primary }}
+            thumbColor="#FFFFFF"
+          />
+        </View>
+
+        <View style={styles.divider} />
+
         <TouchableOpacity style={styles.row} onPress={() => setShowNotifications(true)}>
           <View style={styles.iconBox}><Text style={styles.iconText}>🔔</Text></View>
           <View style={styles.rowInfo}>
@@ -385,7 +496,7 @@ export default function MoreScreen({ route, navigation, dogs, profile, notificat
         enabled
         steps={[
           { targetRef: upcomingRef, position: 'bottom', title: t('tour.more.s1Title'), body: t('tour.more.s1Body') },
-          { targetRef: comingSoonRef, position: 'top', title: t('tour.more.s2Title'), body: t('tour.more.s2Body') },
+          { targetRef: roadmapRef, position: 'top', title: 'Feature Wishlist', body: 'Vote on features you want us to add to PawCare next!' },
         ]}
       />
     </ScrollView>
@@ -401,6 +512,7 @@ function makeStyles(theme: ThemeTokens) {
     content: {
       padding: 16,
       paddingTop: 56,
+      paddingBottom: 32,
     },
     backRow: {
       padding: 16,
@@ -426,8 +538,8 @@ function makeStyles(theme: ThemeTokens) {
       color: 'white',
     },
     title: {
-      fontSize: 18,
-      fontWeight: '500',
+      fontSize: 22,
+      fontWeight: '600',
       color: theme.textDark,
       marginBottom: 16,
     },
@@ -445,14 +557,14 @@ function makeStyles(theme: ThemeTokens) {
       gap: 14,
     },
     avatar: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
+      width: 52,
+      height: 52,
+      borderRadius: 26,
     },
     avatarPlaceholder: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
+      width: 52,
+      height: 52,
+      borderRadius: 26,
       backgroundColor: theme.moodSelBg,
       borderWidth: 1.5,
       borderColor: theme.border,
@@ -460,7 +572,7 @@ function makeStyles(theme: ThemeTokens) {
       justifyContent: 'center',
     },
     avatarEmoji: {
-      fontSize: 26,
+      fontSize: 24,
     },
     profileName: {
       fontSize: 16,
@@ -473,18 +585,18 @@ function makeStyles(theme: ThemeTokens) {
       marginTop: 2,
     },
     sectionTitle: {
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: '600',
       color: theme.textMuted,
       letterSpacing: 0.5,
       textTransform: 'uppercase',
       paddingHorizontal: 2,
       paddingBottom: 6,
-      paddingTop: 8,
+      paddingTop: 10,
     },
     card: {
       backgroundColor: theme.surface,
-      borderRadius: 14,
+      borderRadius: theme.radiiCard,
       borderWidth: 0.5,
       borderColor: theme.border,
       padding: 14,
@@ -500,14 +612,46 @@ function makeStyles(theme: ThemeTokens) {
       gap: 12,
       paddingVertical: 10,
     },
-    rowDisabled: {
-      opacity: 0.55,
+    wishlistHeaderSubtitle: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginBottom: 10,
+      lineHeight: 16,
+    },
+    wishlistRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 8,
+    },
+    voteButton: {
+      backgroundColor: theme.surfaceAlt,
+      borderWidth: 0.5,
+      borderColor: theme.border,
+      borderRadius: 16,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      minWidth: 54,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    voteButtonActive: {
+      backgroundColor: theme.primaryLight,
+      borderColor: theme.primary,
+    },
+    voteButtonText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    voteButtonTextActive: {
+      color: theme.primary,
     },
     iconBox: {
       width: 40,
       height: 40,
       borderRadius: 11,
-      backgroundColor: theme.divider,
+      backgroundColor: theme.surfaceAlt,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -526,6 +670,7 @@ function makeStyles(theme: ThemeTokens) {
     rowSubtitle: {
       fontSize: 12,
       color: theme.textMuted,
+      marginTop: 1,
     },
     signOutTitle: {
       fontSize: 14,
@@ -536,17 +681,6 @@ function makeStyles(theme: ThemeTokens) {
       fontSize: 14,
       fontWeight: '500',
       color: theme.allergenText,
-    },
-    grayChip: {
-      backgroundColor: theme.notStartedBg,
-      borderRadius: 20,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-    },
-    grayChipText: {
-      fontSize: 12,
-      fontWeight: '500',
-      color: theme.notStartedText,
     },
     chevron: {
       fontSize: 16,

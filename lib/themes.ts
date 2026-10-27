@@ -6,8 +6,7 @@
 //  - "brand" tokens (background/surface/primary/etc.) vary per palette below.
 //  - "semantic" tokens (allergenBg, communityBlueBg, symptomBothBg, pendingAmberBg,
 //    notStartedBg, and their *Text pairs) plus `radiiCard` signal MEANING (warning/info/
-//    pending/etc.), not brand identity, so they're identical across all 8 palettes —
-//    carried over verbatim from the old lib/theme.ts, which this file fully replaces.
+//    pending/etc.), not brand identity, carried over verbatim from the old lib/theme.ts.
 
 export type ThemeFamily =
   | 'sage_clay'
@@ -39,10 +38,10 @@ export type ThemeTokens = {
   alertBorder: string; // vet alert state border
   moodSelBg: string; // selected mood bg
   moodSelBorder: string; // selected mood border
-  done: string; // completed state (= primary)
+  done: string; // completed state (= meadow sage or primary)
   pending: string; // partial state (= primaryMid)
 
-  // semantic tokens — same value in every palette (carried over from lib/theme.ts)
+  // semantic tokens — same meaning across palettes
   allergenBg: string;
   allergenText: string;
   communityBlueBg: string;
@@ -54,14 +53,13 @@ export type ThemeTokens = {
   notStartedBg: string;
   notStartedText: string;
 
-  // fixed heat-cycle phase colors — same value in every palette (not brand colors)
+  // fixed heat-cycle phase colors
   phaseProestrus: string;
   phaseEstrus: string;
   phaseDiestrus: string;
   phaseAnestrus: string;
 
-  // fixed notification-type colors (NotificationCard's left border + icon bg) — same
-  // value in every palette, per notification `type`, not brand identity
+  // fixed notification-type colors
   notifHealthBorder: string;
   notifHealthBg: string;
   notifStreakBorder: string;
@@ -75,7 +73,7 @@ export type ThemeTokens = {
   notifInfoBorder: string;
   notifInfoBg: string;
 
-  // structural constant — same in every palette
+  // structural constant
   radiiCard: number;
 };
 
@@ -135,38 +133,68 @@ const SEMANTIC: Pick<
   notifHydrationBg: '#E0EEFF',
   notifInfoBorder: '#DDD5C8',
   notifInfoBg: '#F0EAE0',
-  radiiCard: 14,
+  radiiCard: 16,
+};
+
+const SEMANTIC_DARK: typeof SEMANTIC = {
+  allergenBg: '#361F20',
+  allergenText: '#F87171',
+  communityBlueBg: '#1B2A38',
+  communityBlueText: '#60A5FA',
+  symptomBothBg: '#2D1F38',
+  symptomBothText: '#C084FC',
+  pendingAmberBg: '#362B1A',
+  pendingAmberText: '#FBBF24',
+  notStartedBg: '#242B22',
+  notStartedText: '#86EFAC',
+  phaseProestrus: '#E8B870',
+  phaseEstrus: '#E07088',
+  phaseDiestrus: '#B8A8C8',
+  phaseAnestrus: '#787888',
+  notifHealthBorder: '#E07088',
+  notifHealthBg: '#361F26',
+  notifStreakBorder: '#FBBF24',
+  notifStreakBg: '#362B1A',
+  notifCycleBorder: '#E07088',
+  notifCycleBg: '#342028',
+  notifVaccineBorder: '#5B936D',
+  notifVaccineBg: '#1E2B22',
+  notifHydrationBorder: '#60A5FA',
+  notifHydrationBg: '#1A2838',
+  notifInfoBorder: '#443C34',
+  notifInfoBg: '#28231E',
+  radiiCard: 16,
 };
 
 export const THEMES: Record<ThemeFamily, ThemeTokens> = {
-  // calm · natural · grounded
+  // Warm Pet Journal: warm oat linen, honey terracotta, meadow sage
   sage_clay: {
-    background: '#FAF6EF',
+    background: '#FAF7F2',
     surface: '#FFFFFF',
-    surfaceAlt: '#F0EAE0',
-    border: '#DDD5C8',
-    divider: '#F0EAE0',
-    primary: '#8FA080',
-    primaryLight: '#DFF0D8',
-    primaryMid: '#C97F5C',
-    primaryDark: '#4F5D45',
-    textDark: '#2A2018',
-    textMuted: '#8A8070',
+    surfaceAlt: '#F4EDE4',
+    border: '#EFE9DF',
+    divider: '#EFE9DF',
+    primary: '#D96B47',
+    primaryLight: '#FDF1EB',
+    primaryMid: '#E88C68',
+    primaryDark: '#9E4426',
+    textDark: '#221C16',
+    textMuted: '#73685E',
     chipText: '#5A5048',
-    streakBg: '#F5EFE5',
-    streakBorder: '#DDD5C8',
+    streakBg: '#FDF6EE',
+    streakBorder: '#EFE9DF',
     alertBg: '#FDF0E8',
     alertBorder: '#E0C0A0',
-    moodSelBg: '#DFF0D8',
-    moodSelBorder: '#8FA080',
-    done: '#8FA080',
-    pending: '#C97F5C',
+    moodSelBg: '#FDF1EB',
+    moodSelBorder: '#D96B47',
+    done: '#4A7C59',
+    pending: '#D96B47',
     ...SEMANTIC,
   },
 
   // golden retriever · apricot · labrador
   warm_honey: {
-    background: '#FBF6EE',
+    background: '#FAF6EE',
     surface: '#FFFFFF',
     surfaceAlt: '#F5EAD8',
     border: '#E8D8B8',
@@ -184,7 +212,7 @@ export const THEMES: Record<ThemeFamily, ThemeTokens> = {
     alertBorder: '#E8C888',
     moodSelBg: '#FAE8C0',
     moodSelBorder: '#D4922A',
-    done: '#D4922A',
+    done: '#4A7C59',
     pending: '#E8B870',
     ...SEMANTIC,
   },
@@ -209,7 +237,7 @@ export const THEMES: Record<ThemeFamily, ThemeTokens> = {
     alertBorder: '#D0B8C8',
     moodSelBg: '#D8E0EA',
     moodSelBorder: '#6A7A8A',
-    done: '#6A7A8A',
+    done: '#4A7C59',
     pending: '#9AAABB',
     ...SEMANTIC,
   },
@@ -234,7 +262,7 @@ export const THEMES: Record<ThemeFamily, ThemeTokens> = {
     alertBorder: '#E0C0A0',
     moodSelBg: '#F0D8C8',
     moodSelBorder: '#8A5A3A',
-    done: '#8A5A3A',
+    done: '#4A7C59',
     pending: '#C09070',
     ...SEMANTIC,
   },
@@ -259,7 +287,7 @@ export const THEMES: Record<ThemeFamily, ThemeTokens> = {
     alertBorder: '#E0C8A8',
     moodSelBg: '#EDE8DF',
     moodSelBorder: '#B09878',
-    done: '#B09878',
+    done: '#4A7C59',
     pending: '#C8B898',
     ...SEMANTIC,
   },
@@ -284,7 +312,7 @@ export const THEMES: Record<ThemeFamily, ThemeTokens> = {
     alertBorder: '#C8B8E0',
     moodSelBg: '#D8D8F0',
     moodSelBorder: '#4A4A6A',
-    done: '#4A4A6A',
+    done: '#4A7C59',
     pending: '#8080A8',
     ...SEMANTIC,
   },
@@ -309,7 +337,7 @@ export const THEMES: Record<ThemeFamily, ThemeTokens> = {
     alertBorder: '#D8B8D8',
     moodSelBg: '#EDE4F0',
     moodSelBorder: '#A597B5',
-    done: '#A597B5',
+    done: '#4A7C59',
     pending: '#E0A458',
     ...SEMANTIC,
   },
@@ -334,15 +362,208 @@ export const THEMES: Record<ThemeFamily, ThemeTokens> = {
     alertBorder: '#E0C8A0',
     moodSelBg: '#D8E8E4',
     moodSelBorder: '#4C7A73',
-    done: '#4C7A73',
+    done: '#4A7C59',
     pending: '#E8C9A0',
     ...SEMANTIC,
   },
 };
 
-// Display metadata for the theme picker (screens/PetFormScreen.tsx). Descriptions are the
-// same taglines used as the comments above each THEMES entry, promoted to real values so
-// the picker UI can show them without duplicating the copy.
+// High-quality dark companion palettes: warm charcoal (#181614), dark surfaces (#24201D),
+// warm terracotta accents (#D96B47) and high-readability text (#F5F2EB).
+export const DARK_THEMES: Record<ThemeFamily, ThemeTokens> = {
+  sage_clay: {
+    background: '#181614',
+    surface: '#24201D',
+    surfaceAlt: '#2D2824',
+    border: '#38322B',
+    divider: '#2E2822',
+    primary: '#D96B47',
+    primaryLight: '#3A271E',
+    primaryMid: '#C46746',
+    primaryDark: '#FF9E7D',
+    textDark: '#F5F2EB',
+    textMuted: '#A89F91',
+    chipText: '#D6CEC5',
+    streakBg: '#2D231B',
+    streakBorder: '#4A3B2C',
+    alertBg: '#36211C',
+    alertBorder: '#55332A',
+    moodSelBg: '#382921',
+    moodSelBorder: '#D96B47',
+    done: '#5B936D',
+    pending: '#D9822B',
+    ...SEMANTIC_DARK,
+  },
+
+  warm_honey: {
+    background: '#181614',
+    surface: '#24201D',
+    surfaceAlt: '#2D2824',
+    border: '#38322B',
+    divider: '#2E2822',
+    primary: '#E5A030',
+    primaryLight: '#3A2F1B',
+    primaryMid: '#C48322',
+    primaryDark: '#FFD382',
+    textDark: '#F5F2EB',
+    textMuted: '#A89F91',
+    chipText: '#D6CEC5',
+    streakBg: '#2E2619',
+    streakBorder: '#4E3E22',
+    alertBg: '#362719',
+    alertBorder: '#573D21',
+    moodSelBg: '#382E1E',
+    moodSelBorder: '#E5A030',
+    done: '#5B936D',
+    pending: '#E5A030',
+    ...SEMANTIC_DARK,
+  },
+
+  cool_ash: {
+    background: '#16181B',
+    surface: '#202328',
+    surfaceAlt: '#282B32',
+    border: '#323740',
+    divider: '#272B33',
+    primary: '#8597A8',
+    primaryLight: '#262F38',
+    primaryMid: '#6B7E90',
+    primaryDark: '#B8C8D8',
+    textDark: '#F2F4F7',
+    textMuted: '#9AA4B2',
+    chipText: '#CCD4DE',
+    streakBg: '#222830',
+    streakBorder: '#384250',
+    alertBg: '#322228',
+    alertBorder: '#50343E',
+    moodSelBg: '#27303A',
+    moodSelBorder: '#8597A8',
+    done: '#5B936D',
+    pending: '#8597A8',
+    ...SEMANTIC_DARK,
+  },
+
+  deep_cocoa: {
+    background: '#181513',
+    surface: '#241F1C',
+    surfaceAlt: '#2E2723',
+    border: '#3B322C',
+    divider: '#2F2620',
+    primary: '#B07550',
+    primaryLight: '#38261C',
+    primaryMid: '#945E3D',
+    primaryDark: '#DE9F75',
+    textDark: '#F5F2EB',
+    textMuted: '#A89F91',
+    chipText: '#D6CEC5',
+    streakBg: '#2C221B',
+    streakBorder: '#483528',
+    alertBg: '#36211C',
+    alertBorder: '#55332A',
+    moodSelBg: '#36261E',
+    moodSelBorder: '#B07550',
+    done: '#5B936D',
+    pending: '#B07550',
+    ...SEMANTIC_DARK,
+  },
+
+  cream_chalk: {
+    background: '#181716',
+    surface: '#242220',
+    surfaceAlt: '#2E2B28',
+    border: '#3A3733',
+    divider: '#2E2C28',
+    primary: '#C4AF92',
+    primaryLight: '#38332B',
+    primaryMid: '#A89478',
+    primaryDark: '#E4D3BC',
+    textDark: '#F7F5F0',
+    textMuted: '#A6A095',
+    chipText: '#D8D3C8',
+    streakBg: '#2C2822',
+    streakBorder: '#464035',
+    alertBg: '#362820',
+    alertBorder: '#543D30',
+    moodSelBg: '#353028',
+    moodSelBorder: '#C4AF92',
+    done: '#5B936D',
+    pending: '#C4AF92',
+    ...SEMANTIC_DARK,
+  },
+
+  midnight: {
+    background: '#13131A',
+    surface: '#1E1E2A',
+    surfaceAlt: '#272738',
+    border: '#32324A',
+    divider: '#262638',
+    primary: '#7E7EB8',
+    primaryLight: '#26263D',
+    primaryMid: '#636398',
+    primaryDark: '#B2B2EC',
+    textDark: '#F2F2FC',
+    textMuted: '#9B9BC2',
+    chipText: '#D0D0EB',
+    streakBg: '#222238',
+    streakBorder: '#383858',
+    alertBg: '#322030',
+    alertBorder: '#502E4C',
+    moodSelBg: '#272740',
+    moodSelBorder: '#7E7EB8',
+    done: '#5B936D',
+    pending: '#7E7EB8',
+    ...SEMANTIC_DARK,
+  },
+
+  dusty_bloom: {
+    background: '#18151A',
+    surface: '#241E28',
+    surfaceAlt: '#2E2634',
+    border: '#3C3044',
+    divider: '#2E2434',
+    primary: '#BAABC9',
+    primaryLight: '#34293D',
+    primaryMid: '#9E8EA8',
+    primaryDark: '#E0D2EC',
+    textDark: '#F6F2F8',
+    textMuted: '#A99DB3',
+    chipText: '#D7CEE0',
+    streakBg: '#2B2032',
+    streakBorder: '#463252',
+    alertBg: '#361F2E',
+    alertBorder: '#552E46',
+    moodSelBg: '#32253B',
+    moodSelBorder: '#BAABC9',
+    done: '#5B936D',
+    pending: '#BAABC9',
+    ...SEMANTIC_DARK,
+  },
+
+  quiet_tide: {
+    background: '#131817',
+    surface: '#1D2523',
+    surfaceAlt: '#252F2D',
+    border: '#2F3C3A',
+    divider: '#242F2D',
+    primary: '#679B92',
+    primaryLight: '#213330',
+    primaryMid: '#52827A',
+    primaryDark: '#9BC7BF',
+    textDark: '#EFF6F4',
+    textMuted: '#93A7A3',
+    chipText: '#C8DBD7',
+    streakBg: '#1F2B28',
+    streakBorder: '#314440',
+    alertBg: '#34221D',
+    alertBorder: '#52342A',
+    moodSelBg: '#223431',
+    moodSelBorder: '#679B92',
+    done: '#5B936D',
+    pending: '#679B92',
+    ...SEMANTIC_DARK,
+  },
+};
+
 export const THEME_LABELS: Record<ThemeFamily, string> = {
   sage_clay: 'Sage & Clay',
   warm_honey: 'Warm Honey',
@@ -355,7 +576,7 @@ export const THEME_LABELS: Record<ThemeFamily, string> = {
 };
 
 export const THEME_DESCRIPTIONS: Record<ThemeFamily, string> = {
-  sage_clay: 'calm · natural · grounded',
+  sage_clay: 'warm oat · honey terracotta · meadow sage',
   warm_honey: 'golden retriever · apricot · labrador',
   cool_ash: 'grey · silver · Weimaraner',
   deep_cocoa: 'brown · chocolate · dark warm coats',

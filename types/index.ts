@@ -219,3 +219,5 @@ export type AppNotification = {
   action_payload: Record<string, string> | null;
   created_at: string;
 };
+export type { VetAppointment } from '../lib/vetAppointments';
+
