@@ -48,7 +48,7 @@ CRITICAL MEDICAL & SAFETY RULES:
 Respond in plain text only — no markdown (no asterisks, no headers, no numbered/bulleted lists). Write short plain sentences or paragraphs instead, since the chat UI displays raw text.`;
 
 export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigation, route }: Props) {
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
   const { t, lang } = useT();
   const {
     canSendChatMessage,
@@ -58,7 +58,7 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
     maxFreeDailyChats,
     openPaywall,
   } = useSubscription();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
   const activeDog = dogs.find(d => d.id === selectedDogId) ?? dogs[0] ?? null;
 
   const buildGreeting = (dogName: string): ChatTurn => ({
@@ -251,7 +251,7 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
   return swipeEnabled ? <SwipeBackWrapper onBack={onSwipeBack}>{content}</SwipeBackWrapper> : content;
 }
 
-function makeStyles(theme: ThemeTokens) {
+function makeStyles(theme: ThemeTokens, isDarkMode = false) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -270,9 +270,9 @@ function makeStyles(theme: ThemeTokens) {
       textAlign: 'center',
     },
     disclaimerBar: {
-      backgroundColor: theme.alertBg,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.alertBorder,
+      backgroundColor: isDarkMode ? '#251D18' : '#FFF9F2',
+      borderBottomWidth: 1.5,
+      borderBottomColor: isDarkMode ? '#3D2F24' : '#F6E6D4',
       paddingVertical: 10,
       paddingHorizontal: 16,
       flexDirection: 'row',
@@ -280,49 +280,67 @@ function makeStyles(theme: ThemeTokens) {
       gap: 10,
     },
     disclaimerIcon: {
-      fontSize: 16,
+      fontSize: 18,
     },
     disclaimerText: {
       flex: 1,
       fontSize: 12,
       lineHeight: 16,
       color: theme.textDark,
-      fontWeight: '500',
+      fontWeight: '600',
     },
     messages: {
       flex: 1,
     },
     messagesContent: {
       padding: 16,
-      gap: 10,
+      gap: 12,
     },
     bubble: {
-      maxWidth: '80%',
-      borderRadius: theme.radiiCard,
-      paddingVertical: 10,
-      paddingHorizontal: 14,
+      maxWidth: '82%',
+      paddingVertical: 12,
+      paddingHorizontal: 16,
     },
     bubbleUser: {
       alignSelf: 'flex-end',
       backgroundColor: theme.primary,
+      borderRadius: 20,
+      borderBottomRightRadius: 4,
+      shadowColor: theme.primary,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 2,
     },
     bubbleModel: {
       alignSelf: 'flex-start',
-      backgroundColor: theme.surfaceAlt,
+      backgroundColor: theme.surface,
+      borderRadius: 20,
+      borderBottomLeftRadius: 4,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: isDarkMode ? 0.2 : 0.04,
+      shadowRadius: 4,
+      elevation: 1,
     },
     bubbleTextUser: {
       color: '#FFFFFF',
       fontSize: 15,
+      lineHeight: 21,
+      fontWeight: '500',
     },
     bubbleTextModel: {
       color: theme.textDark,
       fontSize: 15,
+      lineHeight: 21,
     },
     composerRow: {
       flexDirection: 'row',
       alignItems: 'flex-end',
       padding: 12,
-      gap: 8,
+      gap: 10,
       borderTopWidth: 1,
       borderTopColor: theme.border,
       backgroundColor: theme.surface,
@@ -332,7 +350,7 @@ function makeStyles(theme: ThemeTokens) {
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: 16,
-      paddingVertical: 8,
+      paddingVertical: 9,
       backgroundColor: theme.surfaceAlt,
       borderTopWidth: 1,
       borderTopColor: theme.border,
@@ -344,47 +362,55 @@ function makeStyles(theme: ThemeTokens) {
     },
     quotaUpgradeBtn: {
       fontSize: 12,
-      fontWeight: '700',
+      fontWeight: '800',
       color: theme.primary,
     },
     quotaRowPro: {
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 6,
+      paddingVertical: 7,
       backgroundColor: theme.surfaceAlt,
       borderTopWidth: 1,
       borderTopColor: theme.border,
     },
     quotaProText: {
       fontSize: 11,
-      fontWeight: '700',
+      fontWeight: '800',
       color: theme.done,
       letterSpacing: 0.3,
     },
     input: {
       flex: 1,
-      maxHeight: 100,
+      maxHeight: 110,
       backgroundColor: theme.surfaceAlt,
-      borderRadius: theme.radiiCard,
-      paddingHorizontal: 14,
+      borderRadius: 20,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      paddingHorizontal: 16,
       paddingVertical: 10,
       fontSize: 15,
       color: theme.textDark,
     },
     sendBtn: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       backgroundColor: theme.primary,
       alignItems: 'center',
       justifyContent: 'center',
+      shadowColor: theme.primary,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      elevation: 3,
     },
     sendBtnDisabled: {
-      opacity: 0.5,
+      opacity: 0.45,
     },
     sendBtnText: {
       color: '#FFFFFF',
-      fontSize: 16,
+      fontSize: 17,
+      fontWeight: '800',
     },
   });
 }

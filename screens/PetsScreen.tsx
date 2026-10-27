@@ -39,10 +39,10 @@ export default function PetsScreen({
   selectedDogId,
   selectDog,
 }: Props) {
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
   const { t } = useT();
   const { canAddDog, openPaywall } = useSubscription();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
   const [mode, setMode] = useState<'switch' | 'form'>('switch');
   const [editingDog, setEditingDog] = useState<Dog | null>(null);
   const switcherRef = useRef<View>(null);
@@ -148,7 +148,7 @@ export default function PetsScreen({
   );
 }
 
-function makeStyles(theme: ThemeTokens) {
+function makeStyles(theme: ThemeTokens, isDarkMode = false) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -156,54 +156,67 @@ function makeStyles(theme: ThemeTokens) {
     },
     switcherRow: {
       paddingTop: 56,
-      paddingBottom: 8,
+      paddingBottom: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.divider,
+      backgroundColor: theme.background,
     },
     switcherContent: {
       paddingHorizontal: 16,
-      gap: 6,
+      gap: 8,
+      alignItems: 'center',
     },
     pill: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 5,
-      paddingVertical: 7,
+      gap: 7,
+      height: 38,
       paddingHorizontal: 14,
-      borderRadius: 20,
+      borderRadius: 18,
     },
     pillActive: {
       backgroundColor: theme.primary,
+      shadowColor: theme.primary,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 3,
     },
     pillInactive: {
       backgroundColor: theme.surface,
-      borderWidth: 0.5,
+      borderWidth: 1.5,
       borderColor: theme.border,
     },
     pillPhoto: {
-      width: 16,
-      height: 16,
-      borderRadius: 8,
+      width: 22,
+      height: 22,
+      borderRadius: 11,
     },
     pillEmoji: {
-      fontSize: 13,
+      fontSize: 14,
     },
     pillText: {
       fontSize: 13,
-      fontWeight: '500',
-      maxWidth: 100,
+      fontWeight: '600',
+      maxWidth: 120,
     },
     pillTextActive: {
-      color: 'white',
+      color: '#FFFFFF',
+      fontWeight: '700',
     },
     pillTextInactive: {
       color: theme.textDark,
     },
     addPill: {
-      paddingHorizontal: 12,
+      paddingHorizontal: 14,
+      backgroundColor: isDarkMode ? '#281F1A' : '#FFF9EE',
+      borderWidth: 1.5,
+      borderColor: isDarkMode ? '#4D3627' : '#F6E5CC',
     },
     addPillText: {
       color: theme.primary,
-      fontSize: 14,
-      fontWeight: '700',
+      fontSize: 16,
+      fontWeight: '800',
     },
     loading: {
       marginTop: 40,

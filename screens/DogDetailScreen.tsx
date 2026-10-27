@@ -62,9 +62,9 @@ const MOOD_OPTIONS: { value: DogMood['mood']; emoji: string }[] = [
 ];
 
 export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tourRefs }: Props) {
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
   const { t } = useT();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
 
   const subtitleFor = (h: Habit, count: number, target: number, done: boolean): string => {
     if (h.habit_type === 'water') return t('dogDetail.mlProgress', { count, target });
@@ -434,43 +434,49 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
   return (
     <>
     <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.heroBand}>
-        {dog.photo_url ? (
-          <Image source={{ uri: dog.photo_url }} style={styles.photo} />
-        ) : (
-          <View style={styles.photoPlaceholder}>
-            <Text style={styles.emoji}>🐾</Text>
+      {/* 1. Unified Pet Health Passport Card */}
+      <View style={styles.passportCard}>
+        <View style={styles.passportHeader}>
+          {dog.photo_url ? (
+            <Image source={{ uri: dog.photo_url }} style={styles.photo} />
+          ) : (
+            <View style={styles.photoPlaceholder}>
+              <Text style={styles.emoji}>🐾</Text>
+            </View>
+          )}
+          <View style={styles.heroInfo}>
+            <View style={styles.heroTitleRow}>
+              <Text style={styles.name} numberOfLines={1}>{dog.name}</Text>
+              <View style={styles.stampBadge}>
+                <View style={styles.stampDot} />
+                <Text style={styles.stampText}>
+                  {mood?.mood === 'sick' ? 'Needs Care' : mood?.mood === 'off' ? 'A Bit Off' : 'Thriving'}
+                </Text>
+              </View>
+            </View>
+            {metaLine ? <Text style={styles.meta} numberOfLines={1}>{metaLine}</Text> : null}
           </View>
-        )}
-        <View style={styles.heroInfo}>
-          <Text style={styles.name} numberOfLines={1}>{dog.name}</Text>
-          {metaLine ? <Text style={styles.meta} numberOfLines={1}>{metaLine}</Text> : null}
         </View>
-        {streak > 0 ? (
-          <View style={styles.streakChip}>
-            <Text style={styles.streakChipText}>{t('dogDetail.streakDays', { count: streak })}</Text>
-          </View>
-        ) : null}
-      </View>
 
-      <View style={styles.statStrip}>
-        <View style={styles.statCell}>
-          <Text style={styles.statValue}>{dog.weight_kg != null ? `${dog.weight_kg}kg` : '—'}</Text>
-          <Text style={styles.statLabel}>{t('dogDetail.weight')}</Text>
-        </View>
-        <View style={[styles.statCell, styles.statCellBorder]}>
-          <Text style={styles.statValue}>{completedToday.size}/{habits.length}</Text>
-          <Text style={styles.statLabel}>{t('dogDetail.today')}</Text>
-        </View>
-        <View style={styles.statCell}>
-          <Text style={styles.statValue}>{habits.length}</Text>
-          <Text style={styles.statLabel}>{t('dogDetail.habits')}</Text>
+        <View style={styles.statStrip}>
+          <View style={styles.statCell}>
+            <Text style={styles.statValue}>{dog.weight_kg != null ? `${dog.weight_kg} kg` : '—'}</Text>
+            <Text style={styles.statLabel}>{t('dogDetail.weight')}</Text>
+          </View>
+          <View style={[styles.statCell, styles.statCellBorder]}>
+            <Text style={styles.statValue}>{completedToday.size}/{habits.length}</Text>
+            <Text style={styles.statLabel}>{t('dogDetail.today')}</Text>
+          </View>
+          <View style={styles.statCell}>
+            <Text style={styles.statValue}>{habits.length}</Text>
+            <Text style={styles.statLabel}>{t('dogDetail.habits')}</Text>
+          </View>
         </View>
       </View>
 
       <View style={styles.headerButtons}>
-        <TouchableOpacity style={styles.editButton} onPress={onEdit}>
-          <Text style={styles.editButtonText}>{t('dogDetail.editPet')}</Text>
+        <TouchableOpacity style={styles.editButton} onPress={onEdit} activeOpacity={0.8}>
+          <Text style={styles.editButtonText}>✏️ {t('dogDetail.editPet')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.deleteButton}
@@ -484,19 +490,25 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
               ]
             );
           }}
+          activeOpacity={0.8}
         >
           <Text style={styles.deleteButtonText}>{t('dogDetail.deletePet')}</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.card}>
+      {/* 2. Today's Well-being & Mood Card */}
+      <View style={styles.moodCard}>
         <View style={styles.moodLabelRow}>
-          <Text style={styles.moodLabel}>{t('mood.question', { name: dog.name })}</Text>
+          <View style={styles.moodTitleGroup}>
+            <Text style={styles.moodCardHeader}>TODAY'S WELL-BEING</Text>
+            <Text style={styles.moodLabel}>{t('mood.question', { name: dog.name })}</Text>
+          </View>
           <TouchableOpacity
             onPress={() => setMode('mood-history')}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.moodHistoryBtn}
           >
-            <Text style={styles.moodHistoryIcon}>🕒</Text>
+            <Text style={styles.moodHistoryIcon}>🕒 History</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.moodGrid}>
@@ -510,9 +522,12 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
                   await setTodayMood(opt.value);
                   checkAndCreateHealthAlert(dog.id, dog.owner_id);
                 }}
+                activeOpacity={0.75}
               >
                 <Text style={styles.moodEmoji}>{opt.emoji}</Text>
-                <Text style={styles.moodBtnLabel}>{t('mood.' + opt.value)}</Text>
+                <Text style={[styles.moodBtnLabel, selected && styles.moodBtnLabelSelected]}>
+                  {t('mood.' + opt.value)}
+                </Text>
               </TouchableOpacity>
             );
           })}
@@ -793,7 +808,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
   );
 }
 
-function makeStyles(theme: ThemeTokens) {
+function makeStyles(theme: ThemeTokens, isDarkMode = false) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -802,6 +817,7 @@ function makeStyles(theme: ThemeTokens) {
     content: {
       padding: 16,
       paddingTop: 20,
+      paddingBottom: 36,
     },
     backRow: {
       marginBottom: 16,
@@ -850,85 +866,116 @@ function makeStyles(theme: ThemeTokens) {
     downloadIcon: {
       fontSize: 15,
     },
-    heroBand: {
-      backgroundColor: theme.moodSelBg,
-      borderTopLeftRadius: theme.radiiCard,
-      borderTopRightRadius: theme.radiiCard,
-      padding: 14,
+    // Centerpiece: The Warm Companion Passport Card
+    passportCard: {
+      backgroundColor: theme.surface,
+      borderRadius: 24,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      padding: 16,
+      marginBottom: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: isDarkMode ? 0.25 : 0.05,
+      shadowRadius: 12,
+      elevation: 3,
+    },
+    passportHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      gap: 14,
+      marginBottom: 14,
     },
     photo: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
+      width: 58,
+      height: 58,
+      borderRadius: 20,
+      borderWidth: 1.5,
+      borderColor: theme.border,
     },
     photoPlaceholder: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: theme.surface,
+      width: 58,
+      height: 58,
+      borderRadius: 20,
+      backgroundColor: theme.surfaceAlt,
       borderWidth: 1.5,
       borderColor: theme.border,
       alignItems: 'center',
       justifyContent: 'center',
     },
     emoji: {
-      fontSize: 22,
+      fontSize: 26,
     },
     heroInfo: {
       flex: 1,
       minWidth: 0,
     },
+    heroTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+      marginBottom: 3,
+    },
     name: {
-      fontSize: 17,
-      fontWeight: '600',
+      fontSize: 20,
+      fontWeight: '800',
       color: theme.textDark,
+      letterSpacing: -0.3,
     },
     meta: {
       fontSize: 12,
       color: theme.textMuted,
-      marginTop: 2,
+      fontWeight: '500',
     },
-    streakChip: {
-      backgroundColor: theme.streakBg,
-      borderRadius: 20,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
+    stampBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: isDarkMode ? '#1F3327' : '#EAF3ED',
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: isDarkMode ? '#2F523D' : '#C6DFCE',
     },
-    streakChipText: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: theme.streakBorder,
+    stampDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: theme.done,
+    },
+    stampText: {
+      fontSize: 10,
+      fontWeight: '800',
+      color: theme.done,
+      letterSpacing: 0.3,
     },
     statStrip: {
       flexDirection: 'row',
-      backgroundColor: theme.surface,
-      borderBottomLeftRadius: theme.radiiCard,
-      borderBottomRightRadius: theme.radiiCard,
-      borderWidth: 0.5,
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 16,
+      paddingVertical: 10,
+      borderWidth: 1,
       borderColor: theme.border,
-      borderTopWidth: 0,
-      marginBottom: 16,
     },
     statCell: {
       flex: 1,
       alignItems: 'center',
-      paddingVertical: 10,
     },
     statCellBorder: {
-      borderLeftWidth: 0.5,
-      borderRightWidth: 0.5,
+      borderLeftWidth: 1,
+      borderRightWidth: 1,
       borderColor: theme.border,
     },
     statValue: {
       fontSize: 14,
-      fontWeight: '600',
+      fontWeight: '800',
       color: theme.textDark,
     },
     statLabel: {
       fontSize: 11,
+      fontWeight: '600',
       color: theme.textMuted,
       marginTop: 2,
     },
@@ -939,78 +986,123 @@ function makeStyles(theme: ThemeTokens) {
     },
     editButton: {
       flex: 1,
-      borderRadius: theme.radiiCard,
-      borderWidth: 1,
+      borderRadius: 14,
+      borderWidth: 1.5,
       borderColor: theme.primary,
-      paddingVertical: 8,
+      backgroundColor: isDarkMode ? '#2E1E19' : '#FFF7F4',
+      paddingVertical: 10,
       alignItems: 'center',
     },
     editButtonText: {
       color: theme.primary,
       fontSize: 13,
-      fontWeight: '600',
+      fontWeight: '700',
     },
     deleteButton: {
       flex: 1,
-      borderRadius: theme.radiiCard,
-      borderWidth: 1,
-      borderColor: theme.allergenText,
-      paddingVertical: 8,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderColor: isDarkMode ? '#552224' : '#FAD4D4',
+      backgroundColor: isDarkMode ? '#2D1B1C' : '#FFF5F5',
+      paddingVertical: 10,
       alignItems: 'center',
     },
     deleteButtonText: {
       color: theme.allergenText,
       fontSize: 13,
-      fontWeight: '600',
+      fontWeight: '700',
     },
-    card: {
+    // Today's Well-being Card
+    moodCard: {
       backgroundColor: theme.surface,
-      borderRadius: theme.radiiCard,
-      borderWidth: 0.5,
+      borderRadius: 22,
+      borderWidth: 1.5,
       borderColor: theme.border,
-      padding: 12,
+      padding: 16,
+      marginBottom: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.04,
+      shadowRadius: 6,
+      elevation: 2,
     },
     moodLabelRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 8,
+      marginBottom: 12,
+    },
+    moodTitleGroup: {
+      flex: 1,
+    },
+    moodCardHeader: {
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 0.8,
+      color: theme.textMuted,
+      marginBottom: 2,
     },
     moodLabel: {
-      fontSize: 12,
-      color: theme.textMuted,
-      fontWeight: '500',
+      fontSize: 14,
+      fontWeight: '700',
+      color: theme.textDark,
+    },
+    moodHistoryBtn: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 10,
+      backgroundColor: theme.surfaceAlt,
+      borderWidth: 1,
+      borderColor: theme.border,
     },
     moodHistoryIcon: {
-      fontSize: 14,
+      fontSize: 11,
+      fontWeight: '700',
       color: theme.textMuted,
     },
     moodGrid: {
       flexDirection: 'row',
-      gap: 5,
+      gap: 6,
     },
     moodBtn: {
       flex: 1,
-      backgroundColor: theme.background,
-      borderWidth: 0.5,
+      backgroundColor: theme.surfaceAlt,
+      borderWidth: 1.5,
       borderColor: theme.border,
-      borderRadius: 8,
-      paddingVertical: 6,
+      borderRadius: 14,
+      paddingVertical: 9,
       paddingHorizontal: 2,
       alignItems: 'center',
     },
     moodBtnSelected: {
-      backgroundColor: theme.moodSelBg,
-      borderColor: theme.moodSelBorder,
+      backgroundColor: isDarkMode ? '#332019' : '#FDF1EB',
+      borderColor: theme.primary,
     },
     moodEmoji: {
-      fontSize: 15,
+      fontSize: 20,
     },
     moodBtnLabel: {
-      fontSize: 11,
+      fontSize: 10,
+      fontWeight: '600',
       color: theme.textMuted,
-      marginTop: 2,
+      marginTop: 3,
       textAlign: 'center',
+    },
+    moodBtnLabelSelected: {
+      color: theme.primary,
+      fontWeight: '800',
+    },
+    card: {
+      backgroundColor: theme.surface,
+      borderRadius: 22,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      padding: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.04,
+      shadowRadius: 6,
+      elevation: 2,
     },
     section: {
       marginTop: 20,
