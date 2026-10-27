@@ -9,6 +9,9 @@ import { useOverallStreak } from '../lib/hooks/useOverallStreak';
 import { useVetAppointments } from '../lib/hooks/useVetAppointments';
 import { VetAppointment } from '../lib/vetAppointments';
 import { getDailyVetTip } from '../lib/vetTips';
+import { computeAge } from '../lib/petAge';
+import { useHabits } from '../lib/hooks/useHabits';
+import { useDogMood } from '../lib/hooks/useDogMood';
 import PetSummaryCard from '../components/PetSummaryCard';
 import NearbyVetsSection from '../components/NearbyVetsSection';
 import VetAppointmentCard from '../components/VetAppointmentCard';
@@ -33,14 +36,32 @@ type Props = BottomTabScreenProps<RootTabParamList, 'Home'> & {
 };
 
 export default function HomeScreen({ navigation, dogs, selectedDogId, profile, updateProfile, checkUsernameAvailable }: Props) {
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
   const { t } = useT();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
   const { streak } = useOverallStreak();
   const [showProfile, setShowProfile] = useState(false);
   const [showVetModal, setShowVetModal] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<VetAppointment | null>(null);
   const [tipOffset, setTipOffset] = useState(0);
+
+  const activeDog = dogs.find(d => d.id === selectedDogId) ?? dogs[0] ?? null;
+  const activeDogName = activeDog?.name ?? t('home.yourPet');
+  const { habits, completedToday } = useHabits(activeDog?.id ?? '');
+  const { mood } = useDogMood(activeDog?.id ?? '');
+  const age = computeAge(activeDog?.birth_date ?? null);
+
+  const formattedDate = useMemo(() => {
+    try {
+      return new Date().toLocaleDateString(undefined, {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      return 'Today';
+    }
+  }, []);
 
   const {
     nextAppointment,
@@ -80,8 +101,6 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
   const hour = new Date().getHours();
   const greeting = hour < 12 ? t('home.goodMorning') : hour < 18 ? t('home.goodAfternoon') : t('home.goodEvening');
   const firstName = profile?.full_name?.split(' ')[0] ?? t('home.there');
-  const activeDog = dogs.find(d => d.id === selectedDogId) ?? dogs[0] ?? null;
-  const activeDogName = activeDog?.name ?? t('home.yourPet');
 
   if (showProfile) {
     return (
@@ -98,12 +117,13 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
   return (
     <>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        {/* 1. Warm Editorial Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greetingLabel}>{greeting}</Text>
-            <Text style={styles.greetingName}>{firstName} 👋</Text>
+          <View style={styles.headerTextGroup}>
+            <Text style={styles.dateLabel}>{formattedDate.toUpperCase()}</Text>
+            <Text style={styles.greetingName}>{greeting}, {firstName} 👋</Text>
           </View>
-          <TouchableOpacity onPress={() => setShowProfile(true)}>
+          <TouchableOpacity onPress={() => setShowProfile(true)} activeOpacity={0.8}>
             {profile?.avatar_url ? (
               <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
             ) : (
@@ -114,17 +134,136 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
           </TouchableOpacity>
         </View>
 
-        {dogs.length > 0 ? (
-          <View ref={petStripRef} collapsable={false}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.strip}>
-              {dogs.map(dog => (
-                <PetSummaryCard
-                  key={dog.id}
-                  dog={dog}
-                  onPress={() => navigation.navigate('Pets', { dogId: dog.id })}
-                />
-              ))}
+        {/* Multi-Pet Selector Strip (when > 1 pet) */}
+        {dogs.length > 1 && (
+          <View style={styles.petSelectorStrip}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.petSelectorContent}>
+              {dogs.map(dog => {
+                const isSelected = dog.id === activeDog?.id;
+                return (
+                  <TouchableOpacity
+                    key={dog.id}
+                    style={[styles.petSelectorChip, isSelected && styles.petSelectorChipSelected]}
+                    onPress={() => navigation.navigate('Pets', { dogId: dog.id })}
+                    activeOpacity={0.8}
+                  >
+                    {dog.photo_url ? (
+                      <Image source={{ uri: dog.photo_url }} style={styles.petSelectorPhoto} />
+                    ) : (
+                      <Text style={styles.petSelectorEmoji}>🐾</Text>
+                    )}
+                    <Text
+                      style={[styles.petSelectorName, isSelected && styles.petSelectorNameSelected]}
+                      numberOfLines={1}
+                    >
+                      {dog.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
+          </View>
+        )}
+
+        {/* 2. Centerpiece: The Warm Companion Passport & Care Rhythm Card */}
+        {activeDog ? (
+          <View ref={petStripRef} collapsable={false} style={styles.passportCard}>
+            <TouchableOpacity
+              style={styles.passportHeader}
+              onPress={() => navigation.navigate('Pets', { dogId: activeDog.id })}
+              activeOpacity={0.85}
+            >
+              {activeDog.photo_url ? (
+                <Image source={{ uri: activeDog.photo_url }} style={styles.passportAvatar} />
+              ) : (
+                <View style={styles.passportAvatarPlaceholder}>
+                  <Text style={styles.passportAvatarEmoji}>🐾</Text>
+                </View>
+              )}
+              <View style={styles.passportInfo}>
+                <View style={styles.passportTitleRow}>
+                  <Text style={styles.passportName} numberOfLines={1}>{activeDog.name}</Text>
+                  <View style={styles.stampBadge}>
+                    <View style={styles.stampDot} />
+                    <Text style={styles.stampText}>
+                      {mood?.mood === 'sick' ? 'Needs Care' : mood?.mood === 'off' ? 'A Bit Off' : 'Thriving'}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.passportMeta} numberOfLines={1}>
+                  {[activeDog.breed, age].filter(Boolean).join(' · ') || 'Beloved Companion'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Daily Care Rhythm Inside the Passport Card */}
+            <View style={styles.rhythmContainer}>
+              <View style={styles.rhythmHeader}>
+                <Text style={styles.rhythmTitle}>TODAY'S CARE RHYTHM</Text>
+                <Text style={styles.rhythmCount}>
+                  {habits.length > 0
+                    ? `${completedToday.size} of ${habits.length} completed`
+                    : 'Tap to customize habits'}
+                </Text>
+              </View>
+
+              {habits.length > 0 ? (
+                <View style={styles.rhythmProgressBar}>
+                  <View
+                    style={[
+                      styles.rhythmProgressFill,
+                      { width: `${Math.round((completedToday.size / habits.length) * 100)}%` },
+                    ]}
+                  />
+                </View>
+              ) : null}
+
+              <View style={styles.habitTokensRow}>
+                <TouchableOpacity
+                  style={styles.habitToken}
+                  onPress={() => navigation.navigate('Pets', { dogId: activeDog.id })}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.habitTokenIconBox}>
+                    <Text style={styles.habitTokenIcon}>🥩</Text>
+                  </View>
+                  <View style={styles.habitTokenTextCol}>
+                    <Text style={styles.habitTokenTitle}>Meals</Text>
+                    <Text style={styles.habitTokenSubtitle}>
+                      {completedToday.size > 0 ? 'Logged' : 'Care plan'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.habitToken}
+                  onPress={() => navigation.navigate('Pets', { dogId: activeDog.id })}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.habitTokenIconBox}>
+                    <Text style={styles.habitTokenIcon}>🦮</Text>
+                  </View>
+                  <View style={styles.habitTokenTextCol}>
+                    <Text style={styles.habitTokenTitle}>Daily Walk</Text>
+                    <Text style={styles.habitTokenSubtitle}>Activity</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.habitToken}
+                  onPress={() => navigation.navigate('Pets', { dogId: activeDog.id })}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.habitTokenIconBox}>
+                    <Text style={styles.habitTokenIcon}>💧</Text>
+                  </View>
+                  <View style={styles.habitTokenTextCol}>
+                    <Text style={styles.habitTokenTitle}>Fresh Water</Text>
+                    <Text style={styles.habitTokenSubtitle}>Hydration</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         ) : (
           <TouchableOpacity
@@ -132,7 +271,9 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
             onPress={() => navigation.navigate('Pets')}
             activeOpacity={0.8}
           >
-            <Text style={styles.emptyPetIcon}>🐾</Text>
+            <View style={styles.emptyPetIconBox}>
+              <Text style={styles.emptyPetIcon}>🐾</Text>
+            </View>
             <View style={styles.emptyPetTextGroup}>
               <Text style={styles.emptyPetTitle}>{t('pets.addFirstPet')}</Text>
               <Text style={styles.emptyPetSubtitle}>{t('pets.noPetsSubtitle')}</Text>
@@ -141,12 +282,17 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
           </TouchableOpacity>
         )}
 
+        {/* 3. Streak Card */}
         {streak > 0 ? (
-          <View ref={streakRef} collapsable={false} style={styles.streakPill}>
-            <Text style={styles.streakEmoji}>🔥</Text>
+          <View ref={streakRef} collapsable={false} style={styles.streakCard}>
+            <View style={styles.streakIconCircle}>
+              <Text style={styles.streakEmoji}>🔥</Text>
+            </View>
             <View style={styles.streakTextGroup}>
               <Text style={styles.streakTitle}>{t('home.streakTitle', { count: streak })}</Text>
-              <Text style={styles.streakSubtitle}>{t('home.streakSubtitle')}</Text>
+              <Text style={styles.streakSubtitle}>
+                Consistent care keeps {activeDogName} healthy & thriving
+              </Text>
             </View>
             <View style={styles.weekChip}>
               <Text style={styles.weekChipText}>{t('home.week', { count: Math.ceil(streak / 7) })}</Text>
@@ -154,7 +300,7 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
           </View>
         ) : null}
 
-        {/* Vet Appointment Reminder Section */}
+        {/* 4. Cozy "Next Up" Vet Appointment Card (Butter-Cream squircle) */}
         <VetAppointmentCard
           appointment={nextAppointment}
           onSchedulePress={() => {
@@ -168,18 +314,7 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
           onCompletePress={(id) => markCompleted(id)}
         />
 
-        <NearbyVetsSection
-          dog={activeDog}
-          onOpenVetFinder={() => navigation.navigate('More', { openVetFinder: true })}
-        />
-
-        <TouchableOpacity style={styles.aiBar} onPress={() => navigation.navigate('Chat', { fromLink: true })}>
-          <Text style={styles.aiIcon}>💬</Text>
-          <Text style={styles.aiText} numberOfLines={1}>{t('home.askNutrition', { name: activeDogName })}</Text>
-          <Text style={styles.chevron}>›</Text>
-        </TouchableOpacity>
-
-        {/* Curated Daily Vet Bite & Nutrition Tip (Replaces old 'Community Soon' placeholder) */}
+        {/* 5. Curated Daily Vet Bite & Care Insight (Pistachio Whisper card) */}
         <View style={styles.tipCard}>
           <View style={styles.tipHeaderRow}>
             <View style={styles.tipBadge}>
@@ -204,10 +339,38 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
             onPress={() => navigation.navigate('Chat', { fromLink: true })}
             activeOpacity={0.7}
           >
-            <Text style={styles.tipAiText}>💬 Ask Bisco AI about this</Text>
+            <Text style={styles.tipAiText}>💬 Ask Bisco AI about this insight</Text>
             <Text style={styles.tipAiChevron}>›</Text>
           </TouchableOpacity>
         </View>
+
+        {/* 6. Warm AI Care Companion Card (Replaces the generic gray bar) */}
+        <TouchableOpacity
+          style={styles.aiCompanionCard}
+          onPress={() => navigation.navigate('Chat', { fromLink: true })}
+          activeOpacity={0.85}
+        >
+          <View style={styles.aiCompanionRow}>
+            <View style={styles.aiCompanionIconBox}>
+              <Text style={styles.aiCompanionIcon}>✨</Text>
+            </View>
+            <View style={styles.aiCompanionTextCol}>
+              <Text style={styles.aiCompanionTitle}>Have a symptom or food question?</Text>
+              <Text style={styles.aiCompanionSubtitle}>
+                Ask Bisco AI for fast, vet-informed guidance for {activeDogName}.
+              </Text>
+            </View>
+          </View>
+          <View style={styles.aiCompanionActionRow}>
+            <Text style={styles.aiCompanionActionText}>Start Care Consultation →</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* 7. Nearby Vet Clinics Preview */}
+        <NearbyVetsSection
+          dog={activeDog}
+          onOpenVetFinder={() => navigation.navigate('More', { openVetFinder: true })}
+        />
 
         <TabTour
           tab="home"
@@ -246,7 +409,7 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
   );
 }
 
-function makeStyles(theme: ThemeTokens) {
+function makeStyles(theme: ThemeTokens, isDarkMode = false) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -255,55 +418,271 @@ function makeStyles(theme: ThemeTokens) {
     content: {
       padding: 16,
       paddingTop: 56,
-      paddingBottom: 32,
+      paddingBottom: 36,
     },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 20,
+      marginBottom: 16,
     },
-    greetingLabel: {
-      fontSize: 13,
+    headerTextGroup: {
+      flex: 1,
+      paddingRight: 12,
+    },
+    dateLabel: {
+      fontSize: 11,
+      fontWeight: '800',
+      letterSpacing: 1,
       color: theme.textMuted,
+      marginBottom: 3,
     },
     greetingName: {
       fontSize: 22,
-      fontWeight: '600',
+      fontWeight: '800',
       color: theme.textDark,
+      letterSpacing: -0.3,
     },
     avatar: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      borderWidth: 2,
+      borderColor: isDarkMode ? '#352D27' : '#FFFFFF',
     },
     avatarPlaceholder: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: theme.moodSelBg,
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: isDarkMode ? '#2A2420' : '#F4EDE4',
       borderWidth: 1.5,
       borderColor: theme.border,
       alignItems: 'center',
       justifyContent: 'center',
     },
     avatarEmoji: {
-      fontSize: 20,
+      fontSize: 22,
     },
-    strip: {
+    petSelectorStrip: {
+      marginBottom: 14,
+    },
+    petSelectorContent: {
+      gap: 8,
+      paddingRight: 8,
+    },
+    petSelectorChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 7,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 16,
+      backgroundColor: theme.surface,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+    },
+    petSelectorChipSelected: {
+      backgroundColor: isDarkMode ? '#332019' : '#FDF1EB',
+      borderColor: theme.primary,
+    },
+    petSelectorPhoto: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+    },
+    petSelectorEmoji: {
+      fontSize: 14,
+    },
+    petSelectorName: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.textMuted,
+    },
+    petSelectorNameSelected: {
+      color: theme.primary,
+      fontWeight: '700',
+    },
+    // Centerpiece: The Warm Companion Passport Card
+    passportCard: {
+      backgroundColor: theme.surface,
+      borderRadius: 24,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      padding: 18,
+      marginBottom: 18,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: isDarkMode ? 0.25 : 0.05,
+      shadowRadius: 12,
+      elevation: 3,
+    },
+    passportHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
       marginBottom: 16,
     },
+    passportAvatar: {
+      width: 58,
+      height: 58,
+      borderRadius: 20,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+    },
+    passportAvatarPlaceholder: {
+      width: 58,
+      height: 58,
+      borderRadius: 20,
+      backgroundColor: theme.surfaceAlt,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    passportAvatarEmoji: {
+      fontSize: 28,
+    },
+    passportInfo: {
+      flex: 1,
+    },
+    passportTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+      marginBottom: 3,
+    },
+    passportName: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: theme.textDark,
+      letterSpacing: -0.3,
+    },
+    passportMeta: {
+      fontSize: 13,
+      color: theme.textMuted,
+      fontWeight: '500',
+    },
+    stampBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: isDarkMode ? '#1F3327' : '#EAF3ED',
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: isDarkMode ? '#2F523D' : '#C6DFCE',
+    },
+    stampDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: theme.done,
+    },
+    stampText: {
+      fontSize: 10,
+      fontWeight: '800',
+      color: theme.done,
+      letterSpacing: 0.3,
+    },
+    rhythmContainer: {
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 18,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    rhythmHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    rhythmTitle: {
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 0.8,
+      color: theme.textMuted,
+    },
+    rhythmCount: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: theme.textDark,
+    },
+    rhythmProgressBar: {
+      height: 6,
+      backgroundColor: isDarkMode ? '#352D27' : '#E6DECة',
+      borderRadius: 3,
+      overflow: 'hidden',
+      marginBottom: 12,
+    },
+    rhythmProgressFill: {
+      height: '100%',
+      backgroundColor: theme.done,
+      borderRadius: 3,
+    },
+    habitTokensRow: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    habitToken: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: theme.surface,
+      borderRadius: 12,
+      paddingVertical: 8,
+      paddingHorizontal: 8,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    habitTokenIconBox: {
+      width: 26,
+      height: 26,
+      borderRadius: 8,
+      backgroundColor: theme.surfaceAlt,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    habitTokenIcon: {
+      fontSize: 13,
+    },
+    habitTokenTextCol: {
+      flex: 1,
+    },
+    habitTokenTitle: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: theme.textDark,
+      lineHeight: 14,
+    },
+    habitTokenSubtitle: {
+      fontSize: 9,
+      color: theme.textMuted,
+      lineHeight: 12,
+    },
+    // Empty Pet Card
     emptyPetCard: {
       backgroundColor: theme.surface,
-      borderRadius: theme.radiiCard,
+      borderRadius: 22,
       borderWidth: 1.5,
       borderColor: theme.border,
       borderStyle: 'dashed',
-      padding: 16,
+      padding: 18,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      gap: 14,
       marginBottom: 18,
+    },
+    emptyPetIconBox: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: theme.surfaceAlt,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     emptyPetIcon: {
       fontSize: 24,
@@ -312,25 +691,37 @@ function makeStyles(theme: ThemeTokens) {
       flex: 1,
     },
     emptyPetTitle: {
-      fontSize: 15,
-      fontWeight: '600',
+      fontSize: 16,
+      fontWeight: '700',
       color: theme.primary,
-      marginBottom: 2,
+      marginBottom: 3,
     },
     emptyPetSubtitle: {
       fontSize: 13,
       color: theme.textMuted,
+      lineHeight: 17,
     },
-    streakPill: {
-      backgroundColor: theme.streakBg,
-      borderWidth: 0.5,
-      borderColor: theme.streakBorder,
-      borderRadius: 14,
-      padding: 12,
+    // Streak Milestone Card
+    streakCard: {
+      backgroundColor: isDarkMode ? '#2D2319' : '#FEF8EE',
+      borderWidth: 1.5,
+      borderColor: isDarkMode ? '#543F2A' : '#F5E2C4',
+      borderRadius: 20,
+      padding: 14,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
-      marginBottom: 16,
+      gap: 12,
+      marginBottom: 18,
+    },
+    streakIconCircle: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: isDarkMode ? '#44321E' : '#FFF0D4',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: isDarkMode ? '#6B4F2E' : '#E8CFA6',
     },
     streakEmoji: {
       fontSize: 20,
@@ -339,109 +730,167 @@ function makeStyles(theme: ThemeTokens) {
       flex: 1,
     },
     streakTitle: {
-      fontSize: 15,
-      fontWeight: '600',
+      fontSize: 14,
+      fontWeight: '800',
       color: theme.pendingAmberText,
+      marginBottom: 2,
     },
     streakSubtitle: {
       fontSize: 12,
-      color: theme.pendingAmberText,
+      color: theme.textMuted,
+      lineHeight: 16,
     },
     weekChip: {
       backgroundColor: theme.surface,
-      borderRadius: 20,
+      borderRadius: 14,
       paddingHorizontal: 10,
-      paddingVertical: 3,
+      paddingVertical: 4,
+      borderWidth: 1,
+      borderColor: isDarkMode ? '#543F2A' : '#EAD5B8',
     },
     weekChipText: {
       fontSize: 11,
-      fontWeight: '600',
+      fontWeight: '800',
       color: theme.pendingAmberText,
     },
-    aiBar: {
-      backgroundColor: theme.surface,
-      borderRadius: theme.radiiCard,
-      borderWidth: 0.5,
-      borderColor: theme.border,
-      padding: 14,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      marginBottom: 18,
-    },
-    aiIcon: {
-      fontSize: 18,
-    },
-    aiText: {
-      flex: 1,
-      fontSize: 14,
-      color: theme.textMuted,
-    },
-    chevron: {
-      fontSize: 18,
-      color: theme.textMuted,
-    },
+    // Daily Vet Bite & Care Insight (Soft Pistachio Whisper Card)
     tipCard: {
-      backgroundColor: theme.surface,
-      borderRadius: theme.radiiCard,
-      borderWidth: 0.5,
-      borderColor: theme.border,
-      padding: 15,
+      backgroundColor: isDarkMode ? '#1B2721' : '#F3F7F2',
+      borderRadius: 22,
+      borderWidth: 1.5,
+      borderColor: isDarkMode ? '#2D4438' : '#DDE8DC',
+      padding: 16,
       marginBottom: 18,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 6,
+      elevation: 2,
     },
     tipHeaderRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 8,
+      marginBottom: 10,
     },
     tipBadge: {
-      backgroundColor: theme.surfaceAlt,
+      backgroundColor: isDarkMode ? '#243C2E' : '#E5F0E4',
       borderRadius: 12,
-      paddingHorizontal: 9,
-      paddingVertical: 3,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderWidth: 1,
+      borderColor: isDarkMode ? '#355944' : '#CCE0CB',
     },
     tipBadgeText: {
       fontSize: 11,
-      fontWeight: '600',
-      color: theme.primaryDark,
+      fontWeight: '800',
+      color: isDarkMode ? '#86EFAC' : '#2D5A3E',
+      letterSpacing: 0.4,
     },
     nextTipBtn: {
-      paddingHorizontal: 4,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
     },
     nextTipText: {
       fontSize: 11,
-      fontWeight: '600',
+      fontWeight: '700',
       color: theme.primary,
     },
     tipTitle: {
       fontSize: 15,
-      fontWeight: '600',
+      fontWeight: '800',
       color: theme.textDark,
-      marginBottom: 5,
+      marginBottom: 6,
+      letterSpacing: -0.2,
     },
     tipBody: {
       fontSize: 13,
       color: theme.textMuted,
-      lineHeight: 18,
-      marginBottom: 10,
+      lineHeight: 19,
+      marginBottom: 12,
     },
     tipAiRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingTop: 8,
-      borderTopWidth: 0.5,
-      borderTopColor: theme.divider,
+      paddingTop: 10,
+      borderTopWidth: 1,
+      borderTopColor: isDarkMode ? '#2D4438' : '#DDE8DC',
     },
     tipAiText: {
       fontSize: 12,
-      fontWeight: '600',
+      fontWeight: '700',
       color: theme.primary,
     },
     tipAiChevron: {
       fontSize: 14,
       color: theme.primary,
+      fontWeight: '700',
+    },
+    // Warm AI Care Companion Card
+    aiCompanionCard: {
+      backgroundColor: isDarkMode ? '#281F1A' : '#FFF9EE',
+      borderRadius: 22,
+      borderWidth: 1.5,
+      borderColor: isDarkMode ? '#4D3627' : '#F6E5CC',
+      padding: 16,
+      marginBottom: 18,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 6,
+      elevation: 2,
+    },
+    aiCompanionRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 12,
+      marginBottom: 12,
+    },
+    aiCompanionIconBox: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      backgroundColor: isDarkMode ? '#3B291E' : '#FFF2DB',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: isDarkMode ? '#5E3E2A' : '#F2D7AE',
+    },
+    aiCompanionIcon: {
+      fontSize: 20,
+    },
+    aiCompanionTextCol: {
+      flex: 1,
+    },
+    aiCompanionTitle: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: theme.textDark,
+      marginBottom: 3,
+      letterSpacing: -0.2,
+    },
+    aiCompanionSubtitle: {
+      fontSize: 12,
+      color: theme.textMuted,
+      lineHeight: 17,
+    },
+    aiCompanionActionRow: {
+      backgroundColor: theme.primary,
+      borderRadius: 14,
+      paddingVertical: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    aiCompanionActionText: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: '#FFFFFF',
+      letterSpacing: 0.3,
+    },
+    chevron: {
+      fontSize: 18,
+      color: theme.textMuted,
     },
   });
 }

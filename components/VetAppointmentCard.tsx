@@ -18,9 +18,9 @@ export default function VetAppointmentCard({
   onEditPress,
   onCompletePress,
 }: Props) {
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
   const { t } = useT();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
 
   if (!appointment) {
     return (
@@ -126,23 +126,33 @@ export default function VetAppointmentCard({
   );
 }
 
-function makeStyles(theme: ThemeTokens) {
+function makeStyles(theme: ThemeTokens, isDarkMode = false) {
   return StyleSheet.create({
     card: {
-      backgroundColor: theme.surface,
-      borderRadius: theme.radiiCard,
-      borderWidth: 0.5,
-      borderColor: theme.border,
-      padding: 14,
-      marginBottom: 20,
+      backgroundColor: isDarkMode ? '#281F1A' : '#FFF9EE',
+      borderRadius: 22,
+      borderWidth: 1.5,
+      borderColor: isDarkMode ? '#4D3627' : '#F6E5CC',
+      padding: 16,
+      marginBottom: 18,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 6,
+      elevation: 2,
     },
     emptyCard: {
-      backgroundColor: theme.surface,
-      borderRadius: theme.radiiCard,
-      borderWidth: 0.5,
-      borderColor: theme.border,
-      padding: 14,
-      marginBottom: 20,
+      backgroundColor: isDarkMode ? '#281F1A' : '#FFF9EE',
+      borderRadius: 22,
+      borderWidth: 1.5,
+      borderColor: isDarkMode ? '#4D3627' : '#F6E5CC',
+      padding: 16,
+      marginBottom: 18,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 6,
+      elevation: 2,
     },
     emptyHeaderRow: {
       flexDirection: 'row',
@@ -151,12 +161,14 @@ function makeStyles(theme: ThemeTokens) {
       marginBottom: 12,
     },
     iconCircle: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
-      backgroundColor: theme.surfaceAlt,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: isDarkMode ? '#3B291E' : '#FFF2DB',
       alignItems: 'center',
       justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: isDarkMode ? '#5E3E2A' : '#F2D7AE',
     },
     iconEmoji: {
       fontSize: 20,
