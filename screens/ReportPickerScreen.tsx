@@ -9,6 +9,7 @@ import { useVaccines } from '../lib/hooks/useVaccines';
 import { useProfile } from '../lib/hooks/useProfile';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
+import { useSubscription } from '../lib/SubscriptionContext';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 import { shareHtmlAsPdf } from '../lib/pdfExport';
@@ -32,6 +33,7 @@ type ReportKey = 'mood' | 'meal' | 'symptom' | 'vaccine' | 'all';
 export default function ReportPickerScreen({ dog, onBack }: Props) {
   const { theme } = useTheme();
   const { t } = useT();
+  const { canExportPdf, openPaywall, isPro } = useSubscription();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { profile } = useProfile(dog.owner_id);
   const { historyByDate: moodHistoryByDate } = useMoodHistory(dog.id, 90);
@@ -42,6 +44,10 @@ export default function ReportPickerScreen({ dog, onBack }: Props) {
   const [exportingReport, setExportingReport] = useState<ReportKey | null>(null);
 
   const exportSingle = async (key: ReportKey, report: ReportBuild | null, noDataMessage: string) => {
+    if (!canExportPdf()) {
+      openPaywall('pdf_export');
+      return;
+    }
     if (!report) {
       Alert.alert(t('reportPicker.noData'), noDataMessage);
       return;
@@ -64,6 +70,10 @@ export default function ReportPickerScreen({ dog, onBack }: Props) {
   };
 
   const exportAll = async () => {
+    if (!canExportPdf()) {
+      openPaywall('pdf_export');
+      return;
+    }
     const reports = [
       buildMoodReport(dog, moodHistoryByDate),
       buildMealReport(dog, mealDetails),
@@ -123,11 +133,18 @@ export default function ReportPickerScreen({ dog, onBack }: Props) {
             onPress={row.onPress}
             disabled={exportingReport !== null}
           >
-            <Text style={styles.reportRowLabel}>{row.label}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={styles.reportRowLabel}>{row.label}</Text>
+              {!isPro && (
+                <View style={styles.proTag}>
+                  <Text style={styles.proTagText}>PRO</Text>
+                </View>
+              )}
+            </View>
             {exportingReport === row.key ? (
               <ActivityIndicator size="small" color={theme.primary} />
             ) : (
-              <Text style={styles.downloadIcon}>⬇</Text>
+              <Text style={styles.downloadIcon}>{isPro ? '⬇' : '🔒'}</Text>
             )}
           </TouchableOpacity>
         ))}
@@ -200,6 +217,20 @@ function makeStyles(theme: ThemeTokens) {
     downloadIcon: {
       fontSize: 18,
       color: theme.primary,
+    },
+    proTag: {
+      backgroundColor: theme.primaryLight,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    proTagText: {
+      fontSize: 10,
+      fontWeight: '800',
+      color: theme.primary,
+      letterSpacing: 0.5,
     },
   });
 }

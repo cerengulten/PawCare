@@ -30,6 +30,7 @@ import LegalDocScreen from './LegalDocScreen';
 import { RootTabParamList } from './AppTabs';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
+import { useSubscription } from '../lib/SubscriptionContext';
 import { SUPPORTED_LANGS, LANG_LABELS } from '../lib/i18n';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
@@ -86,8 +87,9 @@ const WISHLIST_ITEMS: WishlistItem[] = [
 
 export default function MoreScreen({ route, navigation, dogs, profile, notificationsState: passedNotifications }: Props) {
   const { theme, isDarkMode, toggleDarkMode } = useTheme();
+  const { isPro, plan, openPaywall } = useSubscription();
   const { t, lang, setLang } = useT();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
   const { upcoming, overdue } = useAllVaccines();
   const localNotifications = useNotifications(profile?.id ?? null);
   const notificationsState = passedNotifications ?? localNotifications;
@@ -286,6 +288,39 @@ export default function MoreScreen({ route, navigation, dogs, profile, notificat
             </Text>
           </View>
         </View>
+      </View>
+
+      {/* Bisco Pro Membership Card (Freemium & Premium System) */}
+      <View style={isPro ? styles.proCardActive : styles.proCardUpgrade}>
+        <View style={styles.proRow}>
+          <View style={isPro ? styles.proIconBoxActive : styles.proIconBox}>
+            <Text style={styles.proIconText}>👑</Text>
+          </View>
+          <View style={styles.proInfo}>
+            <View style={styles.proTitleRow}>
+              <Text style={styles.proTitle}>{isPro ? 'Bisco Pro Member' : 'Upgrade to Bisco Pro'}</Text>
+              <View style={isPro ? styles.proTagActive : styles.proTagUpgrade}>
+                <Text style={isPro ? styles.proTagTextActive : styles.proTagText}>
+                  {isPro ? (plan === 'annual' ? 'ANNUAL' : 'PRO') : 'SAVE 58%'}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.proSubtitle}>
+              {isPro
+                ? 'All premium capabilities unlocked: unlimited pets, 24/7 AI, and Vet PDF dossiers.'
+                : 'Unlimited pets, 24/7 AI triage consultations & 1-tap Vet PDF dossiers.'}
+            </Text>
+          </View>
+        </View>
+        <TouchableOpacity
+          style={isPro ? styles.proBtnActive : styles.proBtnUpgrade}
+          onPress={() => openPaywall('general')}
+          activeOpacity={0.85}
+        >
+          <Text style={isPro ? styles.proBtnTextActive : styles.proBtnTextUpgrade}>
+            {isPro ? 'Manage Membership →' : 'Explore Plans (7-Day Trial) →'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <Text style={styles.sectionTitle}>{t('more.upcoming')}</Text>
@@ -503,8 +538,138 @@ export default function MoreScreen({ route, navigation, dogs, profile, notificat
   );
 }
 
-function makeStyles(theme: ThemeTokens) {
+function makeStyles(theme: ThemeTokens, isDarkMode = false) {
   return StyleSheet.create({
+    proCardUpgrade: {
+      backgroundColor: isDarkMode ? '#281F1A' : '#FFF9EE',
+      borderRadius: 20,
+      borderWidth: 1.5,
+      borderColor: isDarkMode ? '#4D3627' : '#F6E5CC',
+      padding: 16,
+      marginBottom: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 6,
+      elevation: 2,
+    },
+    proCardActive: {
+      backgroundColor: isDarkMode ? '#1B2721' : '#F3F7F2',
+      borderRadius: 20,
+      borderWidth: 1.5,
+      borderColor: isDarkMode ? '#2D4438' : '#DDE8DC',
+      padding: 16,
+      marginBottom: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 6,
+      elevation: 2,
+    },
+    proRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 12,
+      marginBottom: 12,
+    },
+    proIconBox: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: isDarkMode ? '#3B291E' : '#FFF2DB',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: isDarkMode ? '#5E3E2A' : '#F2D7AE',
+    },
+    proIconBoxActive: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: isDarkMode ? '#23382C' : '#E5EFE4',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: isDarkMode ? '#365A45' : '#CCDDCB',
+    },
+    proIconText: {
+      fontSize: 20,
+    },
+    proInfo: {
+      flex: 1,
+    },
+    proTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 4,
+    },
+    proTitle: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: theme.textDark,
+      letterSpacing: -0.2,
+    },
+    proTagUpgrade: {
+      backgroundColor: isDarkMode ? '#3D2418' : '#FDF0E8',
+      paddingHorizontal: 7,
+      paddingVertical: 2,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.primary,
+    },
+    proTagActive: {
+      backgroundColor: isDarkMode ? '#1F3627' : '#E2EFE3',
+      paddingHorizontal: 7,
+      paddingVertical: 2,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.done,
+    },
+    proTagText: {
+      fontSize: 9,
+      fontWeight: '800',
+      color: theme.primary,
+      letterSpacing: 0.4,
+    },
+    proTagTextActive: {
+      fontSize: 9,
+      fontWeight: '800',
+      color: theme.done,
+      letterSpacing: 0.4,
+    },
+    proSubtitle: {
+      fontSize: 12,
+      lineHeight: 17,
+      color: theme.textMuted,
+    },
+    proBtnUpgrade: {
+      backgroundColor: theme.primary,
+      borderRadius: 14,
+      paddingVertical: 11,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    proBtnActive: {
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 14,
+      paddingVertical: 11,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    proBtnTextUpgrade: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: '#FFFFFF',
+      letterSpacing: 0.2,
+    },
+    proBtnTextActive: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: theme.textDark,
+    },
     container: {
       flex: 1,
       backgroundColor: theme.background,

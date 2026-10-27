@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Text, View } from 'react-native';
+import { Text, View, StyleSheet } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import HomeScreen from './HomeScreen';
 import PetsScreen from './PetsScreen';
@@ -14,6 +14,8 @@ import { useDogs } from '../lib/hooks/useDogs';
 import { useSelectedPet } from '../lib/hooks/useSelectedPet';
 import { useProfile } from '../lib/hooks/useProfile';
 import { useNotifications } from '../lib/hooks/useNotifications';
+import PaywallModal from '../components/PaywallModal';
+import LegalDocScreen from './LegalDocScreen';
 
 export type RootTabParamList = {
   Home: undefined;
@@ -62,6 +64,7 @@ export default function AppTabs({
   const { unreadCount } = notificationsState;
   const [petsResetKey, setPetsResetKey] = useState(0);
   const [moreResetKey, setMoreResetKey] = useState(0);
+  const [paywallLegalDoc, setPaywallLegalDoc] = useState<'terms' | 'privacy' | null>(null);
 
   // Tracks the previously-focused tab so ChatScreen's edge-swipe-back gesture can return to
   // wherever the user actually came from (e.g. Home's "Ask about..." bar), not a fixed tab.
@@ -197,6 +200,19 @@ export default function AppTabs({
           </Tab.Screen>
         </Tab.Navigator>
       </NavigationContainer>
+
+      {/* Global Pro Paywall Modal */}
+      <PaywallModal onOpenLegal={(doc) => setPaywallLegalDoc(doc)} />
+
+      {/* Legal Doc overlay when opened from Paywall */}
+      {paywallLegalDoc && (
+        <View style={StyleSheet.absoluteFill}>
+          <LegalDocScreen
+            type={paywallLegalDoc}
+            onBack={() => setPaywallLegalDoc(null)}
+          />
+        </View>
+      )}
     </SafeAreaProvider>
   );
 }

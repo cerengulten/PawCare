@@ -44,3 +44,6 @@ yarn-error.*
 
 # supabase cli local cache
 supabase/.temp/
+
+# scratch scripts
+scratch/

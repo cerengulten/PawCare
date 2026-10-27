@@ -11,6 +11,7 @@ import DogDetailScreen from './DogDetailScreen';
 import { RootTabParamList } from './AppTabs';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
+import { useSubscription } from '../lib/SubscriptionContext';
 import { ThemeTokens } from '../lib/themes';
 
 type DogsState = ReturnType<typeof useDogs>;
@@ -40,6 +41,7 @@ export default function PetsScreen({
 }: Props) {
   const { theme } = useTheme();
   const { t } = useT();
+  const { canAddDog, openPaywall } = useSubscription();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [mode, setMode] = useState<'switch' | 'form'>('switch');
   const [editingDog, setEditingDog] = useState<Dog | null>(null);
@@ -106,7 +108,14 @@ export default function PetsScreen({
           })}
           <TouchableOpacity
             style={[styles.pill, styles.pillInactive, styles.addPill]}
-            onPress={() => { setEditingDog(null); setMode('form'); }}
+            onPress={() => {
+              if (!canAddDog(dogs.length)) {
+                openPaywall('unlimited_pets');
+                return;
+              }
+              setEditingDog(null);
+              setMode('form');
+            }}
           >
             <Text style={styles.addPillText}>＋</Text>
           </TouchableOpacity>

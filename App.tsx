@@ -14,6 +14,7 @@ import { useDogs } from './lib/hooks/useDogs';
 import { useSelectedPet } from './lib/hooks/useSelectedPet';
 import { ThemeProvider, useTheme } from './lib/ThemeContext';
 import { LanguageProvider } from './lib/LanguageContext';
+import { SubscriptionProvider } from './lib/SubscriptionContext';
 import { cancelAllLocalNotifications } from './lib/notifications';
 import { clearHomeVetCache } from './lib/hooks/useHomeVetPreview';
 
@@ -183,7 +184,9 @@ export default function App() {
       <SafeAreaProvider>
         <LanguageProvider>
           <ThemeProvider>
-            <AppInner />
+            <SubscriptionProvider>
+              <AppInner />
+            </SubscriptionProvider>
           </ThemeProvider>
         </LanguageProvider>
       </SafeAreaProvider>

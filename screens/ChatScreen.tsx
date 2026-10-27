@@ -26,6 +26,7 @@ import { hasGeminiApiKey, sendChatMessage, ChatTurn } from '../lib/gemini';
 import { RootTabParamList } from './AppTabs';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
+import { useSubscription } from '../lib/SubscriptionContext';
 import { LANG_LABELS } from '../lib/i18n';
 import { ThemeTokens } from '../lib/themes';
 
@@ -49,6 +50,14 @@ Respond in plain text only — no markdown (no asterisks, no headers, no numbere
 export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigation, route }: Props) {
   const { theme } = useTheme();
   const { t, lang } = useT();
+  const {
+    canSendChatMessage,
+    recordChatMessage,
+    isPro,
+    remainingDailyChats,
+    maxFreeDailyChats,
+    openPaywall,
+  } = useSubscription();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const activeDog = dogs.find(d => d.id === selectedDogId) ?? dogs[0] ?? null;
 
@@ -114,10 +123,17 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
   async function handleSend() {
     const text = input.trim();
     if (!text || sending) return;
+
+    if (!canSendChatMessage()) {
+      openPaywall('ai_consultations');
+      return;
+    }
+
     const nextHistory: ChatTurn[] = [...messages, { role: 'user', text }];
     setMessages(nextHistory);
     setInput('');
     setSending(true);
+    await recordChatMessage();
     try {
       const systemInstruction = `${SCOPE_INSTRUCTION}\n\n${t('chat.respondInLanguage', { language: LANG_LABELS[lang] })}\n\nDog profile and recent data:\n${buildDogContextSummary(
         activeDog!,
@@ -190,6 +206,25 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
             </View>
           ) : null}
         </ScrollView>
+
+        {/* Freemium AI Chat Usage Strip */}
+        {isPro ? (
+          <View style={styles.quotaRowPro}>
+            <Text style={styles.quotaProText}>👑 Bisco Pro AI · Unlimited 24/7 Triage</Text>
+          </View>
+        ) : (
+          <View style={styles.quotaRow}>
+            <Text style={styles.quotaText}>
+              🐾 Free AI: {remainingDailyChats} of {maxFreeDailyChats} chats left today
+            </Text>
+            <TouchableOpacity
+              onPress={() => openPaywall('ai_consultations')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.quotaUpgradeBtn}>Upgrade 👑</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={styles.composerRow}>
           <TextInput
@@ -291,6 +326,40 @@ function makeStyles(theme: ThemeTokens) {
       borderTopWidth: 1,
       borderTopColor: theme.border,
       backgroundColor: theme.surface,
+    },
+    quotaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      backgroundColor: theme.surfaceAlt,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+    },
+    quotaText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.textMuted,
+    },
+    quotaUpgradeBtn: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: theme.primary,
+    },
+    quotaRowPro: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 6,
+      backgroundColor: theme.surfaceAlt,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+    },
+    quotaProText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: theme.done,
+      letterSpacing: 0.3,
     },
     input: {
       flex: 1,
