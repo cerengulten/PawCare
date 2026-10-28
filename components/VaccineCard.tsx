@@ -13,6 +13,14 @@ type Props = {
   dogName?: string;
 };
 
+function getTreatmentIcon(name: string): string {
+  const lower = name.toLowerCase();
+  if (lower.includes('iç parazit') || lower.includes('internal parasite') || lower.includes('deworm')) return '🪱';
+  if (lower.includes('dış parazit') || lower.includes('external parasite') || lower.includes('flea') || lower.includes('tick')) return '🪲';
+  if (lower.includes('kalp kurdu') || lower.includes('heartworm')) return '❤️';
+  return '💉';
+}
+
 export default function VaccineCard({ vaccine, isOverdue, onPress, dogName }: Props) {
   const { theme } = useTheme();
   const { t } = useT();
@@ -28,7 +36,9 @@ export default function VaccineCard({ vaccine, isOverdue, onPress, dogName }: Pr
     <TouchableOpacity style={styles.row} onPress={onPress}>
       <View style={[styles.dot, { backgroundColor: dotColor }]} />
       <View style={styles.info}>
-        <Text style={styles.name}>{vaccine.vaccine_name}{dogName ? ` · ${dogName}` : ''}</Text>
+        <Text style={styles.name}>
+          {getTreatmentIcon(vaccine.vaccine_name)} {vaccine.vaccine_name}{dogName ? ` · ${dogName}` : ''}
+        </Text>
         <Text style={styles.meta}>
           {t('vaccines.due', { date: formatDate(vaccine.next_due_date) })} · {formatDaysAway(days, isOverdue)}
         </Text>

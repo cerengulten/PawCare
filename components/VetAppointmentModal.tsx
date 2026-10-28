@@ -35,6 +35,7 @@ type Props = {
 const COMMON_TYPES = [
   'Wellness Checkup',
   'Vaccination',
+  'Parasite Treatment',
   'Dental Cleaning',
   'Bloodwork',
   'Follow-up Exam',
@@ -246,6 +247,11 @@ export default function VetAppointmentModal({
               <View style={styles.chipsWrap}>
                 {COMMON_TYPES.map((type) => {
                   const isSelected = title === type;
+                  const chipLabel =
+                    type === 'Parasite Treatment' ? (t('vetAppointments.reasonParasite') || '🪱 Parasite Treatment') :
+                    type === 'Vaccination' ? (t('vetAppointments.reasonVaccination') || '💉 Vaccination') :
+                    type === 'Wellness Checkup' ? (t('vetAppointments.reasonWellness') || '🩺 Wellness Checkup') :
+                    type;
                   return (
                     <TouchableOpacity
                       key={type}
@@ -253,7 +259,7 @@ export default function VetAppointmentModal({
                       style={[styles.typeChip, isSelected && styles.typeChipSelected]}
                     >
                       <Text style={[styles.typeChipText, isSelected && styles.typeChipTextSelected]}>
-                        {type}
+                        {chipLabel}
                       </Text>
                     </TouchableOpacity>
                   );
