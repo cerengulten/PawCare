@@ -41,8 +41,10 @@ export interface SubscriptionContextValue {
   closePaywall: () => void;
 }
 
-const SUBSCRIPTION_STORAGE_KEY = '@pawcare_subscription';
-const CHAT_USAGE_KEY_PREFIX = '@pawcare_chat_count_';
+const SUBSCRIPTION_STORAGE_KEY = '@bisco_subscription';
+const LEGACY_SUBSCRIPTION_STORAGE_KEY = '@pawcare_subscription';
+const CHAT_USAGE_KEY_PREFIX = '@bisco_chat_count_';
+const LEGACY_CHAT_USAGE_KEY_PREFIX = '@pawcare_chat_count_';
 const MAX_FREE_DAILY_CHATS = 5;
 
 const SubscriptionContext = createContext<SubscriptionContextValue | null>(null);
@@ -53,6 +55,14 @@ function getTodayKey(): string {
   const m = String(now.getMonth() + 1).padStart(2, '0');
   const d = String(now.getDate()).padStart(2, '0');
   return `${CHAT_USAGE_KEY_PREFIX}${y}-${m}-${d}`;
+}
+
+function getLegacyTodayKey(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${LEGACY_CHAT_USAGE_KEY_PREFIX}${y}-${m}-${d}`;
 }
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
@@ -67,7 +77,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
+        const raw = (await AsyncStorage.getItem(SUBSCRIPTION_STORAGE_KEY)) || (await AsyncStorage.getItem(LEGACY_SUBSCRIPTION_STORAGE_KEY));
         if (raw) {
           const parsed: StoredSubscription = JSON.parse(raw);
           if (parsed.tier === 'pro') {
@@ -78,6 +88,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
               setPlan(null);
               setExpiresAt(null);
               await AsyncStorage.removeItem(SUBSCRIPTION_STORAGE_KEY);
+              await AsyncStorage.removeItem(LEGACY_SUBSCRIPTION_STORAGE_KEY);
             } else {
               setTier('pro');
               setPlan(parsed.plan);
@@ -95,14 +106,15 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        const todayKey = getTodayKey();
-        const raw = await AsyncStorage.getItem(todayKey);
+        const key = getTodayKey();
+        const legacyKey = getLegacyTodayKey();
+        const raw = (await AsyncStorage.getItem(key)) || (await AsyncStorage.getItem(legacyKey));
         if (raw) {
           const num = parseInt(raw, 10);
           if (!isNaN(num)) setDailyChatCount(num);
         }
       } catch (err) {
-        console.warn('Failed to load chat usage count:', err);
+        console.warn('Failed to load daily chat usage:', err);
       }
     })();
   }, []);

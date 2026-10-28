@@ -38,7 +38,8 @@ import TabTour from '../components/TabTour';
 import { resetAllTours } from '../lib/hooks/useTourState';
 import { cancelAllLocalNotifications } from '../lib/notifications';
 
-const ROADMAP_VOTES_KEY = '@pawcare_roadmap_votes';
+const ROADMAP_VOTES_KEY = '@bisco_roadmap_votes';
+const LEGACY_ROADMAP_VOTES_KEY = '@pawcare_roadmap_votes';
 
 type Props = BottomTabScreenProps<RootTabParamList, 'More'> & {
   dogs: ReturnType<typeof useDogs>['dogs'];
@@ -108,11 +109,12 @@ export default function MoreScreen({ route, navigation, dogs, profile, notificat
   const roadmapRef = useRef<View>(null);
 
   useEffect(() => {
-    AsyncStorage.getItem(ROADMAP_VOTES_KEY)
-      .then((raw) => {
+    (async () => {
+      try {
+        const raw = (await AsyncStorage.getItem(ROADMAP_VOTES_KEY)) || (await AsyncStorage.getItem(LEGACY_ROADMAP_VOTES_KEY));
         if (raw) setUserVotes(JSON.parse(raw));
-      })
-      .catch(() => {});
+      } catch {}
+    })();
   }, []);
 
   const toggleVote = async (id: string) => {
@@ -123,7 +125,7 @@ export default function MoreScreen({ route, navigation, dogs, profile, notificat
       if (nextState[id]) {
         Alert.alert(
           'Vote Recorded! 🎉',
-          'Thank you for helping shape PawCare! We prioritize upcoming features based on your votes.'
+          'Thank you for helping shape Bisco! We prioritize upcoming features based on your votes.'
         );
       }
     } catch {
@@ -531,7 +533,7 @@ export default function MoreScreen({ route, navigation, dogs, profile, notificat
         enabled
         steps={[
           { targetRef: upcomingRef, position: 'bottom', title: t('tour.more.s1Title'), body: t('tour.more.s1Body') },
-          { targetRef: roadmapRef, position: 'top', title: 'Feature Wishlist', body: 'Vote on features you want us to add to PawCare next!' },
+          { targetRef: roadmapRef, position: 'top', title: 'Feature Wishlist', body: 'Vote on features you want us to add to Bisco next!' },
         ]}
       />
     </ScrollView>

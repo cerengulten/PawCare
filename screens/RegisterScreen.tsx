@@ -17,6 +17,7 @@ import SocialSignInButtons from '../components/SocialSignInButtons';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
+import { Feather } from '@expo/vector-icons';
 import LegalDocScreen from './LegalDocScreen';
 
 type Props = {
@@ -29,6 +30,7 @@ export default function RegisterScreen({ onSwitch }: Props) {
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [legalDoc, setLegalDoc] = useState<'terms' | 'privacy' | null>(null);
@@ -96,14 +98,23 @@ export default function RegisterScreen({ onSwitch }: Props) {
         autoCapitalize="none"
         keyboardType="email-address"
       />
-      <TextInput
-        style={styles.input}
-        placeholder={t('auth.password')}
-        placeholderTextColor={theme.textMuted}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+      <View style={styles.passwordContainer}>
+        <TextInput
+          style={styles.passwordInput}
+          placeholder={t('auth.password')}
+          placeholderTextColor={theme.textMuted}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry={!showPassword}
+        />
+        <TouchableOpacity
+          onPress={() => setShowPassword(v => !v)}
+          style={styles.eyeBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Feather name={showPassword ? 'eye' : 'eye-off'} size={20} color={theme.textMuted} />
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.checklist}>
         {PASSWORD_REQUIREMENTS.map((req) => {
@@ -218,6 +229,25 @@ function makeStyles(theme: ThemeTokens) {
       marginBottom: 12,
       borderWidth: 1,
       borderColor: theme.border,
+    },
+    passwordContainer: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      borderWidth: 1,
+      borderColor: theme.border,
+      marginBottom: 12,
+    },
+    passwordInput: {
+      flex: 1,
+      padding: 16,
+      fontSize: 15,
+      color: theme.textDark,
+    },
+    eyeBtn: {
+      paddingHorizontal: 16,
     },
     checklist: {
       width: '100%',

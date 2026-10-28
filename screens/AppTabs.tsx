@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Text, View, StyleSheet } from 'react-native';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { Session } from '@supabase/supabase-js';
 import HomeScreen from './HomeScreen';
 import PetsScreen from './PetsScreen';
@@ -98,7 +99,7 @@ export default function AppTabs({
             name="Home"
             options={{
               tabBarLabel: t('tabs.home'),
-              tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>🏠</Text>,
+              tabBarIcon: ({ color }) => <Feather name="home" size={22} color={color} />,
             }}
           >
             {(props) => (
@@ -117,7 +118,7 @@ export default function AppTabs({
             name="Pets"
             options={{
               tabBarLabel: t('tabs.pets'),
-              tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>🐾</Text>,
+              tabBarIcon: ({ color }) => <Ionicons name="paw-outline" size={23} color={color} />,
             }}
             listeners={({ navigation }) => ({
               tabPress: () => {
@@ -145,7 +146,7 @@ export default function AppTabs({
             name="Chat"
             options={{
               tabBarLabel: t('tabs.chat'),
-              tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>💬</Text>,
+              tabBarIcon: ({ color }) => <Feather name="message-circle" size={22} color={color} />,
             }}
           >
             {(props) => (
@@ -162,15 +163,15 @@ export default function AppTabs({
             name="More"
             options={{
               tabBarLabel: t('tabs.more'),
-              tabBarIcon: ({ color, size }) => (
+              tabBarIcon: ({ color }) => (
                 <View>
-                  <Text style={{ fontSize: size, color }}>✨</Text>
+                  <Feather name="grid" size={22} color={color} />
                   {unreadCount > 0 ? (
                     <View
                       style={{
                         position: 'absolute',
-                        top: -1,
-                        right: -3,
+                        top: -2,
+                        right: -4,
                         width: 8,
                         height: 8,
                         borderRadius: 4,

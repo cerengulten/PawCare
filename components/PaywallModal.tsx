@@ -111,7 +111,7 @@ export default function PaywallModal({ onOpenLegal }: Props) {
           {/* Header Close Bar */}
           <View style={styles.headerRow}>
             <View style={styles.headerTag}>
-              <Text style={styles.headerTagText}>PAWCARE PLUS</Text>
+              <Text style={styles.headerTagText}>BISCO PRO</Text>
             </View>
             <TouchableOpacity
               onPress={closePaywall}

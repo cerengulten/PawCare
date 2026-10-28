@@ -36,6 +36,13 @@ type Props = BottomTabScreenProps<RootTabParamList, 'Chat'> & {
   onSwipeBack: () => void;
 };
 
+const STARTER_PROMPTS = [
+  { emoji: '🥩', text: 'Is cooked chicken safe daily?' },
+  { emoji: '💧', text: 'How much water does my dog need?' },
+  { emoji: '🤒', text: 'Common puppy vaccine reactions' },
+  { emoji: '💩', text: 'Soft stool for 2 days — what to do?' },
+];
+
 const SCOPE_INSTRUCTION = `You are a friendly, knowledgeable, and careful pet-care assistant inside the Bisco app.
 IMPORTANT: You are an AI assistant, NOT a veterinarian. You cannot diagnose medical conditions or prescribe medications.
 Only answer questions about: food amounts, safe/toxic foods, hydration, poop/vomit triage, hypoallergenic diet questions, and general symptom guidance. Politely decline anything outside pet care.
@@ -120,8 +127,8 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
     }, [swipeEnabled, onSwipeBack])
   );
 
-  async function handleSend() {
-    const text = input.trim();
+  async function handleSend(overrideText?: string) {
+    const text = (typeof overrideText === 'string' ? overrideText : input).trim();
     if (!text || sending) return;
 
     if (!canSendChatMessage()) {
@@ -226,6 +233,30 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
           </View>
         )}
 
+        {/* Starter Prompt Chips when empty/initial conversation */}
+        {messages.length <= 1 && (
+          <View style={styles.starterChipsContainer}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.starterChipsContent}
+            >
+              {STARTER_PROMPTS.map((prompt, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  style={styles.starterChip}
+                  onPress={() => handleSend(prompt.text)}
+                  activeOpacity={0.7}
+                  disabled={sending}
+                >
+                  <Text style={styles.starterChipEmoji}>{prompt.emoji}</Text>
+                  <Text style={styles.starterChipText}>{prompt.text}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         <View style={styles.composerRow}>
           <TextInput
             style={styles.input}
@@ -238,7 +269,7 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
           />
           <TouchableOpacity
             style={[styles.sendBtn, (sending || !input.trim()) && styles.sendBtnDisabled]}
-            onPress={handleSend}
+            onPress={() => handleSend()}
             disabled={sending || !input.trim()}
           >
             <Text style={styles.sendBtnText}>➤</Text>
@@ -335,6 +366,40 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       color: theme.textDark,
       fontSize: 15,
       lineHeight: 21,
+    },
+    starterChipsContainer: {
+      paddingVertical: 8,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+      backgroundColor: theme.background,
+    },
+    starterChipsContent: {
+      paddingHorizontal: 16,
+      gap: 8,
+    },
+    starterChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: isDarkMode ? '#221C18' : '#FFFFFF',
+      paddingVertical: 7,
+      paddingHorizontal: 12,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: isDarkMode ? '#3B2E24' : '#E8DFD3',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.04,
+      shadowRadius: 3,
+      elevation: 1,
+    },
+    starterChipEmoji: {
+      fontSize: 14,
+    },
+    starterChipText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.textDark,
     },
     composerRow: {
       flexDirection: 'row',

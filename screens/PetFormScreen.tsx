@@ -80,8 +80,13 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
   const suggested = breedTouched ? suggestThemeFamily(breed) : null;
 
   useEffect(() => {
-    if (!themeManuallyPicked && suggested) setSelectedTheme(suggested);
-  }, [suggested]);
+    if (!dog) {
+      const match = suggestThemeFamily(breed);
+      setSelectedTheme(match ?? 'sage_clay');
+    } else if (!themeManuallyPicked && suggested) {
+      setSelectedTheme(suggested);
+    }
+  }, [breed, suggested, dog, themeManuallyPicked]);
 
   function openAndroidDatePicker() {
     DateTimePickerAndroid.open({
@@ -263,26 +268,30 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
           />
         </View>
 
-        <Text style={styles.sectionLabel}>{t('petForm.theme')}</Text>
-        <View style={styles.chipGrid}>
-          {(Object.keys(THEMES) as ThemeFamily[]).map(family => {
-            const selected = family === selectedTheme;
-            const isSuggested = family === suggested && !themeManuallyPicked;
-            return (
-              <TouchableOpacity
-                key={family}
-                style={[styles.chipBtn, selected && styles.chipBtnSelected]}
-                onPress={() => { setSelectedTheme(family); setThemeManuallyPicked(true); }}
-              >
-                <View style={styles.chipRow}>
-                  <View style={[styles.swatchDot, { backgroundColor: THEMES[family].primary }]} />
-                  <Text style={styles.chipBtnLabel}>{THEME_LABELS[family]}</Text>
-                </View>
-                {isSuggested ? <Text style={styles.suggestedLabel}>{t('petForm.suggested')}</Text> : null}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        {dog !== null ? (
+          <>
+            <Text style={styles.sectionLabel}>{t('petForm.theme')}</Text>
+            <View style={styles.chipGrid}>
+              {(Object.keys(THEMES) as ThemeFamily[]).map(family => {
+                const selected = family === selectedTheme;
+                const isSuggested = family === suggested && !themeManuallyPicked;
+                return (
+                  <TouchableOpacity
+                    key={family}
+                    style={[styles.chipBtn, selected && styles.chipBtnSelected]}
+                    onPress={() => { setSelectedTheme(family); setThemeManuallyPicked(true); }}
+                  >
+                    <View style={styles.chipRow}>
+                      <View style={[styles.swatchDot, { backgroundColor: THEMES[family].primary }]} />
+                      <Text style={styles.chipBtnLabel}>{THEME_LABELS[family]}</Text>
+                    </View>
+                    {isSuggested ? <Text style={styles.suggestedLabel}>{t('petForm.suggested')}</Text> : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        ) : null}
 
         <TextInput
           style={styles.input}

@@ -10,7 +10,7 @@ import { useVetAppointments } from '../lib/hooks/useVetAppointments';
 import { VetAppointment } from '../lib/vetAppointments';
 import { getDailyVetTip } from '../lib/vetTips';
 import { computeAge } from '../lib/petAge';
-import { useHabits } from '../lib/hooks/useHabits';
+import { useHabits, getHabitTarget } from '../lib/hooks/useHabits';
 import { useDogMood } from '../lib/hooks/useDogMood';
 import PetSummaryCard from '../components/PetSummaryCard';
 import NearbyVetsSection from '../components/NearbyVetsSection';
@@ -47,7 +47,7 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
 
   const activeDog = dogs.find(d => d.id === selectedDogId) ?? dogs[0] ?? null;
   const activeDogName = activeDog?.name ?? t('home.yourPet');
-  const { habits, completedToday } = useHabits(activeDog?.id ?? '');
+  const { habits, completedToday, completedCounts, logHabitToday, logWaterAmount } = useHabits(activeDog?.id ?? '');
   const { mood } = useDogMood(activeDog?.id ?? '');
   const age = computeAge(activeDog?.birth_date ?? null);
 
@@ -219,49 +219,89 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
               ) : null}
 
               <View style={styles.habitTokensRow}>
-                <TouchableOpacity
-                  style={styles.habitToken}
-                  onPress={() => navigation.navigate('Pets', { dogId: activeDog.id })}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.habitTokenIconBox}>
-                    <Text style={styles.habitTokenIcon}>🥩</Text>
-                  </View>
-                  <View style={styles.habitTokenTextCol}>
-                    <Text style={styles.habitTokenTitle}>Meals</Text>
-                    <Text style={styles.habitTokenSubtitle}>
-                      {completedToday.size > 0 ? 'Logged' : 'Care plan'}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
+                {habits.length > 0 ? (
+                  habits.slice(0, 3).map((habit) => {
+                    const isWater = habit.habit_type === 'water';
+                    const target = getHabitTarget(habit);
+                    const count = completedCounts.get(habit.id) ?? 0;
+                    const isDone = completedToday.has(habit.id);
+                    const icon = isWater ? '💧' : habit.habit_type === 'feeding' ? '🥩' : habit.habit_type === 'walking' ? '🦮' : '⭐';
 
-                <TouchableOpacity
-                  style={styles.habitToken}
-                  onPress={() => navigation.navigate('Pets', { dogId: activeDog.id })}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.habitTokenIconBox}>
-                    <Text style={styles.habitTokenIcon}>🦮</Text>
-                  </View>
-                  <View style={styles.habitTokenTextCol}>
-                    <Text style={styles.habitTokenTitle}>Daily Walk</Text>
-                    <Text style={styles.habitTokenSubtitle}>Activity</Text>
-                  </View>
-                </TouchableOpacity>
+                    return (
+                      <TouchableOpacity
+                        key={habit.id}
+                        style={[
+                          styles.habitToken,
+                          isDone && styles.habitTokenDone,
+                        ]}
+                        onPress={() => {
+                          if (isWater) {
+                            logWaterAmount(habit.id, 150);
+                          } else {
+                            logHabitToday(habit.id);
+                          }
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.habitTokenIconBox, isDone && styles.habitTokenIconBoxDone]}>
+                          <Text style={styles.habitTokenIcon}>{isDone ? '✓' : icon}</Text>
+                        </View>
+                        <View style={styles.habitTokenTextCol}>
+                          <Text style={[styles.habitTokenTitle, isDone && styles.habitTokenTitleDone]} numberOfLines={1}>
+                            {habit.title}
+                          </Text>
+                          <Text style={styles.habitTokenSubtitle} numberOfLines={1}>
+                            {isWater ? `${count}/${target}ml` : isDone ? 'Done ✓' : `${count}/${target}`}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })
+                ) : (
+                  <>
+                    <TouchableOpacity
+                      style={styles.habitToken}
+                      onPress={() => navigation.navigate('Pets', { dogId: activeDog.id })}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.habitTokenIconBox}>
+                        <Text style={styles.habitTokenIcon}>🥩</Text>
+                      </View>
+                      <View style={styles.habitTokenTextCol}>
+                        <Text style={styles.habitTokenTitle}>Meals</Text>
+                        <Text style={styles.habitTokenSubtitle}>Set routine</Text>
+                      </View>
+                    </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.habitToken}
-                  onPress={() => navigation.navigate('Pets', { dogId: activeDog.id })}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.habitTokenIconBox}>
-                    <Text style={styles.habitTokenIcon}>💧</Text>
-                  </View>
-                  <View style={styles.habitTokenTextCol}>
-                    <Text style={styles.habitTokenTitle}>Fresh Water</Text>
-                    <Text style={styles.habitTokenSubtitle}>Hydration</Text>
-                  </View>
-                </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.habitToken}
+                      onPress={() => navigation.navigate('Pets', { dogId: activeDog.id })}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.habitTokenIconBox}>
+                        <Text style={styles.habitTokenIcon}>🦮</Text>
+                      </View>
+                      <View style={styles.habitTokenTextCol}>
+                        <Text style={styles.habitTokenTitle}>Daily Walk</Text>
+                        <Text style={styles.habitTokenSubtitle}>Set routine</Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.habitToken}
+                      onPress={() => navigation.navigate('Pets', { dogId: activeDog.id })}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.habitTokenIconBox}>
+                        <Text style={styles.habitTokenIcon}>💧</Text>
+                      </View>
+                      <View style={styles.habitTokenTextCol}>
+                        <Text style={styles.habitTokenTitle}>Fresh Water</Text>
+                        <Text style={styles.habitTokenSubtitle}>Set routine</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
             </View>
           </View>
@@ -612,7 +652,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
     },
     rhythmProgressBar: {
       height: 6,
-      backgroundColor: isDarkMode ? '#352D27' : '#E6DECة',
+      backgroundColor: isDarkMode ? '#352D27' : '#E6DECE',
       borderRadius: 3,
       overflow: 'hidden',
       marginBottom: 12,
@@ -638,6 +678,10 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       borderWidth: 1,
       borderColor: theme.border,
     },
+    habitTokenDone: {
+      backgroundColor: isDarkMode ? '#1B2721' : '#F0F7F1',
+      borderColor: isDarkMode ? '#2D4438' : '#C7DFC9',
+    },
     habitTokenIconBox: {
       width: 26,
       height: 26,
@@ -645,6 +689,9 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       backgroundColor: theme.surfaceAlt,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    habitTokenIconBoxDone: {
+      backgroundColor: theme.done,
     },
     habitTokenIcon: {
       fontSize: 13,
@@ -657,6 +704,9 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       fontWeight: '700',
       color: theme.textDark,
       lineHeight: 14,
+    },
+    habitTokenTitleDone: {
+      color: theme.done,
     },
     habitTokenSubtitle: {
       fontSize: 9,
