@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { formatAuthError } from '../lib/authErrors';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
@@ -45,7 +46,7 @@ export default function ForgotPasswordScreen({ onBack }: Props) {
     });
     setLoading(false);
     if (error) {
-      setError(error.message);
+      setError(formatAuthError(error, t));
       return;
     }
     setSent(true);

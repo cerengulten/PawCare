@@ -36,13 +36,6 @@ type Props = BottomTabScreenProps<RootTabParamList, 'Chat'> & {
   onSwipeBack: () => void;
 };
 
-const STARTER_PROMPTS = [
-  { emoji: '🥩', text: 'Is cooked chicken safe daily?' },
-  { emoji: '💧', text: 'How much water does my dog need?' },
-  { emoji: '🤒', text: 'Common puppy vaccine reactions' },
-  { emoji: '💩', text: 'Soft stool for 2 days — what to do?' },
-];
-
 const SCOPE_INSTRUCTION = `You are a friendly, knowledgeable, and careful pet-care assistant inside the Bisco app.
 IMPORTANT: You are an AI assistant, NOT a veterinarian. You cannot diagnose medical conditions or prescribe medications.
 Only answer questions about: food amounts, safe/toxic foods, hydration, poop/vomit triage, hypoallergenic diet questions, and general symptom guidance. Politely decline anything outside pet care.
@@ -87,6 +80,13 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
   const [sending, setSending] = useState(false);
   const [swipeEnabled, setSwipeEnabled] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+
+  const starterPrompts = useMemo(() => [
+    { emoji: '🥩', text: t('chat.starterChicken') || 'Is cooked chicken safe daily?' },
+    { emoji: '💧', text: t('chat.starterWater') || 'How much water does my dog need?' },
+    { emoji: '🤒', text: t('chat.starterVaccine') || 'Common puppy vaccine reactions' },
+    { emoji: '💩', text: t('chat.starterPoop') || 'Soft stool for 2 days — what to do?' },
+  ], [t]);
 
   // Tab screens stay mounted in the background (React Navigation doesn't unmount an
   // unfocused tab by default), so switching the active pet elsewhere in the app re-renders
@@ -241,7 +241,7 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.starterChipsContent}
             >
-              {STARTER_PROMPTS.map((prompt, idx) => (
+              {starterPrompts.map((prompt, idx) => (
                 <TouchableOpacity
                   key={idx}
                   style={styles.starterChip}

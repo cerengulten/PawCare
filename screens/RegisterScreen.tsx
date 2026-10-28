@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
+import { formatAuthError } from '../lib/authErrors';
 import { PASSWORD_REQUIREMENTS, isPasswordValid } from '../lib/passwordPolicy';
 import SocialSignInButtons from '../components/SocialSignInButtons';
 import { useTheme } from '../lib/ThemeContext';
@@ -54,7 +55,7 @@ export default function RegisterScreen({ onSwitch }: Props) {
     setError('');
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
-      setError(error.message);
+      setError(formatAuthError(error, t));
     } else if (data?.session) {
       // User automatically signed in when email confirmation is disabled in Supabase
     } else {

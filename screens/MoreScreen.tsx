@@ -325,9 +325,7 @@ export default function MoreScreen({
             </Text>
           </View>
           {updateProfile && checkUsernameAvailable ? (
-            <View style={styles.editProfileBadge}>
-              <Text style={styles.editProfileBadgeText}>✏️ {t('common.edit')}</Text>
-            </View>
+            <Text style={styles.profileChevron}>›</Text>
           ) : null}
         </View>
       </TouchableOpacity>
@@ -818,18 +816,11 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
     profileInfoCol: {
       flex: 1,
     },
-    editProfileBadge: {
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: 12,
-      backgroundColor: theme.surfaceAlt,
-      borderWidth: 1,
-      borderColor: theme.border,
-    },
-    editProfileBadgeText: {
-      fontSize: 12,
+    profileChevron: {
+      fontSize: 22,
       fontWeight: '600',
-      color: theme.primary,
+      color: theme.textMuted,
+      marginLeft: 8,
     },
     sectionTitle: {
       fontSize: 11,

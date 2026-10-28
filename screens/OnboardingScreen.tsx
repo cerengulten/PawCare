@@ -555,6 +555,9 @@ export default function OnboardingScreen({
           {usernameStatus === 'taken' ? (
             <Text style={styles.statusTaken}>{t('onboarding.usernameTaken')}</Text>
           ) : null}
+          {usernameStatus === 'invalid' ? (
+            <Text style={styles.statusTaken}>{t('onboarding.chooseValidUsername')}</Text>
+          ) : null}
 
           {suggestions.length > 0 ? (
             <View style={styles.suggestionsRow}>

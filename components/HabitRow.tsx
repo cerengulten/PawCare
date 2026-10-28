@@ -109,7 +109,12 @@ export default function HabitRow({
             {content}
           </TouchableOpacity>
         ) : undoable ? (
-          <TouchableOpacity style={styles.rowContent} onLongPress={onPressAction} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.rowContent}
+            onPress={onPressAction}
+            onLongPress={onPressAction}
+            activeOpacity={0.7}
+          >
             {content}
           </TouchableOpacity>
         ) : (

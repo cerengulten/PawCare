@@ -11,9 +11,11 @@ import { VetAppointment } from '../lib/vetAppointments';
 import { getDailyVetTip } from '../lib/vetTips';
 import { computeAge } from '../lib/petAge';
 import { useHabits, getHabitTarget } from '../lib/hooks/useHabits';
+import { useAllVaccines } from '../lib/hooks/useAllVaccines';
 import { useDogMood } from '../lib/hooks/useDogMood';
 import PetSummaryCard from '../components/PetSummaryCard';
 import NearbyVetsSection from '../components/NearbyVetsSection';
+import PreventiveCareCard from '../components/PreventiveCareCard';
 import VetAppointmentCard from '../components/VetAppointmentCard';
 import VetAppointmentModal from '../components/VetAppointmentModal';
 import TabTour from '../components/TabTour';
@@ -37,7 +39,7 @@ type Props = BottomTabScreenProps<RootTabParamList, 'Home'> & {
 
 export default function HomeScreen({ navigation, dogs, selectedDogId, profile, updateProfile, checkUsernameAvailable }: Props) {
   const { theme, isDarkMode } = useTheme();
-  const { t } = useT();
+  const { t, lang } = useT();
   const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
   const { streak } = useOverallStreak();
   const [showProfile, setShowProfile] = useState(false);
@@ -47,9 +49,20 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
 
   const activeDog = dogs.find(d => d.id === selectedDogId) ?? dogs[0] ?? null;
   const activeDogName = activeDog?.name ?? t('home.yourPet');
-  const { habits, completedToday, completedCounts, logHabitToday, logWaterAmount } = useHabits(activeDog?.id ?? '');
+  const { habits, completedToday, completedCounts, logHabitToday, logWaterAmount, undoHabitToday, resetWaterToday } = useHabits(activeDog?.id ?? '');
+  const { upcoming: upcomingVaccines, overdue: overdueVaccines } = useAllVaccines();
   const { mood } = useDogMood(activeDog?.id ?? '');
   const age = computeAge(activeDog?.birth_date ?? null);
+
+  const nextPreventiveTreatment = useMemo(() => {
+    const activeOverdue = overdueVaccines.find(v => v.dog_id === activeDog?.id);
+    if (activeOverdue) return activeOverdue;
+    const anyOverdue = overdueVaccines[0];
+    if (anyOverdue) return anyOverdue;
+    const activeUpcoming = upcomingVaccines.find(v => v.dog_id === activeDog?.id);
+    if (activeUpcoming) return activeUpcoming;
+    return upcomingVaccines[0] ?? null;
+  }, [overdueVaccines, upcomingVaccines, activeDog?.id]);
 
   const formattedDate = useMemo(() => {
     try {
@@ -71,10 +84,14 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
     markCompleted,
   } = useVetAppointments();
 
-  const currentTip = useMemo(() => getDailyVetTip(tipOffset), [tipOffset]);
+  const currentTip = useMemo(() => getDailyVetTip(tipOffset, lang), [tipOffset, lang]);
 
   const petStripRef = useRef<View>(null);
   const streakRef = useRef<View>(null);
+  const rhythmRef = useRef<View>(null);
+  const preventiveRef = useRef<View>(null);
+  const vetCardRef = useRef<View>(null);
+  const aiRef = useRef<View>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -186,7 +203,7 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                   <View style={styles.stampBadge}>
                     <View style={styles.stampDot} />
                     <Text style={styles.stampText}>
-                      {mood?.mood === 'sick' ? 'Needs Care' : mood?.mood === 'off' ? 'A Bit Off' : 'Thriving'}
+                      {mood?.mood === 'sick' ? (t('mood.sick') || 'Needs Care') : mood?.mood === 'off' ? (t('mood.off') || 'A Bit Off') : (t('mood.great') || 'Thriving')}
                     </Text>
                   </View>
                 </View>
@@ -197,13 +214,13 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
             </TouchableOpacity>
 
             {/* Daily Care Rhythm Inside the Passport Card */}
-            <View style={styles.rhythmContainer}>
+            <View ref={rhythmRef} collapsable={false} style={styles.rhythmContainer}>
               <View style={styles.rhythmHeader}>
-                <Text style={styles.rhythmTitle}>TODAY'S CARE RHYTHM</Text>
+                <Text style={styles.rhythmTitle}>{t('home.careRhythmTitle') || "TODAY'S CARE RHYTHM"}</Text>
                 <Text style={styles.rhythmCount}>
                   {habits.length > 0
-                    ? `${completedToday.size} of ${habits.length} completed`
-                    : 'Tap to customize habits'}
+                    ? t('home.careRhythmCompleted', { completed: completedToday.size, total: habits.length })
+                    : t('home.careRhythmEmpty')}
                 </Text>
               </View>
 
@@ -211,12 +228,12 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                 <View style={styles.rhythmProgressBar}>
                   <View
                     style={[
-                      styles.rhythmProgressFill,
-                      { width: `${Math.round((completedToday.size / habits.length) * 100)}%` },
-                    ]}
-                  />
-                </View>
-              ) : null}
+                    styles.rhythmProgressFill,
+                    { width: `${Math.round((completedToday.size / habits.length) * 100)}%` },
+                  ]}
+                />
+              </View>
+            ) : null}
 
               <View style={styles.habitTokensRow}>
                 {habits.length > 0 ? (
@@ -236,9 +253,17 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                         ]}
                         onPress={() => {
                           if (isWater) {
-                            logWaterAmount(habit.id, 150);
+                            if (isDone) {
+                              resetWaterToday(habit.id);
+                            } else {
+                              logWaterAmount(habit.id, 150);
+                            }
                           } else {
-                            logHabitToday(habit.id);
+                            if (isDone) {
+                              undoHabitToday(habit.id);
+                            } else {
+                              logHabitToday(habit.id);
+                            }
                           }
                         }}
                         activeOpacity={0.7}
@@ -251,7 +276,7 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                             {habit.title}
                           </Text>
                           <Text style={styles.habitTokenSubtitle} numberOfLines={1}>
-                            {isWater ? `${count}/${target}ml` : isDone ? 'Done ✓' : `${count}/${target}`}
+                            {isWater ? `${count}/${target}ml` : isDone ? `${t('common.done') || 'Done'} ✓` : `${count}/${target}`}
                           </Text>
                         </View>
                       </TouchableOpacity>
@@ -268,8 +293,8 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                         <Text style={styles.habitTokenIcon}>🥩</Text>
                       </View>
                       <View style={styles.habitTokenTextCol}>
-                        <Text style={styles.habitTokenTitle}>Meals</Text>
-                        <Text style={styles.habitTokenSubtitle}>Set routine</Text>
+                        <Text style={styles.habitTokenTitle}>{t('home.defaultMeal') || 'Meals'}</Text>
+                        <Text style={styles.habitTokenSubtitle}>{t('home.setRoutine') || 'Set routine'}</Text>
                       </View>
                     </TouchableOpacity>
 
@@ -282,8 +307,8 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                         <Text style={styles.habitTokenIcon}>🦮</Text>
                       </View>
                       <View style={styles.habitTokenTextCol}>
-                        <Text style={styles.habitTokenTitle}>Daily Walk</Text>
-                        <Text style={styles.habitTokenSubtitle}>Set routine</Text>
+                        <Text style={styles.habitTokenTitle}>{t('home.defaultWalk') || 'Daily Walk'}</Text>
+                        <Text style={styles.habitTokenSubtitle}>{t('home.trackOutdoors') || 'Track outdoors'}</Text>
                       </View>
                     </TouchableOpacity>
 
@@ -296,8 +321,8 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                         <Text style={styles.habitTokenIcon}>💧</Text>
                       </View>
                       <View style={styles.habitTokenTextCol}>
-                        <Text style={styles.habitTokenTitle}>Fresh Water</Text>
-                        <Text style={styles.habitTokenSubtitle}>Set routine</Text>
+                        <Text style={styles.habitTokenTitle}>{t('home.defaultWater') || 'Clean Water'}</Text>
+                        <Text style={styles.habitTokenSubtitle}>{t('home.freshBowl') || 'Fresh bowl'}</Text>
                       </View>
                     </TouchableOpacity>
                   </>
@@ -340,21 +365,44 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
           </View>
         ) : null}
 
-        {/* 4. Cozy "Next Up" Vet Appointment Card (Butter-Cream squircle) */}
-        <VetAppointmentCard
-          appointment={nextAppointment}
-          onSchedulePress={() => {
-            setEditingAppointment(null);
-            setShowVetModal(true);
-          }}
-          onEditPress={(appt) => {
-            setEditingAppointment(appt);
-            setShowVetModal(true);
-          }}
-          onCompletePress={(id) => markCompleted(id)}
-        />
+        {/* 4. Immunity & Parasite Shield Reminder Card */}
+        <View ref={preventiveRef} collapsable={false}>
+          <PreventiveCareCard
+            treatment={nextPreventiveTreatment}
+            onPress={() => {
+              if (activeDog) {
+                navigation.navigate('Pets', { dogId: activeDog.id });
+              } else {
+                navigation.navigate('Pets');
+              }
+            }}
+            onSchedulePress={() => {
+              if (activeDog) {
+                navigation.navigate('Pets', { dogId: activeDog.id });
+              } else {
+                navigation.navigate('Pets');
+              }
+            }}
+          />
+        </View>
 
-        {/* 5. Curated Daily Vet Bite & Care Insight (Pistachio Whisper card) */}
+        {/* 5. Cozy "Next Up" Vet Appointment Card (Butter-Cream squircle) */}
+        <View ref={vetCardRef} collapsable={false}>
+          <VetAppointmentCard
+            appointment={nextAppointment}
+            onSchedulePress={() => {
+              setEditingAppointment(null);
+              setShowVetModal(true);
+            }}
+            onEditPress={(appt) => {
+              setEditingAppointment(appt);
+              setShowVetModal(true);
+            }}
+            onCompletePress={(id) => markCompleted(id)}
+          />
+        </View>
+
+        {/* 6. Curated Daily Vet Bite & Care Insight (Pistachio Whisper card) */}
         <View style={styles.tipCard}>
           <View style={styles.tipHeaderRow}>
             <View style={styles.tipBadge}>
@@ -367,7 +415,7 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
               style={styles.nextTipBtn}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Text style={styles.nextTipText}>↻ Next tip</Text>
+              <Text style={styles.nextTipText}>↻ {t('home.nextTip') || 'Next tip'}</Text>
             </TouchableOpacity>
           </View>
 
@@ -379,34 +427,36 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
             onPress={() => navigation.navigate('Chat', { fromLink: true })}
             activeOpacity={0.7}
           >
-            <Text style={styles.tipAiText}>💬 Ask Bisco AI about this insight</Text>
+            <Text style={styles.tipAiText}>💬 {t('home.askBiscoAboutInsight') || 'Ask Bisco AI about this insight'}</Text>
             <Text style={styles.tipAiChevron}>›</Text>
           </TouchableOpacity>
         </View>
 
-        {/* 6. Warm AI Care Companion Card (Replaces the generic gray bar) */}
-        <TouchableOpacity
-          style={styles.aiCompanionCard}
-          onPress={() => navigation.navigate('Chat', { fromLink: true })}
-          activeOpacity={0.85}
-        >
-          <View style={styles.aiCompanionRow}>
-            <View style={styles.aiCompanionIconBox}>
-              <Text style={styles.aiCompanionIcon}>✨</Text>
+        {/* 7. Warm AI Care Companion Card (Replaces the generic gray bar) */}
+        <View ref={aiRef} collapsable={false}>
+          <TouchableOpacity
+            style={styles.aiCompanionCard}
+            onPress={() => navigation.navigate('Chat', { fromLink: true })}
+            activeOpacity={0.85}
+          >
+            <View style={styles.aiCompanionRow}>
+              <View style={styles.aiCompanionIconBox}>
+                <Text style={styles.aiCompanionIcon}>✨</Text>
+              </View>
+              <View style={styles.aiCompanionTextCol}>
+                <Text style={styles.aiCompanionTitle}>{t('home.careConsultationPrompt') || 'Have a symptom or food question?'}</Text>
+                <Text style={styles.aiCompanionSubtitle}>
+                  {t('home.aiQuestionSubtitle', { name: activeDogName }) || `Ask Bisco AI for fast, vet-informed guidance for ${activeDogName}.`}
+                </Text>
+              </View>
             </View>
-            <View style={styles.aiCompanionTextCol}>
-              <Text style={styles.aiCompanionTitle}>Have a symptom or food question?</Text>
-              <Text style={styles.aiCompanionSubtitle}>
-                Ask Bisco AI for fast, vet-informed guidance for {activeDogName}.
-              </Text>
+            <View style={styles.aiCompanionActionRow}>
+              <Text style={styles.aiCompanionActionText}>{t('home.startCareConsultation') || 'Start Care Consultation →'}</Text>
             </View>
-          </View>
-          <View style={styles.aiCompanionActionRow}>
-            <Text style={styles.aiCompanionActionText}>Start Care Consultation →</Text>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
 
-        {/* 7. Nearby Vet Clinics Preview */}
+        {/* 8. Nearby Vet Clinics Preview */}
         <NearbyVetsSection
           dog={activeDog}
           onOpenVetFinder={() => navigation.navigate('More', { openVetFinder: true })}
@@ -417,8 +467,12 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
           enabled={dogs.length > 0}
           steps={[
             { targetRef: petStripRef, position: 'bottom', title: t('tour.home.s1Title'), body: t('tour.home.s1Body') },
+            { targetRef: rhythmRef, position: 'bottom', title: t('tour.home.s2Title'), body: t('tour.home.s2Body') },
+            { targetRef: preventiveRef, position: 'bottom', title: t('tour.home.s3Title'), body: t('tour.home.s3Body') },
+            { targetRef: vetCardRef, position: 'bottom', title: t('tour.home.s4Title'), body: t('tour.home.s4Body') },
+            { targetRef: aiRef, position: 'top', title: t('tour.home.s5Title'), body: t('tour.home.s5Body') },
             ...(streak > 0
-              ? [{ targetRef: streakRef, position: 'bottom' as const, title: t('tour.home.s2Title'), body: t('tour.home.s2Body') }]
+              ? [{ targetRef: streakRef, position: 'bottom' as const, title: t('tour.home.streakTitle'), body: t('tour.home.streakBody') }]
               : []),
           ]}
         />

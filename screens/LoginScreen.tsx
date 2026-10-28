@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
+import { formatAuthError } from '../lib/authErrors';
 import SocialSignInButtons from '../components/SocialSignInButtons';
 import ForgotPasswordScreen from './ForgotPasswordScreen';
 import { useTheme } from '../lib/ThemeContext';
@@ -43,7 +44,7 @@ export default function LoginScreen({ onSwitch }: Props) {
     setLoading(true);
     setError('');
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setError(error.message);
+    if (error) setError(formatAuthError(error, t));
     setLoading(false);
   }
 

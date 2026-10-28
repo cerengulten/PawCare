@@ -2,65 +2,281 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Bisco Sign-in Bridge</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Bisco · Authentication</title>
 <meta name="robots" content="noindex, nofollow" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --bg: #FBF8F1;
+    --card-bg: #FFFFFF;
     --text: #2B2B26;
     --muted: #7A7563;
+    --primary: #C85A32;
+    --primary-hover: #B24E29;
     --accent: #4C7A56;
+    --border: #E8E2D2;
+    --success: #2E7D32;
+    --error: #C62828;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #1C1D18;
+      --bg: #1A1A16;
+      --card-bg: #24241F;
       --text: #EFEDE4;
-      --muted: #9C9987;
+      --muted: #A3A090;
+      --primary: #E06D44;
+      --primary-hover: #C85A32;
       --accent: #7FB58A;
+      --border: #383830;
+      --success: #81C784;
+      --error: #E57373;
     }
   }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    text-align: center;
+    padding: 20px;
   }
-  .wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
-  .dot {
-    width: 10px; height: 10px; border-radius: 50%;
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 32px 24px;
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.06);
+  }
+  .logo {
+    font-size: 44px;
+    margin-bottom: 12px;
+    display: inline-block;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    letter-spacing: -0.3px;
+  }
+  p.subtitle {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.45;
+    margin-bottom: 24px;
+  }
+  .btn {
+    display: block;
+    width: 100%;
+    background: var(--primary);
+    color: #FFFFFF !important;
+    text-decoration: none;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 14px 20px;
+    border-radius: 14px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+  .btn:hover {
+    background: var(--primary-hover);
+  }
+  .btn:active {
+    transform: scale(0.98);
+  }
+  .divider {
+    display: flex;
+    align-items: center;
+    margin: 24px 0;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .divider::before, .divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .divider span {
+    padding: 0 10px;
+  }
+  .web-form {
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .input-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  input[type="password"] {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 15px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+  }
+  input[type="password"]:focus {
+    border-color: var(--primary);
+  }
+  .btn-secondary {
     background: var(--accent);
-    animation: pulse 1.1s ease-in-out infinite;
+    color: #FFFFFF !important;
+  }
+  .status-msg {
+    margin-top: 14px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .status-msg.error { color: var(--error); }
+  .status-msg.success { color: var(--success); }
+  .pulse-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent);
+    display: inline-block;
+    margin-right: 6px;
+    animation: pulse 1.2s infinite ease-in-out;
   }
   @keyframes pulse {
-    0%, 100% { opacity: 0.35; transform: scale(0.85); }
-    50% { opacity: 1; transform: scale(1); }
-  }
-  p { margin: 0; font-size: 15px; color: var(--muted); }
-  @media (prefers-reduced-motion: reduce) {
-    .dot { animation: none; opacity: 0.8; }
+    0%, 100% { opacity: 0.3; transform: scale(0.85); }
+    50% { opacity: 1; transform: scale(1.15); }
   }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="dot"></div>
-  <p id="msg">Taking you back to the app&hellip;</p>
+
+<div class="card">
+  <div class="logo">🐾</div>
+  <h1>Back to Bisco</h1>
+  <p class="subtitle" id="subtitle">Taking you into the app to complete your authentication…</p>
+
+  <a id="openAppBtn" class="btn" href="#">Open Bisco App</a>
+
+  <div id="resetSection" style="display: none;">
+    <div class="divider"><span>Or reset right here</span></div>
+
+    <form class="web-form" id="resetForm" onsubmit="handleWebReset(event)">
+      <div>
+        <label class="input-label" for="newPw">New Password (at least 6 characters)</label>
+        <input type="password" id="newPw" required minlength="6" placeholder="Enter new password" />
+      </div>
+      <div>
+        <label class="input-label" for="confirmPw">Confirm Password</label>
+        <input type="password" id="confirmPw" required minlength="6" placeholder="Repeat new password" />
+      </div>
+      <button type="submit" class="btn btn-secondary" id="savePwBtn">Save New Password</button>
+      <div id="statusMsg" class="status-msg"></div>
+    </form>
+  </div>
 </div>
+
 <script>
+  var SUPABASE_URL = "https://dkccsdlbgjthcexucpeq.supabase.co";
+  var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRrY2NzZGxiZ2p0aGNleHVjcGVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwODEzODEsImV4cCI6MjA5ODY1NzM4MX0.ORVucmZYEWeRQeMXuFv7hW7Rm5u1GN8nWm4r1fyeE68";
+
   var params = new URLSearchParams(window.location.search);
   var target = params.get('target');
-  if (target) {
-    window.location.replace(target + window.location.hash);
+  var hash = window.location.hash || '';
+
+  // Extract tokens from hash if present
+  var hashParams = new URLSearchParams(hash.replace(/^#/, ''));
+  var accessToken = hashParams.get('access_token');
+  var refreshToken = hashParams.get('refresh_token');
+  var type = hashParams.get('type');
+
+  var finalUrl = (target ? target : 'bisco://') + hash;
+  var openBtn = document.getElementById('openAppBtn');
+  var subtitle = document.getElementById('subtitle');
+  var resetSection = document.getElementById('resetSection');
+
+  openBtn.href = finalUrl;
+  openBtn.addEventListener('click', function(e) {
+    window.location.href = finalUrl;
+  });
+
+  // Attempt auto-redirect once
+  try {
+    window.location.href = finalUrl;
+  } catch (e) {}
+
+  if (type === 'recovery' && accessToken) {
+    subtitle.textContent = "Tap below to open the Bisco app and reset your password, or set it directly in your browser:";
+    resetSection.style.display = 'block';
+  } else if (target) {
+    subtitle.innerHTML = '<span class="pulse-dot"></span>Redirecting to Bisco app… If it doesn\'t open automatically, tap the button above.';
   } else {
-    document.getElementById('msg').textContent =
-      'Missing redirect target — open this link from the app, not directly.';
+    subtitle.textContent = "Open the Bisco app to continue.";
+  }
+
+  async function handleWebReset(e) {
+    e.preventDefault();
+    var p1 = document.getElementById('newPw').value;
+    var p2 = document.getElementById('confirmPw').value;
+    var msg = document.getElementById('statusMsg');
+    var btn = document.getElementById('savePwBtn');
+
+    msg.className = 'status-msg';
+    msg.textContent = '';
+
+    if (p1.length < 6) {
+      msg.className = 'status-msg error';
+      msg.textContent = 'Password must be at least 6 characters.';
+      return;
+    }
+    if (p1 !== p2) {
+      msg.className = 'status-msg error';
+      msg.textContent = 'Passwords do not match.';
+      return;
+    }
+
+    try {
+      btn.disabled = true;
+      btn.textContent = 'Updating password…';
+
+      var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+      // Set the session with the token from the recovery email
+      var sessionRes = await sb.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken || ''
+      });
+
+      if (sessionRes.error) {
+        throw sessionRes.error;
+      }
+
+      var updateRes = await sb.auth.updateUser({ password: p1 });
+      if (updateRes.error) {
+        throw updateRes.error;
+      }
+
+      msg.className = 'status-msg success';
+      msg.textContent = '✓ Password updated successfully! You can now open Bisco and sign in with your new password.';
+      btn.style.display = 'none';
+      document.getElementById('newPw').disabled = true;
+      document.getElementById('confirmPw').disabled = true;
+    } catch (err) {
+      msg.className = 'status-msg error';
+      msg.textContent = err.message || 'Failed to update password. Please try again.';
+      btn.disabled = false;
+      btn.textContent = 'Save New Password';
+    }
   }
 </script>
+
 </body>
 </html>
