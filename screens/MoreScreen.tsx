@@ -376,6 +376,7 @@ export default function MoreScreen({
                 vaccine={v}
                 isOverdue={overdue.includes(v)}
                 dogName={v.dogName}
+                compact
                 onPress={() => navigation.navigate('Pets', { dogId: v.dog_id })}
               />
               {idx < allUpcoming.length - 1 ? <View style={styles.divider} /> : null}

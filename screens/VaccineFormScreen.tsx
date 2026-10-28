@@ -22,6 +22,14 @@ import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
+import {
+  TreatmentType,
+  TREATMENT_PRESETS,
+  detectTreatmentType,
+  detectCadenceMonths,
+  cleanTreatmentNotes,
+  encodeTreatmentMeta,
+} from '../lib/treatmentLogic';
 
 type UseVaccinesReturn = ReturnType<typeof useVaccines>;
 
@@ -41,8 +49,6 @@ function toDateOnlyString(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-// Strict YYYY-MM-DD parser: rejects malformed input and calendar-invalid dates
-// (e.g. 2027-02-30) instead of letting the JS Date constructor silently roll them over.
 function parseUserDateInput(s: string): Date | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
   if (!match) return null;
@@ -55,7 +61,9 @@ function parseUserDateInput(s: string): Date | null {
 }
 
 function addMonths(base: Date, months: number): Date {
-  return new Date(base.getFullYear(), base.getMonth() + months, base.getDate());
+  const d = new Date(base.getTime());
+  d.setMonth(d.getMonth() + months);
+  return d;
 }
 
 function getMinNextDueDate(): Date {
@@ -64,6 +72,20 @@ function getMinNextDueDate(): Date {
   d.setDate(d.getDate() + 1);
   return d;
 }
+
+const CATEGORIES: { type: TreatmentType; labelKey: string; defaultLabel: string; emoji: string }[] = [
+  { type: 'vaccine', labelKey: 'treatments.types.vaccine', defaultLabel: 'Vaccine', emoji: '💉' },
+  { type: 'external_parasite', labelKey: 'treatments.types.external', defaultLabel: 'Flea & Tick', emoji: '🪲' },
+  { type: 'internal_parasite', labelKey: 'treatments.types.internal', defaultLabel: 'Deworming', emoji: '🪱' },
+  { type: 'heartworm', labelKey: 'treatments.types.heartworm', defaultLabel: 'Heartworm', emoji: '❤️' },
+];
+
+const CADENCE_OPTIONS = [
+  { months: 1, labelKey: 'treatments.cadence.oneMonth', defaultLabel: '1 Month' },
+  { months: 3, labelKey: 'treatments.cadence.threeMonths', defaultLabel: '3 Months' },
+  { months: 6, labelKey: 'treatments.cadence.sixMonths', defaultLabel: '6 Months' },
+  { months: 12, labelKey: 'treatments.cadence.oneYear', defaultLabel: '1 Year' },
+];
 
 export default function VaccineFormScreen({
   vaccine,
@@ -75,12 +97,22 @@ export default function VaccineFormScreen({
 }: Props) {
   const { theme, isDarkMode } = useTheme();
   const { t } = useT();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
+
+  const initialType = vaccine ? detectTreatmentType(vaccine.vaccine_name, vaccine.notes) : 'vaccine';
+  const initialCadence = vaccine ? detectCadenceMonths(initialType, vaccine.notes, vaccine.vaccine_name) : 12;
+
+  const [treatmentType, setTreatmentType] = useState<TreatmentType>(initialType);
+  const [cadenceMonths, setCadenceMonths] = useState<number>(initialCadence);
   const [vaccineName, setVaccineName] = useState(vaccine?.vaccine_name ?? '');
-  const [dateGivenText, setDateGivenText] = useState(vaccine?.date_given?.slice(0, 10) ?? '');
-  const [nextDueDateText, setNextDueDateText] = useState(vaccine?.next_due_date?.slice(0, 10) ?? '');
-  const [notes, setNotes] = useState(vaccine?.notes ?? '');
-  const [reminderEnabled, setReminderEnabled] = useState(vaccine?.reminder_enabled ?? false);
+  const [dateGivenText, setDateGivenText] = useState(
+    vaccine?.date_given?.slice(0, 10) ?? toDateOnlyString(new Date())
+  );
+  const [nextDueDateText, setNextDueDateText] = useState(
+    vaccine?.next_due_date?.slice(0, 10) ?? toDateOnlyString(addMonths(new Date(), initialCadence))
+  );
+  const [userNotes, setUserNotes] = useState(cleanTreatmentNotes(vaccine?.notes));
+  const [reminderEnabled, setReminderEnabled] = useState(vaccine?.reminder_enabled ?? true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -89,11 +121,37 @@ export default function VaccineFormScreen({
   const nextDuePickerValue =
     parsedNextDueDate && parsedNextDueDate >= minNextDueDate ? parsedNextDueDate : minNextDueDate;
 
+  function handleSelectCategory(type: TreatmentType) {
+    setTreatmentType(type);
+    let defaultCadence = 12;
+    if (type === 'external_parasite' || type === 'heartworm') defaultCadence = 1;
+    if (type === 'internal_parasite') defaultCadence = 3;
+
+    setCadenceMonths(defaultCadence);
+    const base = parseUserDateInput(dateGivenText) ?? new Date();
+    setNextDueDateText(toDateOnlyString(addMonths(base, defaultCadence)));
+  }
+
+  function handleSelectPreset(preset: typeof TREATMENT_PRESETS['vaccine'][0]) {
+    setVaccineName(preset.defaultName);
+    setTreatmentType(preset.type);
+    setCadenceMonths(preset.cadenceMonths);
+    const base = parseUserDateInput(dateGivenText) ?? new Date();
+    setNextDueDateText(toDateOnlyString(addMonths(base, preset.cadenceMonths)));
+    setReminderEnabled(true);
+  }
+
+  function handleSelectCadence(months: number) {
+    setCadenceMonths(months);
+    const base = parseUserDateInput(dateGivenText) ?? new Date();
+    setNextDueDateText(toDateOnlyString(addMonths(base, months)));
+  }
+
   async function handleToggleReminder(value: boolean) {
     if (value) {
       const granted = await requestNotificationPermissions();
       if (!granted) {
-        setError(t('vaccineForm.notifPermission'));
+        setError(t('vaccineForm.notifPermission') || 'Please enable notifications in device settings');
         return;
       }
     }
@@ -107,7 +165,11 @@ export default function VaccineFormScreen({
       mode: 'date',
       maximumDate: new Date(),
       onChange: (_event: DateTimePickerEvent, selected?: Date) => {
-        if (selected) setDateGivenText(toDateOnlyString(selected));
+        if (selected) {
+          const selectedStr = toDateOnlyString(selected);
+          setDateGivenText(selectedStr);
+          setNextDueDateText(toDateOnlyString(addMonths(selected, cadenceMonths)));
+        }
       },
     });
   }
@@ -123,16 +185,10 @@ export default function VaccineFormScreen({
     });
   }
 
-  function applyQuickDueDate(monthsToAdd: number) {
-    const base = parseUserDateInput(dateGivenText) ?? new Date();
-    setNextDueDateText(toDateOnlyString(addMonths(base, monthsToAdd)));
-    setError('');
-  }
-
   async function handleSave() {
     const trimmedName = vaccineName.trim();
     if (!trimmedName) {
-      setError(t('vaccineForm.nameRequired'));
+      setError(t('vaccineForm.nameRequired') || 'Treatment name is required.');
       return;
     }
 
@@ -140,47 +196,48 @@ export default function VaccineFormScreen({
     if (dateGivenText.trim()) {
       dateGiven = parseUserDateInput(dateGivenText);
       if (!dateGiven) {
-        setError(t('vaccineForm.dateGivenInvalid'));
+        setError(t('vaccineForm.dateGivenInvalid') || 'Invalid given date format.');
         return;
       }
       if (dateGiven > new Date()) {
-        setError(t('vaccineForm.dateGivenFuture'));
+        setError(t('vaccineForm.dateGivenFuture') || 'Given date cannot be in the future.');
         return;
       }
     }
 
     if (!nextDueDateText.trim()) {
-      setError(t('vaccineForm.dueDateRequired'));
+      setError(t('vaccineForm.dueDateRequired') || 'Next due date is required.');
       return;
     }
     if (!parsedNextDueDate) {
-      setError(t('vaccineForm.nextDueInvalid'));
+      setError(t('vaccineForm.nextDueInvalid') || 'Invalid next due date format.');
       return;
     }
     if (parsedNextDueDate < minNextDueDate) {
-      setError(t('vaccineForm.nextDueFuture'));
+      setError(t('vaccineForm.nextDueFuture') || 'Due date must be in the future.');
       return;
     }
-    const nextDueDate = parsedNextDueDate;
 
     setLoading(true);
     setError('');
 
+    const encodedNotes = encodeTreatmentMeta(treatmentType, cadenceMonths, userNotes);
+
     const payload = {
       vaccine_name: trimmedName,
       date_given: dateGiven ? toDateOnlyString(dateGiven) : null,
-      next_due_date: toDateOnlyString(nextDueDate),
-      notes: notes.trim() || null,
+      next_due_date: toDateOnlyString(parsedNextDueDate),
+      notes: encodedNotes || null,
       reminder_enabled: reminderEnabled,
     };
 
-    const { error } = vaccine
+    const { error: saveError } = vaccine
       ? await updateVaccine(vaccine.id, payload)
       : await addVaccine(payload);
 
     setLoading(false);
-    if (error) {
-      setError(error.message);
+    if (saveError) {
+      setError(saveError.message);
       return;
     }
     onDone();
@@ -189,220 +246,355 @@ export default function VaccineFormScreen({
   async function handleDelete() {
     if (!vaccine) return;
     setLoading(true);
-    const { error } = await deleteVaccine(vaccine.id);
+    const { error: delError } = await deleteVaccine(vaccine.id);
     setLoading(false);
-    if (error) {
-      setError(error.message);
+    if (delError) {
+      setError(delError.message);
       return;
     }
     onDone();
   }
 
+  const presetsForCategory = TREATMENT_PRESETS[treatmentType] || [];
+
   return (
     <SwipeBackWrapper onBack={onCancel}>
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>{vaccine ? t('vaccineForm.editTitle') : t('vaccineForm.addTitle')}</Text>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <View style={styles.topBar}>
+            <TouchableOpacity onPress={onCancel} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Text style={styles.backBtnText}>‹ {t('common.cancel') || 'Cancel'}</Text>
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>
+              {vaccine ? (t('vaccineForm.editTitle') || 'Edit Care Plan') : (t('treatments.addTitle') || 'Add Preventive Care')}
+            </Text>
+            <View style={{ width: 60 }} />
+          </View>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        {/* Quick Treatment & Vaccine Presets */}
-        <View style={styles.treatmentPresetsRow}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.treatmentPresetsScroll}>
-            {[
-              { label: `🪱 ${t('vaccineForm.internalParasite')}`, name: t('vaccineForm.internalParasite'), months: 3 },
-              { label: `🪲 ${t('vaccineForm.externalParasite')}`, name: t('vaccineForm.externalParasite'), months: 1 },
-              { label: `❤️ ${t('vaccineForm.heartworm')}`, name: t('vaccineForm.heartworm'), months: 1 },
-              { label: `💉 ${t('vaccineForm.coreVaccine')}`, name: t('vaccineForm.coreVaccine'), months: 12 },
-              { label: `🐕 ${t('vaccineForm.rabiesVaccine')}`, name: t('vaccineForm.rabiesVaccine'), months: 12 },
-            ].map((preset, idx) => {
-              const isActive = vaccineName.trim().toLowerCase() === preset.name.toLowerCase();
-              return (
-                <TouchableOpacity
-                  key={idx}
-                  style={[styles.presetChip, isActive && styles.presetChipActive]}
-                  onPress={() => {
-                    setVaccineName(preset.name);
-                    applyQuickDueDate(preset.months);
-                    handleToggleReminder(true);
+          {/* STEP 1: WHAT ARE YOU LOGGING? */}
+          <View style={styles.sectionCard}>
+            <Text style={styles.stepBadge}>STEP 1 · CATEGORY</Text>
+            <Text style={styles.sectionHeader}>{t('treatments.whatAreYouLogging') || 'What are you logging?'}</Text>
+            <View style={styles.categoryGrid}>
+              {CATEGORIES.map((cat) => {
+                const isSelected = treatmentType === cat.type;
+                return (
+                  <TouchableOpacity
+                    key={cat.type}
+                    style={[styles.categoryCard, isSelected && styles.categoryCardSelected]}
+                    onPress={() => handleSelectCategory(cat.type)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.categoryCardEmoji}>{cat.emoji}</Text>
+                    <Text style={[styles.categoryCardText, isSelected && styles.categoryCardTextSelected]}>
+                      {t(cat.labelKey) || cat.defaultLabel}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* STEP 2: POPULAR PRESETS & BRANDS */}
+          <View style={styles.sectionCard}>
+            <Text style={styles.stepBadge}>STEP 2 · TREATMENT & BRAND</Text>
+            <Text style={styles.sectionHeader}>{t('treatments.popularPresets') || 'Popular Brands & Types'}</Text>
+            <View style={styles.presetsRow}>
+              {presetsForCategory.map((preset, idx) => {
+                const isSelected = vaccineName.trim().toLowerCase() === preset.defaultName.toLowerCase();
+                return (
+                  <TouchableOpacity
+                    key={idx}
+                    style={[styles.presetChip, isSelected && styles.presetChipSelected]}
+                    onPress={() => handleSelectPreset(preset)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.presetChipText, isSelected && styles.presetChipTextSelected]}>
+                      {preset.emoji} {preset.defaultName}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <TextInput
+              style={styles.nameInput}
+              placeholder={t('treatments.namePlaceholder') || 'e.g. Bravecto, Rabies, NexGard...'}
+              placeholderTextColor={theme.textMuted}
+              value={vaccineName}
+              onChangeText={setVaccineName}
+            />
+          </View>
+
+          {/* STEP 3: REPEAT CADENCE */}
+          <View style={styles.sectionCard}>
+            <Text style={styles.stepBadge}>STEP 3 · REPEAT CADENCE</Text>
+            <Text style={styles.sectionHeader}>{t('treatments.cadenceHeader') || 'How often does this repeat?'}</Text>
+            <View style={styles.cadenceRow}>
+              {CADENCE_OPTIONS.map((opt) => {
+                const isSelected = cadenceMonths === opt.months;
+                return (
+                  <TouchableOpacity
+                    key={opt.months}
+                    style={[styles.cadenceChip, isSelected && styles.cadenceChipSelected]}
+                    onPress={() => handleSelectCadence(opt.months)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.cadenceChipText, isSelected && styles.cadenceChipTextSelected]}>
+                      {t(opt.labelKey) || opt.defaultLabel}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* STEP 4: SCHEDULE & REMINDERS */}
+          <View style={styles.sectionCard}>
+            <Text style={styles.stepBadge}>STEP 4 · SCHEDULE & REMINDER</Text>
+            <Text style={styles.sectionHeader}>{t('treatments.datesAndReminders') || 'Schedule'}</Text>
+
+            {/* Date Given */}
+            <Text style={styles.fieldLabel}>{t('treatments.lastGivenLabel') || 'Date administered (optional)'}</Text>
+            <View style={styles.dateRow}>
+              <TextInput
+                style={[styles.input, styles.dateInput]}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={theme.textMuted}
+                value={dateGivenText}
+                onChangeText={(val) => {
+                  setDateGivenText(val);
+                  const parsed = parseUserDateInput(val);
+                  if (parsed) setNextDueDateText(toDateOnlyString(addMonths(parsed, cadenceMonths)));
+                }}
+                autoCapitalize="none"
+              />
+              {Platform.OS === 'ios' ? (
+                <DateTimePicker
+                  value={parseUserDateInput(dateGivenText) ?? new Date()}
+                  mode="date"
+                  display="compact"
+                  themeVariant={isDarkMode ? 'dark' : 'light'}
+                  accentColor={theme.primary}
+                  maximumDate={new Date()}
+                  onChange={(_e: DateTimePickerEvent, selected?: Date) => {
+                    if (selected) {
+                      setDateGivenText(toDateOnlyString(selected));
+                      setNextDueDateText(toDateOnlyString(addMonths(selected, cadenceMonths)));
+                    }
                   }}
-                  activeOpacity={0.75}
-                >
-                  <Text style={[styles.presetChipText, isActive && styles.presetChipTextActive]}>
-                    {preset.label}
-                  </Text>
+                />
+              ) : (
+                <TouchableOpacity style={styles.calendarButton} onPress={openAndroidDateGivenPicker}>
+                  <Text style={styles.calendarButtonText}>📅</Text>
                 </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
+              )}
+            </View>
 
-        <TextInput
-          style={styles.input}
-          placeholder={t('vaccineForm.name')}
-          placeholderTextColor={theme.textMuted}
-          value={vaccineName}
-          onChangeText={setVaccineName}
-        />
+            {/* Next Due Date */}
+            <Text style={styles.fieldLabel}>{t('treatments.nextDueLabel') || 'Next dose due date'}</Text>
+            <View style={styles.dateRow}>
+              <TextInput
+                style={[styles.input, styles.dateInput]}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={theme.textMuted}
+                value={nextDueDateText}
+                onChangeText={setNextDueDateText}
+                autoCapitalize="none"
+              />
+              {Platform.OS === 'ios' ? (
+                <DateTimePicker
+                  value={nextDuePickerValue}
+                  mode="date"
+                  display="compact"
+                  themeVariant={isDarkMode ? 'dark' : 'light'}
+                  accentColor={theme.primary}
+                  minimumDate={minNextDueDate}
+                  onChange={(_e: DateTimePickerEvent, selected?: Date) => {
+                    if (selected) setNextDueDateText(toDateOnlyString(selected));
+                  }}
+                />
+              ) : (
+                <TouchableOpacity style={styles.calendarButton} onPress={openAndroidNextDuePicker}>
+                  <Text style={styles.calendarButtonText}>📅</Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
-        <View style={styles.dateRow}>
-          <TextInput
-            style={[styles.input, styles.dateInput]}
-            placeholder={t('vaccineForm.dateGivenPlaceholder')}
-            placeholderTextColor={theme.textMuted}
-            value={dateGivenText}
-            onChangeText={setDateGivenText}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {Platform.OS === 'ios' ? (
-            <DateTimePicker
-              value={parseUserDateInput(dateGivenText) ?? new Date()}
-              mode="date"
-              display="compact"
-              themeVariant={isDarkMode ? 'dark' : 'light'}
-              accentColor={theme.primary}
-              maximumDate={new Date()}
-              onChange={(_e: DateTimePickerEvent, selected?: Date) => {
-                if (selected) setDateGivenText(toDateOnlyString(selected));
-              }}
+            {/* Reminder Toggle */}
+            <View style={styles.reminderRow}>
+              <View style={styles.reminderInfo}>
+                <Text style={styles.reminderLabel}>{t('vaccineForm.remindOnDueDate') || 'Remind on due date'}</Text>
+                <Text style={styles.reminderSubtitle}>
+                  {t('treatments.reminderDesc') || 'Push alert when booster or next chew is due'}
+                </Text>
+              </View>
+              <Switch
+                value={reminderEnabled}
+                onValueChange={handleToggleReminder}
+                trackColor={{ false: theme.border, true: theme.primary }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+
+            {/* Notes */}
+            <TextInput
+              style={[styles.input, styles.notesInput]}
+              placeholder={t('vaccineForm.notesOptional') || 'Notes, clinic, or dosage instructions (optional)...'}
+              placeholderTextColor={theme.textMuted}
+              value={userNotes}
+              onChangeText={setUserNotes}
+              multiline
             />
-          ) : (
-            <TouchableOpacity style={styles.calendarButton} onPress={openAndroidDateGivenPicker}>
-              <Text style={styles.calendarButtonText}>📅</Text>
+          </View>
+
+          {/* Action Buttons */}
+          <TouchableOpacity
+            style={styles.saveBtn}
+            onPress={handleSave}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.saveBtnText}>
+                {vaccine ? (t('common.save') || 'Save Changes') : (t('treatments.saveToPlan') || 'Save to Care Plan →')}
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          {vaccine ? (
+            <TouchableOpacity onPress={handleDelete} style={styles.deleteRow} disabled={loading}>
+              <Text style={styles.deleteText}>{t('common.delete') || 'Delete from plan'}</Text>
             </TouchableOpacity>
-          )}
-        </View>
-
-        <View style={styles.quickRow}>
-          <TouchableOpacity style={styles.quickChip} onPress={() => applyQuickDueDate(1)}>
-            <Text style={styles.quickChipText}>{t('vaccineForm.oneMonth')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.quickChip} onPress={() => applyQuickDueDate(2)}>
-            <Text style={styles.quickChipText}>{t('vaccineForm.twoMonths')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.quickChip} onPress={() => applyQuickDueDate(3)}>
-            <Text style={styles.quickChipText}>{t('vaccineForm.threeMonths')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.quickChip} onPress={() => applyQuickDueDate(6)}>
-            <Text style={styles.quickChipText}>{t('vaccineForm.sixMonths')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.quickChip} onPress={() => applyQuickDueDate(12)}>
-            <Text style={styles.quickChipText}>{t('vaccineForm.oneYear')}</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.dateRow}>
-          <TextInput
-            style={[styles.input, styles.dateInput]}
-            placeholder={t('vaccineForm.nextDuePlaceholder')}
-            placeholderTextColor={theme.textMuted}
-            value={nextDueDateText}
-            onChangeText={setNextDueDateText}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {Platform.OS === 'ios' ? (
-            <DateTimePicker
-              value={nextDuePickerValue}
-              mode="date"
-              display="compact"
-              themeVariant={isDarkMode ? 'dark' : 'light'}
-              accentColor={theme.primary}
-              minimumDate={minNextDueDate}
-              onChange={(_e: DateTimePickerEvent, selected?: Date) => {
-                if (selected) setNextDueDateText(toDateOnlyString(selected));
-              }}
-            />
-          ) : (
-            <TouchableOpacity style={styles.calendarButton} onPress={openAndroidNextDuePicker}>
-              <Text style={styles.calendarButtonText}>📅</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <View style={styles.reminderRow}>
-          <Text style={styles.reminderLabel}>{t('vaccineForm.remindOnDueDate')}</Text>
-          <Switch
-            value={reminderEnabled}
-            onValueChange={handleToggleReminder}
-            trackColor={{ false: theme.border, true: theme.primary }}
-            thumbColor="white"
-          />
-        </View>
-
-        <TextInput
-          style={[styles.input, styles.notesInput]}
-          placeholder={t('vaccineForm.notesOptional')}
-          placeholderTextColor={theme.textMuted}
-          value={notes}
-          onChangeText={setNotes}
-          multiline
-        />
-
-        <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading}>
-          {loading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.buttonText}>{t('common.save')}</Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
-          <Text style={styles.switchLink}>{t('common.cancel')}</Text>
-        </TouchableOpacity>
-
-        {vaccine ? (
-          <TouchableOpacity onPress={handleDelete} style={styles.switchRow} disabled={loading}>
-            <Text style={styles.deleteLink}>{t('vaccineForm.deleteVaccine')}</Text>
-          </TouchableOpacity>
-        ) : null}
-      </ScrollView>
-    </KeyboardAvoidingView>
+          ) : null}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SwipeBackWrapper>
   );
 }
 
-function makeStyles(theme: ThemeTokens) {
+function makeStyles(theme: ThemeTokens, isDark = false) {
   return StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: theme.background,
     },
     scrollContent: {
-      padding: 24,
-      alignItems: 'center',
+      padding: 16,
+      paddingTop: Platform.OS === 'ios' ? 54 : 40,
+      paddingBottom: 40,
     },
-    title: {
-      fontSize: 26,
+    topBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+    },
+    backBtn: {
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+    },
+    backBtnText: {
+      fontSize: 15,
+      color: theme.primary,
+      fontWeight: '600',
+    },
+    headerTitle: {
+      fontSize: 18,
       fontWeight: '700',
       color: theme.textDark,
-      marginBottom: 20,
     },
     error: {
       color: theme.allergenText,
       fontSize: 13,
       marginBottom: 12,
       textAlign: 'center',
+      backgroundColor: theme.allergenBg,
+      padding: 10,
+      borderRadius: 12,
     },
-    treatmentPresetsRow: {
+    sectionCard: {
+      backgroundColor: theme.surface,
+      borderRadius: 20,
+      padding: 16,
+      marginBottom: 16,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDark ? 0.2 : 0.04,
+      shadowRadius: 6,
+      elevation: 2,
+    },
+    stepBadge: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: theme.primary,
+      letterSpacing: 0.6,
+      marginBottom: 4,
+    },
+    sectionHeader: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: theme.textDark,
       marginBottom: 12,
     },
-    treatmentPresetsScroll: {
+    categoryGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+    },
+    categoryCard: {
+      width: '48%',
+      flexDirection: 'row',
+      alignItems: 'center',
       gap: 8,
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+      borderRadius: 14,
+      backgroundColor: theme.surfaceAlt,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+    },
+    categoryCardSelected: {
+      backgroundColor: theme.moodSelBg,
+      borderColor: theme.primary,
+    },
+    categoryCardEmoji: {
+      fontSize: 18,
+    },
+    categoryCardText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.textDark,
+      flex: 1,
+    },
+    categoryCardTextSelected: {
+      color: theme.primary,
+      fontWeight: '700',
+    },
+    presetsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 12,
     },
     presetChip: {
       paddingHorizontal: 12,
       paddingVertical: 8,
       borderRadius: 12,
-      backgroundColor: theme.surface,
+      backgroundColor: theme.surfaceAlt,
       borderWidth: 1,
       borderColor: theme.border,
     },
-    presetChipActive: {
+    presetChipSelected: {
       backgroundColor: theme.moodSelBg,
       borderColor: theme.primary,
     },
@@ -411,39 +603,78 @@ function makeStyles(theme: ThemeTokens) {
       fontWeight: '600',
       color: theme.textDark,
     },
-    presetChipTextActive: {
+    presetChipTextSelected: {
       color: theme.primary,
       fontWeight: '700',
     },
-    input: {
+    nameInput: {
       width: '100%',
-      backgroundColor: theme.surface,
-      borderRadius: theme.radiiCard,
-      padding: 16,
+      backgroundColor: theme.background,
+      borderRadius: 14,
+      padding: 14,
       fontSize: 15,
       color: theme.textDark,
-      marginBottom: 12,
       borderWidth: 1,
       borderColor: theme.border,
     },
-    notesInput: {
-      minHeight: 80,
-      textAlignVertical: 'top',
+    cadenceRow: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    cadenceChip: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 12,
+      backgroundColor: theme.surfaceAlt,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    cadenceChipSelected: {
+      backgroundColor: theme.moodSelBg,
+      borderColor: theme.primary,
+    },
+    cadenceChipText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    cadenceChipTextSelected: {
+      color: theme.primary,
+      fontWeight: '700',
+    },
+    fieldLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.textMuted,
+      marginBottom: 6,
     },
     dateRow: {
       width: '100%',
       flexDirection: 'row',
-      alignItems: 'flex-start',
+      alignItems: 'center',
+      marginBottom: 12,
     },
     dateInput: {
       flex: 1,
       marginRight: 8,
+      marginBottom: 0,
+    },
+    input: {
+      backgroundColor: theme.background,
+      borderRadius: 14,
+      padding: 14,
+      fontSize: 14,
+      color: theme.textDark,
+      borderWidth: 1,
+      borderColor: theme.border,
     },
     calendarButton: {
       width: 48,
       height: 48,
-      borderRadius: theme.radiiCard,
-      backgroundColor: theme.surface,
+      borderRadius: 14,
+      backgroundColor: theme.surfaceAlt,
       borderWidth: 1,
       borderColor: theme.border,
       alignItems: 'center',
@@ -452,68 +683,59 @@ function makeStyles(theme: ThemeTokens) {
     calendarButtonText: {
       fontSize: 18,
     },
-    quickRow: {
-      width: '100%',
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      marginBottom: 12,
-    },
-    quickChip: {
-      paddingVertical: 10,
-      paddingHorizontal: 14,
-      borderRadius: 12,
-      backgroundColor: theme.surface,
-      borderWidth: 1,
-      borderColor: theme.border,
-      marginRight: 8,
-      marginBottom: 8,
-    },
-    quickChipText: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: theme.textDark,
-    },
     reminderRow: {
-      width: '100%',
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      backgroundColor: theme.surface,
-      borderRadius: theme.radiiCard,
-      padding: 16,
+      paddingVertical: 12,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+      marginTop: 4,
       marginBottom: 12,
-      borderWidth: 1,
-      borderColor: theme.border,
+    },
+    reminderInfo: {
+      flex: 1,
+      paddingRight: 12,
     },
     reminderLabel: {
-      fontSize: 15,
-      color: theme.textDark,
-      flexShrink: 1,
-      marginRight: 12,
-    },
-    button: {
-      width: '100%',
-      backgroundColor: theme.primary,
-      borderRadius: theme.radiiCard,
-      padding: 16,
-      alignItems: 'center',
-      marginTop: 8,
-    },
-    buttonText: {
-      color: 'white',
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    switchRow: {
-      flexDirection: 'row',
-      marginTop: 20,
-    },
-    switchLink: {
-      color: theme.primary,
       fontSize: 14,
       fontWeight: '600',
+      color: theme.textDark,
     },
-    deleteLink: {
+    reminderSubtitle: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 2,
+    },
+    notesInput: {
+      minHeight: 64,
+      textAlignVertical: 'top',
+    },
+    saveBtn: {
+      backgroundColor: theme.primary,
+      borderRadius: 16,
+      paddingVertical: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 4,
+      marginBottom: 12,
+      shadowColor: theme.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    saveBtnText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '700',
+      letterSpacing: 0.2,
+    },
+    deleteRow: {
+      alignItems: 'center',
+      paddingVertical: 12,
+    },
+    deleteText: {
       color: theme.allergenText,
       fontSize: 14,
       fontWeight: '600',

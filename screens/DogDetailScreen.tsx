@@ -40,6 +40,9 @@ import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import { computeAge } from '../lib/petAge';
 import { checkAndCreateHealthAlert } from '../lib/notificationService';
+import { detectTreatmentType } from '../lib/treatmentLogic';
+import { formatDate } from '../lib/vaccineDisplay';
+import { toLocalDateString } from '../lib/dateUtils';
 
 type Props = {
   dog: Dog;
@@ -79,6 +82,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [presetType, setPresetType] = useState<HabitType | undefined>(undefined);
   const [editingVaccine, setEditingVaccine] = useState<VaccineRecord | null>(null);
+  const [treatmentSegment, setTreatmentSegment] = useState<'parasites' | 'vaccines'>('parasites');
   const [historyTarget, setHistoryTarget] = useState<Habit | null>(null);
   const [editingAllergen, setEditingAllergen] = useState<Allergen | null>(null);
   const [editingLog, setEditingLog] = useState<HealthLog | null>(null);
@@ -207,45 +211,104 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
 
   if (mode === 'vaccine-list') {
     const allVaccines = [...overdue, ...upcoming];
+    const vaccineList = allVaccines.filter(v => detectTreatmentType(v.vaccine_name, v.notes) === 'vaccine');
+    const parasiteList = allVaccines.filter(v => detectTreatmentType(v.vaccine_name, v.notes) !== 'vaccine');
+    const shownList = treatmentSegment === 'vaccines' ? vaccineList : parasiteList;
+
+    async function handleAdministerToday(v: VaccineRecord, nextDueDate: string) {
+      const today = toLocalDateString();
+      const { error: adminErr } = await updateVaccine(v.id, {
+        date_given: today,
+        next_due_date: nextDueDate,
+      });
+      if (!adminErr) {
+        Alert.alert(
+          t('treatments.administeredTitle') || 'Dose Logged! 🎉',
+          t('treatments.administeredBody', { name: v.vaccine_name, date: formatDate(nextDueDate) }) ||
+            `${v.vaccine_name} recorded! Next dose set for ${formatDate(nextDueDate)}. 🐾`
+        );
+      }
+    }
 
     return (
       <SwipeBackWrapper onBack={() => setMode('detail')}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <TouchableOpacity onPress={() => setMode('detail')} style={styles.backRow}>
-          <Text style={styles.backText}>‹ {t('common.back')}</Text>
-        </TouchableOpacity>
+        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+          <TouchableOpacity onPress={() => setMode('detail')} style={styles.backRow}>
+            <Text style={styles.backText}>‹ {t('common.back')}</Text>
+          </TouchableOpacity>
 
-        <View style={styles.listHeader}>
-          <View style={styles.listHeaderLeft}>
-            <Text style={styles.listHeaderDogName}>{dog.name}</Text>
-            <Text style={styles.title}>{t('dogDetail.vaccines')}</Text>
+          <View style={styles.listHeader}>
+            <View style={styles.listHeaderLeft}>
+              <Text style={styles.listHeaderDogName}>{dog.name}</Text>
+              <Text style={styles.title}>{t('treatments.immunityTitle') || 'Preventive Care & Immunity'}</Text>
+            </View>
           </View>
-        </View>
 
-        {allVaccines.length === 0 ? (
-          <Text style={styles.emptyText}>{t('dogDetail.noVaccinesTracked')}</Text>
-        ) : (
-          <View style={styles.card}>
-            {allVaccines.map((v, idx) => (
-              <View key={v.id}>
+          {/* Segmented Switcher: Parasite Shield vs Vaccines */}
+          <View style={styles.segmentSwitcher}>
+            <TouchableOpacity
+              style={[styles.segmentTab, treatmentSegment === 'parasites' && styles.segmentTabActive]}
+              onPress={() => setTreatmentSegment('parasites')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.segmentTabText, treatmentSegment === 'parasites' && styles.segmentTabTextActive]}>
+                🛡️ {t('treatments.tabs.parasiteShield') || 'Parasite Shield'} ({parasiteList.length})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.segmentTab, treatmentSegment === 'vaccines' && styles.segmentTabActive]}
+              onPress={() => setTreatmentSegment('vaccines')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.segmentTabText, treatmentSegment === 'vaccines' && styles.segmentTabTextActive]}>
+                💉 {t('treatments.tabs.vaccines') || 'Vaccines'} ({vaccineList.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {shownList.length === 0 ? (
+            <View style={styles.emptyTreatmentCard}>
+              <Text style={styles.emptyTreatmentEmoji}>
+                {treatmentSegment === 'parasites' ? '🛡️' : '💉'}
+              </Text>
+              <Text style={styles.emptyTreatmentTitle}>
+                {treatmentSegment === 'parasites'
+                  ? (t('treatments.noParasiteTracked') || 'No parasite shield active')
+                  : (t('dogDetail.noVaccinesTracked') || 'No clinical vaccines tracked')}
+              </Text>
+              <Text style={styles.emptyTreatmentSubtitle}>
+                {treatmentSegment === 'parasites'
+                  ? (t('treatments.parasiteEmptyHint') || 'Protect against fleas, ticks, heartworms & intestinal parasites with automated dose reminders.')
+                  : (t('treatments.vaccineEmptyHint') || 'Keep rabies and core vaccine records ready for vet visits and travel.')}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.treatmentList}>
+              {shownList.map((v) => (
                 <VaccineCard
+                  key={v.id}
                   vaccine={v}
                   isOverdue={overdue.includes(v)}
                   onPress={() => { setEditingVaccine(v); setMode('vaccine-form'); }}
+                  onAdministerToday={(item, nextDate) => handleAdministerToday(item, nextDate)}
                 />
-                {idx < allVaccines.length - 1 ? <View style={styles.divider} /> : null}
-              </View>
-            ))}
-          </View>
-        )}
+              ))}
+            </View>
+          )}
 
-        <TouchableOpacity
-          style={styles.vaccineLink}
-          onPress={() => { setEditingVaccine(null); setMode('vaccine-form'); }}
-        >
-          <Text style={styles.vaccineLinkText}>{t('dogDetail.addVaccine')}</Text>
-        </TouchableOpacity>
-      </ScrollView>
+          <TouchableOpacity
+            style={styles.addTreatmentBtn}
+            onPress={() => { setEditingVaccine(null); setMode('vaccine-form'); }}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.addTreatmentBtnText}>
+              ＋ {treatmentSegment === 'parasites'
+                ? (t('treatments.addParasite') || 'Add Parasite Treatment')
+                : (t('treatments.addVaccine') || 'Add Vaccine')}
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
       </SwipeBackWrapper>
     );
   }
@@ -424,12 +487,13 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
     : (dog.is_sterilized ? t('dogDetail.sterilized') : t('dogDetail.notSterilized'));
   const age = computeAge(dog.birth_date);
   const metaLine = [dog.species, dog.breed, sexLabel, sterilizedLabel, age].filter(Boolean).join(' · ');
-  const vaccineCount = overdue.length + upcoming.length;
-  const vaccineLabel = overdue.length > 0
-    ? t('dogDetail.vaccinesOverdue', { count: overdue.length })
-    : vaccineCount > 0
-    ? t('dogDetail.vaccinesUpcoming', { count: vaccineCount })
-    : t('dogDetail.addVaccineShort');
+  const allVaccineRecords = [...overdue, ...upcoming];
+  const vaccineList = allVaccineRecords.filter(v => detectTreatmentType(v.vaccine_name, v.notes) === 'vaccine');
+  const parasiteList = allVaccineRecords.filter(v => detectTreatmentType(v.vaccine_name, v.notes) !== 'vaccine');
+  const vaccineOverdueCount = vaccineList.filter(v => overdue.includes(v)).length;
+  const parasiteOverdueCount = parasiteList.filter(v => overdue.includes(v)).length;
+  const nextVaccine = vaccineList[0] || null;
+  const nextParasite = parasiteList[0] || null;
 
   return (
     <>
@@ -721,12 +785,70 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
         ) : null}
       </View>
 
-      <TouchableOpacity
-        style={styles.vaccineLink}
-        onPress={() => setMode('vaccine-list')}
-      >
-        <Text style={styles.vaccineLinkText}>{vaccineLabel}</Text>
-      </TouchableOpacity>
+      {/* 4. Immunity & Protection Widget Card (Redesigned per UX Spec) */}
+      <View style={styles.protectionWidget}>
+        <View style={styles.protectionHeaderRow}>
+          <View style={styles.protectionTitleCol}>
+            <Text style={styles.protectionBadge}>IMMUNITY & PROTECTION</Text>
+            <Text style={styles.protectionTitle}>🛡️ {t('treatments.immunityTitle') || 'Immunity & Protection'}</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.protectionAddBtn}
+            onPress={() => { setEditingVaccine(null); setMode('vaccine-form'); }}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.protectionAddBtnText}>＋ {t('common.add') || 'Add'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.protectionGrid}>
+          {/* Left card: Vaccines */}
+          <TouchableOpacity
+            style={styles.protectionSubCard}
+            onPress={() => { setTreatmentSegment('vaccines'); setMode('vaccine-list'); }}
+            activeOpacity={0.8}
+          >
+            <View style={styles.subCardTopRow}>
+              <Text style={styles.subCardEmoji}>💉</Text>
+              <Text style={[styles.subCardStatus, vaccineOverdueCount > 0 ? styles.statusBad : styles.statusGood]}>
+                {vaccineOverdueCount > 0 ? `${vaccineOverdueCount} Overdue` : vaccineList.length > 0 ? 'Up to date' : 'Not set'}
+              </Text>
+            </View>
+            <Text style={styles.subCardTitle}>{t('treatments.types.vaccine') || 'Vaccines'}</Text>
+            <Text style={styles.subCardMeta} numberOfLines={1}>
+              {nextVaccine ? `Next: ${nextVaccine.vaccine_name}` : 'No upcoming shots'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Right card: Parasite Shield */}
+          <TouchableOpacity
+            style={styles.protectionSubCard}
+            onPress={() => { setTreatmentSegment('parasites'); setMode('vaccine-list'); }}
+            activeOpacity={0.8}
+          >
+            <View style={styles.subCardTopRow}>
+              <Text style={styles.subCardEmoji}>🛡️</Text>
+              <Text style={[styles.subCardStatus, parasiteOverdueCount > 0 ? styles.statusBad : styles.statusGood]}>
+                {parasiteOverdueCount > 0 ? `${parasiteOverdueCount} Overdue` : parasiteList.length > 0 ? 'Protected' : 'Not set'}
+              </Text>
+            </View>
+            <Text style={styles.subCardTitle}>{t('treatments.tabs.parasiteShield') || 'Parasite Shield'}</Text>
+            <Text style={styles.subCardMeta} numberOfLines={1}>
+              {nextParasite ? `Next: ${nextParasite.vaccine_name}` : 'Tap to protect'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={styles.protectionManageBtn}
+          onPress={() => setMode('vaccine-list')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.protectionManageBtnText}>
+            {t('treatments.managePlan') || 'Manage Preventive Care Plan →'}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
     {tourRefs ? (
       <TabTour
@@ -1177,6 +1299,198 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       color: theme.primary,
       fontSize: 14,
       fontWeight: '600',
+    },
+    // Segmented Preventive Care Hub Styles
+    segmentSwitcher: {
+      flexDirection: 'row',
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 16,
+      padding: 4,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    segmentTab: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 12,
+    },
+    segmentTabActive: {
+      backgroundColor: theme.surface,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    segmentTabText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.textMuted,
+    },
+    segmentTabTextActive: {
+      color: theme.primary,
+      fontWeight: '700',
+    },
+    emptyTreatmentCard: {
+      backgroundColor: theme.surface,
+      borderRadius: 20,
+      padding: 24,
+      alignItems: 'center',
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      marginBottom: 16,
+    },
+    emptyTreatmentEmoji: {
+      fontSize: 36,
+      marginBottom: 10,
+    },
+    emptyTreatmentTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: theme.textDark,
+      marginBottom: 6,
+    },
+    emptyTreatmentSubtitle: {
+      fontSize: 13,
+      color: theme.textMuted,
+      textAlign: 'center',
+      lineHeight: 18,
+    },
+    treatmentList: {
+      marginBottom: 12,
+    },
+    addTreatmentBtn: {
+      backgroundColor: theme.primary,
+      borderRadius: 16,
+      paddingVertical: 15,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: theme.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+      elevation: 3,
+      marginBottom: 20,
+    },
+    addTreatmentBtnText: {
+      color: '#FFFFFF',
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    // Immunity & Protection Status Widget Card
+    protectionWidget: {
+      backgroundColor: theme.surface,
+      borderRadius: 22,
+      padding: 16,
+      marginTop: 20,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.04,
+      shadowRadius: 6,
+      elevation: 2,
+    },
+    protectionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    protectionTitleCol: {
+      flex: 1,
+    },
+    protectionBadge: {
+      fontSize: 10,
+      fontWeight: '800',
+      color: theme.primary,
+      letterSpacing: 0.8,
+      marginBottom: 2,
+    },
+    protectionTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: theme.textDark,
+    },
+    protectionAddBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 12,
+      backgroundColor: theme.surfaceAlt,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    protectionAddBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: theme.primary,
+    },
+    protectionGrid: {
+      flexDirection: 'row',
+      gap: 10,
+      marginBottom: 12,
+    },
+    protectionSubCard: {
+      flex: 1,
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 16,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    subCardTopRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    subCardEmoji: {
+      fontSize: 18,
+    },
+    subCardStatus: {
+      fontSize: 11,
+      fontWeight: '700',
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 8,
+    },
+    statusGood: {
+      backgroundColor: theme.moodSelBg,
+      color: theme.primary,
+    },
+    statusBad: {
+      backgroundColor: theme.allergenBg,
+      color: theme.allergenText,
+    },
+    statusSoon: {
+      backgroundColor: theme.pendingAmberBg,
+      color: theme.pendingAmberText,
+    },
+    subCardTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: theme.textDark,
+      marginBottom: 2,
+    },
+    subCardMeta: {
+      fontSize: 11,
+      color: theme.textMuted,
+    },
+    protectionManageBtn: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 10,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+      marginTop: 2,
+    },
+    protectionManageBtnText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: theme.primary,
     },
   });
 }
