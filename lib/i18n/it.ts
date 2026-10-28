@@ -15,6 +15,8 @@ const it: typeof en = {
     loading: 'Caricamento…',
     retry: 'Riprova',
     fillAllFields: 'Compila tutti i campi.',
+    continue: 'Continua',
+    close: 'Chiudi',
   },
   tabs: {
     home: 'Home',

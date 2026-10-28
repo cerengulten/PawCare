@@ -83,7 +83,7 @@ export default function OnboardingScreen({
   onComplete,
 }: Props) {
   const { theme, isDarkMode } = useTheme();
-  const { t } = useT();
+  const { t, lang, setLang } = useT();
   const insets = useSafeAreaInsets();
   const { upgradeToPro } = useSubscription();
   const styles = useMemo(() => makeStyles(theme, isDarkMode, insets), [theme, isDarkMode, insets]);
@@ -124,12 +124,30 @@ export default function OnboardingScreen({
 
   // Pass 2: User Identity State
   const [fullName, setFullName] = useState(profile?.full_name ?? '');
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState(profile?.username ?? '');
   const [userPhotoUri, setUserPhotoUri] = useState<string | null>(null);
-  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle');
+  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>(profile?.username ? 'available' : 'idle');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [identityLoading, setIdentityLoading] = useState(false);
   const [identityError, setIdentityError] = useState('');
+
+  // Keep state synced if profile loads after initial mount
+  useEffect(() => {
+    if (profile?.full_name && !fullName) {
+      setFullName(profile.full_name);
+    }
+    if (profile?.username && !username) {
+      setUsername(profile.username);
+      setUsernameStatus('available');
+    }
+  }, [profile]);
+
+  // If user already has full profile and pets, bypass onboarding
+  useEffect(() => {
+    if (profile?.full_name && profile?.username && dogs.length > 0) {
+      onComplete();
+    }
+  }, [profile?.full_name, profile?.username, dogs.length, onComplete]);
 
   // Pass 3 & 4: Pet State
   const [petPhotoUri, setPetPhotoUri] = useState<string | null>(null);
@@ -173,6 +191,13 @@ export default function OnboardingScreen({
       return;
     }
 
+    // If candidate matches user's current username, it's valid and available for this user!
+    if (profile?.username && trimmed.toLowerCase() === profile.username.toLowerCase()) {
+      setUsernameStatus('available');
+      setSuggestions([]);
+      return;
+    }
+
     let cancelled = false;
     setUsernameStatus('checking');
     checkUsernameAvailable(trimmed).then(({ available, error }) => {
@@ -192,7 +217,7 @@ export default function OnboardingScreen({
     return () => {
       cancelled = true;
     };
-  }, [debouncedUsername]);
+  }, [debouncedUsername, profile?.username]);
 
   // Automatic coat theme matching when pet breed changes
   useEffect(() => {
@@ -284,6 +309,14 @@ export default function OnboardingScreen({
         setIdentityError(t('onboarding.usernameJustTaken'));
         setUsernameStatus('taken');
         generateVerifiedSuggestions(trimmedUsername);
+      } else if (error.message?.includes('username_cooldown_active') || (error as any).code === 'P0001') {
+        // Cooldown active indicates this user already has an established username in the DB.
+        // Don't trap the user with a raw Postgres exception.
+        if (dogs.length > 0) {
+          onComplete();
+        } else {
+          setStep('pet_basics');
+        }
       } else {
         setIdentityError(error.message);
       }
@@ -438,12 +471,34 @@ export default function OnboardingScreen({
           <View style={styles.welcomeBrandTag}>
             <Text style={styles.welcomeBrandTagText}>BISCO</Text>
           </View>
-          <TouchableOpacity
-            onPress={() => setStep('identity')}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <Text style={styles.skipBtnText}>{t('tour.skip')}</Text>
-          </TouchableOpacity>
+          <View style={styles.topRightControls}>
+            <View style={styles.langPickerMini}>
+              <TouchableOpacity
+                onPress={() => setLang('en')}
+                style={[styles.langChipMini, lang === 'en' && styles.langChipMiniActive]}
+              >
+                <Text style={[styles.langTextMini, lang === 'en' && styles.langTextMiniActive]}>EN</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setLang('tr')}
+                style={[styles.langChipMini, lang === 'tr' && styles.langChipMiniActive]}
+              >
+                <Text style={[styles.langTextMini, lang === 'tr' && styles.langTextMiniActive]}>TR</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setLang('it')}
+                style={[styles.langChipMini, lang === 'it' && styles.langChipMiniActive]}
+              >
+                <Text style={[styles.langTextMini, lang === 'it' && styles.langTextMiniActive]}>IT</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              onPress={() => setStep('identity')}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Text style={styles.skipBtnText}>{t('tour.skip')}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.welcomeCardWrap}>
@@ -506,6 +561,28 @@ export default function OnboardingScreen({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <View style={styles.identityTopBar}>
+            <View style={styles.langPickerMini}>
+              <TouchableOpacity
+                onPress={() => setLang('en')}
+                style={[styles.langChipMini, lang === 'en' && styles.langChipMiniActive]}
+              >
+                <Text style={[styles.langTextMini, lang === 'en' && styles.langTextMiniActive]}>EN</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setLang('tr')}
+                style={[styles.langChipMini, lang === 'tr' && styles.langChipMiniActive]}
+              >
+                <Text style={[styles.langTextMini, lang === 'tr' && styles.langTextMiniActive]}>TR</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setLang('it')}
+                style={[styles.langChipMini, lang === 'it' && styles.langChipMiniActive]}
+              >
+                <Text style={[styles.langTextMini, lang === 'it' && styles.langTextMiniActive]}>IT</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
           <TouchableOpacity onPress={pickUserPhoto} style={styles.photoPickerWrap}>
             <View style={styles.photoPicker}>
               {userPhotoUri ? (
@@ -1079,6 +1156,42 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false, insets = { top: 0, b
       paddingHorizontal: 24,
       paddingTop: Math.max(insets.top + 12, 48),
       marginBottom: 20,
+    },
+    topRightControls: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    identityTopBar: {
+      width: '100%',
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      marginBottom: 10,
+    },
+    langPickerMini: {
+      flexDirection: 'row',
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 12,
+      padding: 2,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    langChipMini: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 8,
+    },
+    langChipMiniActive: {
+      backgroundColor: theme.primary,
+    },
+    langTextMini: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: theme.textMuted,
+    },
+    langTextMiniActive: {
+      color: '#FFFFFF',
+      fontWeight: '800',
     },
     welcomeBrandTag: {
       backgroundColor: theme.surfaceAlt,

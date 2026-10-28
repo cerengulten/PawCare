@@ -45,11 +45,13 @@ export default function SetNewPasswordScreen({ onDone }: Props) {
     setLoading(true);
     setError('');
     const { error } = await supabase.auth.updateUser({ password });
-    setLoading(false);
     if (error) {
+      setLoading(false);
       setError(error.message);
       return;
     }
+    await supabase.auth.refreshSession();
+    setLoading(false);
     onDone();
   }
 

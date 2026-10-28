@@ -15,6 +15,8 @@ const tr: typeof en = {
     loading: 'Yükleniyor…',
     retry: 'Tekrar dene',
     fillAllFields: 'Lütfen tüm alanları doldurun.',
+    continue: 'Devam et',
+    close: 'Kapat',
   },
   tabs: {
     home: 'Ana Sayfa',

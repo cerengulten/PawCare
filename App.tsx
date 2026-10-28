@@ -67,18 +67,19 @@ function AuthedApp({ session }: { session: Session }) {
   useEffect(() => {
     // A `profiles` row is auto-created at signup by a DB trigger (with
     // full_name/username null), so most new users will already have a row
-    // here — gate on those fields being unset, not on the row being
-    // missing. The `profile === null` check still covers legacy users who
-    // signed up before that trigger existed. Users who onboarded before
-    // `username` was introduced will have full_name set but username null,
-    // so they get routed back through OnboardingScreen once more (it
-    // prefills their name and skips straight past the pet step for them).
-    if (!profileLoading && (profile === null || !profile.full_name || !profile.username)) {
-      setOnboardingActive(true);
+    // here. Gate on those fields being unset, not on the row being
+    // missing. If the user already has a valid profile or existing pets,
+    // onboarding is explicitly dismissed.
+    if (!profileLoading && !dogsState.loading) {
+      if ((profile?.full_name && profile?.username) || dogsState.dogs.length > 0) {
+        setOnboardingActive(false);
+      } else if (profile === null || !profile.full_name || !profile.username) {
+        setOnboardingActive(true);
+      }
     }
-  }, [profileLoading, profile]);
+  }, [profileLoading, dogsState.loading, profile, dogsState.dogs.length]);
 
-  if (profileLoading) {
+  if (profileLoading || dogsState.loading) {
     return (
       <View style={[styles.loading, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={theme.primary} />

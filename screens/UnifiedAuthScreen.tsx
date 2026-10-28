@@ -32,7 +32,7 @@ type Props = {
 
 export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: Props) {
   const { theme, isDarkMode } = useTheme();
-  const { t } = useT();
+  const { t, lang, setLang } = useT();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets, isDarkMode), [theme, insets, isDarkMode]);
 
@@ -178,6 +178,31 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
     return (
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.verificationContent}>
+          <View style={styles.topBar}>
+            <View style={styles.langPicker}>
+              <TouchableOpacity
+                onPress={() => setLang('en')}
+                style={[styles.langChip, lang === 'en' && styles.langChipActive]}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.langChipText, lang === 'en' && styles.langChipTextActive]}>EN</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setLang('tr')}
+                style={[styles.langChip, lang === 'tr' && styles.langChipActive]}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.langChipText, lang === 'tr' && styles.langChipTextActive]}>TR</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setLang('it')}
+                style={[styles.langChip, lang === 'it' && styles.langChipActive]}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.langChipText, lang === 'it' && styles.langChipTextActive]}>IT</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
           <View style={styles.verificationIconCircle}>
             <Text style={styles.verificationEmoji}>✉️</Text>
           </View>
@@ -242,6 +267,33 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {/* Language Selector Top Bar */}
+        <View style={styles.topBar}>
+          <View style={styles.langPicker}>
+            <TouchableOpacity
+              onPress={() => setLang('en')}
+              style={[styles.langChip, lang === 'en' && styles.langChipActive]}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.langChipText, lang === 'en' && styles.langChipTextActive]}>EN</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setLang('tr')}
+              style={[styles.langChip, lang === 'tr' && styles.langChipActive]}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.langChipText, lang === 'tr' && styles.langChipTextActive]}>TR</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setLang('it')}
+              style={[styles.langChip, lang === 'it' && styles.langChipActive]}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.langChipText, lang === 'it' && styles.langChipTextActive]}>IT</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* A. Brand Hero Header with High-Resolution Logo */}
         <View style={styles.brandHero}>
           <View style={styles.logoBadge}>
@@ -506,6 +558,43 @@ function makeStyles(theme: ThemeTokens, insets = { top: 0, bottom: 0 }, isDarkMo
       paddingHorizontal: 20,
       paddingTop: Math.max(insets.top + 16, 44),
       paddingBottom: Math.max(insets.bottom + 20, 32),
+    },
+    topBar: {
+      width: '100%',
+      maxWidth: 420,
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      marginBottom: 12,
+    },
+    langPicker: {
+      flexDirection: 'row',
+      backgroundColor: isDarkMode ? '#25211B' : '#EFEAE1',
+      borderRadius: 14,
+      padding: 3,
+      borderWidth: 1,
+      borderColor: isDarkMode ? '#3A332A' : '#E2DCD1',
+    },
+    langChip: {
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 10,
+    },
+    langChipActive: {
+      backgroundColor: theme.primary,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    langChipText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: theme.textMuted,
+    },
+    langChipTextActive: {
+      color: '#FFFFFF',
+      fontWeight: '800',
     },
     brandHero: {
       alignItems: 'center',

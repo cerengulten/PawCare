@@ -14,6 +14,8 @@ const en = {
     loading: 'Loading…',
     retry: 'Retry',
     fillAllFields: 'Please fill in all fields.',
+    continue: 'Continue',
+    close: 'Close',
   },
   tabs: {
     home: 'Home',
