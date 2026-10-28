@@ -53,7 +53,7 @@ function parseDateOnly(s: string): Date {
 }
 
 export default function CycleEditSheet({ visible, cycle, allowEndDate = true, onClose, onSave, onDelete }: Props) {
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
   const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [startDate, setStartDate] = useState(new Date());
@@ -151,6 +151,7 @@ export default function CycleEditSheet({ visible, cycle, allowEndDate = true, on
                 value={startDate}
                 mode="date"
                 display="compact"
+                themeVariant={isDarkMode ? 'dark' : 'light'}
                 accentColor={theme.primary}
                 maximumDate={new Date()}
                 onChange={(_e: DateTimePickerEvent, selected?: Date) => {
@@ -174,6 +175,7 @@ export default function CycleEditSheet({ visible, cycle, allowEndDate = true, on
                     value={endDate}
                     mode="date"
                     display="compact"
+                    themeVariant={isDarkMode ? 'dark' : 'light'}
                     accentColor={theme.primary}
                     maximumDate={new Date()}
                     onChange={(_e: DateTimePickerEvent, selected?: Date) => {

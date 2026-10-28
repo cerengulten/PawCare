@@ -195,6 +195,8 @@ export default function AppTabs({
                 {...props}
                 dogs={dogs}
                 profile={profile}
+                updateProfile={updateProfile}
+                checkUsernameAvailable={checkUsernameAvailable}
                 notificationsState={notificationsState}
               />
             )}

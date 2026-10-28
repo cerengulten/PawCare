@@ -44,9 +44,9 @@ function toDateOnlyString(d: Date): string {
 }
 
 export default function CycleStartSheet({ visible, species, onClose, onSave }: Props) {
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
   const { t } = useT();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
   const [startDate, setStartDate] = useState(new Date());
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
@@ -175,7 +175,13 @@ export default function CycleStartSheet({ visible, species, onClose, onSave }: P
 
             <TouchableOpacity
               style={[styles.presetChip, isCustom && styles.presetChipActive]}
-              onPress={openDatePicker}
+              onPress={() => {
+                if (Platform.OS === 'android') {
+                  openDatePicker();
+                } else {
+                  setShowIOSPicker(true);
+                }
+              }}
               activeOpacity={0.7}
             >
               <Text style={[styles.presetChipText, isCustom && styles.presetChipTextActive]}>
@@ -208,6 +214,7 @@ export default function CycleStartSheet({ visible, species, onClose, onSave }: P
                 value={startDate}
                 mode="date"
                 display="inline"
+                themeVariant={isDarkMode ? 'dark' : 'light'}
                 accentColor={theme.primary}
                 maximumDate={new Date()}
                 onChange={(_e: DateTimePickerEvent, selected?: Date) => {
@@ -239,7 +246,7 @@ export default function CycleStartSheet({ visible, species, onClose, onSave }: P
   );
 }
 
-function makeStyles(theme: ThemeTokens) {
+function makeStyles(theme: ThemeTokens, isDarkMode = false) {
   return StyleSheet.create({
     backdrop: {
       ...StyleSheet.absoluteFillObject,
@@ -371,7 +378,7 @@ function makeStyles(theme: ThemeTokens) {
       fontWeight: '600',
     },
     iosPickerContainer: {
-      backgroundColor: theme.background,
+      backgroundColor: isDarkMode ? '#221B26' : '#FFFFFF',
       borderRadius: theme.radiiCard,
       padding: 8,
       marginBottom: 12,

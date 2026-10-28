@@ -73,7 +73,7 @@ export default function VaccineFormScreen({
   onDone,
   onCancel,
 }: Props) {
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
   const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [vaccineName, setVaccineName] = useState(vaccine?.vaccine_name ?? '');
@@ -209,6 +209,37 @@ export default function VaccineFormScreen({
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
+        {/* Quick Treatment & Vaccine Presets */}
+        <View style={styles.treatmentPresetsRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.treatmentPresetsScroll}>
+            {[
+              { label: `🪱 ${t('vaccineForm.internalParasite')}`, name: t('vaccineForm.internalParasite'), months: 3 },
+              { label: `🪲 ${t('vaccineForm.externalParasite')}`, name: t('vaccineForm.externalParasite'), months: 1 },
+              { label: `❤️ ${t('vaccineForm.heartworm')}`, name: t('vaccineForm.heartworm'), months: 1 },
+              { label: `💉 ${t('vaccineForm.coreVaccine')}`, name: t('vaccineForm.coreVaccine'), months: 12 },
+              { label: `🐕 ${t('vaccineForm.rabiesVaccine')}`, name: t('vaccineForm.rabiesVaccine'), months: 12 },
+            ].map((preset, idx) => {
+              const isActive = vaccineName.trim().toLowerCase() === preset.name.toLowerCase();
+              return (
+                <TouchableOpacity
+                  key={idx}
+                  style={[styles.presetChip, isActive && styles.presetChipActive]}
+                  onPress={() => {
+                    setVaccineName(preset.name);
+                    applyQuickDueDate(preset.months);
+                    handleToggleReminder(true);
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.presetChipText, isActive && styles.presetChipTextActive]}>
+                    {preset.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
         <TextInput
           style={styles.input}
           placeholder={t('vaccineForm.name')}
@@ -232,6 +263,7 @@ export default function VaccineFormScreen({
               value={parseUserDateInput(dateGivenText) ?? new Date()}
               mode="date"
               display="compact"
+              themeVariant={isDarkMode ? 'dark' : 'light'}
               accentColor={theme.primary}
               maximumDate={new Date()}
               onChange={(_e: DateTimePickerEvent, selected?: Date) => {
@@ -246,14 +278,20 @@ export default function VaccineFormScreen({
         </View>
 
         <View style={styles.quickRow}>
+          <TouchableOpacity style={styles.quickChip} onPress={() => applyQuickDueDate(1)}>
+            <Text style={styles.quickChipText}>{t('vaccineForm.oneMonth')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickChip} onPress={() => applyQuickDueDate(2)}>
+            <Text style={styles.quickChipText}>{t('vaccineForm.twoMonths')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickChip} onPress={() => applyQuickDueDate(3)}>
+            <Text style={styles.quickChipText}>{t('vaccineForm.threeMonths')}</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.quickChip} onPress={() => applyQuickDueDate(6)}>
             <Text style={styles.quickChipText}>{t('vaccineForm.sixMonths')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickChip} onPress={() => applyQuickDueDate(12)}>
             <Text style={styles.quickChipText}>{t('vaccineForm.oneYear')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.quickChip} onPress={() => applyQuickDueDate(24)}>
-            <Text style={styles.quickChipText}>{t('vaccineForm.twoYears')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -272,6 +310,7 @@ export default function VaccineFormScreen({
               value={nextDuePickerValue}
               mode="date"
               display="compact"
+              themeVariant={isDarkMode ? 'dark' : 'light'}
               accentColor={theme.primary}
               minimumDate={minNextDueDate}
               onChange={(_e: DateTimePickerEvent, selected?: Date) => {
@@ -348,6 +387,33 @@ function makeStyles(theme: ThemeTokens) {
       fontSize: 13,
       marginBottom: 12,
       textAlign: 'center',
+    },
+    treatmentPresetsRow: {
+      marginBottom: 12,
+    },
+    treatmentPresetsScroll: {
+      gap: 8,
+    },
+    presetChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 12,
+      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    presetChipActive: {
+      backgroundColor: theme.moodSelBg,
+      borderColor: theme.primary,
+    },
+    presetChipText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    presetChipTextActive: {
+      color: theme.primary,
+      fontWeight: '700',
     },
     input: {
       width: '100%',

@@ -8,9 +8,9 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   ScrollView,
-  Linking,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { PASSWORD_REQUIREMENTS, isPasswordValid } from '../lib/passwordPolicy';
 import SocialSignInButtons from '../components/SocialSignInButtons';
@@ -27,7 +27,8 @@ type Props = {
 export default function RegisterScreen({ onSwitch }: Props) {
   const { theme } = useTheme();
   const { t } = useT();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -65,7 +66,9 @@ export default function RegisterScreen({ onSwitch }: Props) {
   if (success) {
     return (
       <View style={styles.container}>
-        <Text style={styles.paw}>📬</Text>
+        <View style={styles.logoCircle}>
+          <Text style={styles.paw}>📬</Text>
+        </View>
         <Text style={styles.title}>{t('auth.checkEmailTitle')}</Text>
         <Text style={styles.subtitle}>
           {t('auth.checkEmailConfirm', { email })}
@@ -83,83 +86,87 @@ export default function RegisterScreen({ onSwitch }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <Text style={styles.paw}>🐾</Text>
-      <Text style={styles.title}>{t('auth.createAccount')}</Text>
-      <Text style={styles.subtitle}>{t('auth.signUpSubtitle')}</Text>
+        <View style={styles.logoCircle}>
+          <Text style={styles.paw}>🐾</Text>
+        </View>
+        <Text style={styles.title}>{t('auth.createAccount')}</Text>
+        <Text style={styles.subtitle}>{t('auth.signUpSubtitle')}</Text>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <TextInput
-        style={styles.input}
-        placeholder={t('auth.email')}
-        placeholderTextColor={theme.textMuted}
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
-      <View style={styles.passwordContainer}>
-        <TextInput
-          style={styles.passwordInput}
-          placeholder={t('auth.password')}
-          placeholderTextColor={theme.textMuted}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={!showPassword}
-        />
-        <TouchableOpacity
-          onPress={() => setShowPassword(v => !v)}
-          style={styles.eyeBtn}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Feather name={showPassword ? 'eye' : 'eye-off'} size={20} color={theme.textMuted} />
-        </TouchableOpacity>
-      </View>
+        <View style={styles.card}>
+          <TextInput
+            style={styles.input}
+            placeholder={t('auth.email')}
+            placeholderTextColor={theme.textMuted}
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder={t('auth.password')}
+              placeholderTextColor={theme.textMuted}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+            />
+            <TouchableOpacity
+              onPress={() => setShowPassword(v => !v)}
+              style={styles.eyeBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Feather name={showPassword ? 'eye' : 'eye-off'} size={20} color={theme.textMuted} />
+            </TouchableOpacity>
+          </View>
 
-      <View style={styles.checklist}>
-        {PASSWORD_REQUIREMENTS.map((req) => {
-          const met = req.test(password);
-          return (
-            <Text key={req.labelKey} style={[styles.checklistItem, met && styles.checklistItemMet]}>
-              {met ? '✓' : '○'} {t(req.labelKey)}
-            </Text>
-          );
-        })}
-      </View>
+          <View style={styles.checklist}>
+            {PASSWORD_REQUIREMENTS.map((req) => {
+              const met = req.test(password);
+              return (
+                <Text key={req.labelKey} style={[styles.checklistItem, met && styles.checklistItemMet]}>
+                  {met ? '✓' : '○'} {t(req.labelKey)}
+                </Text>
+              );
+            })}
+          </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={loading}>
-        {loading ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <Text style={styles.buttonText}>{t('auth.createAccount')}</Text>
-        )}
-      </TouchableOpacity>
-
-      <SocialSignInButtons />
-
-      <View style={styles.termsRow}>
-        <Text style={styles.termsNotice}>{t('auth.termsNotice')}</Text>
-        <View style={styles.termsLinks}>
-          <TouchableOpacity onPress={() => setLegalDoc('terms')}>
-            <Text style={styles.termsLink}>{t('settings.termsOfService')}</Text>
-          </TouchableOpacity>
-          <Text style={styles.termsDivider}> · </Text>
-          <TouchableOpacity onPress={() => setLegalDoc('privacy')}>
-            <Text style={styles.termsLink}>{t('settings.privacyPolicy')}</Text>
+          <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={loading} activeOpacity={0.85}>
+            {loading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.buttonText}>{t('auth.createAccount')}</Text>
+            )}
           </TouchableOpacity>
         </View>
-      </View>
 
-      <TouchableOpacity onPress={onSwitch} style={styles.switchRow}>
-        <Text style={styles.switchText}>{t('auth.haveAccount')}</Text>
-        <Text style={styles.switchLink}>{t('auth.signIn')}</Text>
-      </TouchableOpacity>
+        <SocialSignInButtons />
+
+        <View style={styles.termsRow}>
+          <Text style={styles.termsNotice}>{t('auth.termsNotice')}</Text>
+          <View style={styles.termsLinks}>
+            <TouchableOpacity onPress={() => setLegalDoc('terms')}>
+              <Text style={styles.termsLink}>{t('settings.termsOfService')}</Text>
+            </TouchableOpacity>
+            <Text style={styles.termsDivider}> · </Text>
+            <TouchableOpacity onPress={() => setLegalDoc('privacy')}>
+              <Text style={styles.termsLink}>{t('settings.privacyPolicy')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <TouchableOpacity onPress={onSwitch} style={styles.switchRow}>
+          <Text style={styles.switchText}>{t('auth.haveAccount')}</Text>
+          <Text style={styles.switchLink}>{t('auth.signIn')}</Text>
+        </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-function makeStyles(theme: ThemeTokens) {
+function makeStyles(theme: ThemeTokens, insets = { top: 0, bottom: 0 }) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -169,9 +176,55 @@ function makeStyles(theme: ThemeTokens) {
       flexGrow: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 24,
-      paddingTop: 60,
-      paddingBottom: 40,
+      paddingHorizontal: 24,
+      paddingTop: Math.max(insets.top + 20, 52),
+      paddingBottom: Math.max(insets.bottom + 24, 40),
+    },
+    logoCircle: {
+      width: 64,
+      height: 64,
+      borderRadius: 22,
+      backgroundColor: theme.moodSelBg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    paw: {
+      fontSize: 32,
+    },
+    title: {
+      fontSize: 26,
+      fontWeight: '700',
+      color: theme.textDark,
+      marginBottom: 6,
+    },
+    subtitle: {
+      fontSize: 14,
+      color: theme.textMuted,
+      marginBottom: 24,
+      textAlign: 'center',
+    },
+    error: {
+      color: theme.allergenText,
+      fontSize: 13,
+      marginBottom: 12,
+      textAlign: 'center',
+    },
+    card: {
+      width: '100%',
+      backgroundColor: theme.surface,
+      borderRadius: 24,
+      borderWidth: 1,
+      borderColor: theme.border,
+      padding: 18,
+      marginBottom: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.04,
+      shadowRadius: 8,
+      elevation: 2,
     },
     termsRow: {
       marginTop: 20,
@@ -196,28 +249,6 @@ function makeStyles(theme: ThemeTokens) {
     termsDivider: {
       fontSize: 12,
       color: theme.textMuted,
-    },
-    paw: {
-      fontSize: 48,
-      marginBottom: 12,
-    },
-    title: {
-      fontSize: 26,
-      fontWeight: '700',
-      color: theme.textDark,
-      marginBottom: 6,
-    },
-    subtitle: {
-      fontSize: 14,
-      color: theme.textMuted,
-      marginBottom: 32,
-      textAlign: 'center',
-    },
-    error: {
-      color: theme.allergenText,
-      fontSize: 13,
-      marginBottom: 12,
-      textAlign: 'center',
     },
     input: {
       width: '100%',

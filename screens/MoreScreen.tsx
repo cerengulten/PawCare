@@ -27,6 +27,7 @@ import ChangePasswordScreen from './ChangePasswordScreen';
 import ChangeEmailScreen from './ChangeEmailScreen';
 import DeleteAccountScreen from './DeleteAccountScreen';
 import LegalDocScreen from './LegalDocScreen';
+import ProfileScreen from './ProfileScreen';
 import { RootTabParamList } from './AppTabs';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
@@ -44,6 +45,8 @@ const LEGACY_ROADMAP_VOTES_KEY = '@pawcare_roadmap_votes';
 type Props = BottomTabScreenProps<RootTabParamList, 'More'> & {
   dogs: ReturnType<typeof useDogs>['dogs'];
   profile: ReturnType<typeof useProfile>['profile'];
+  updateProfile?: ReturnType<typeof useProfile>['updateProfile'];
+  checkUsernameAvailable?: ReturnType<typeof useProfile>['checkUsernameAvailable'];
   notificationsState?: ReturnType<typeof useNotifications>;
 };
 
@@ -86,7 +89,15 @@ const WISHLIST_ITEMS: WishlistItem[] = [
   },
 ];
 
-export default function MoreScreen({ route, navigation, dogs, profile, notificationsState: passedNotifications }: Props) {
+export default function MoreScreen({
+  route,
+  navigation,
+  dogs,
+  profile,
+  updateProfile,
+  checkUsernameAvailable,
+  notificationsState: passedNotifications,
+}: Props) {
   const { theme, isDarkMode, toggleDarkMode } = useTheme();
   const { isPro, plan, openPaywall } = useSubscription();
   const { t, lang, setLang } = useT();
@@ -94,6 +105,7 @@ export default function MoreScreen({ route, navigation, dogs, profile, notificat
   const { upcoming, overdue } = useAllVaccines();
   const localNotifications = useNotifications(profile?.id ?? null);
   const notificationsState = passedNotifications ?? localNotifications;
+  const [showProfile, setShowProfile] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showLanguage, setShowLanguage] = useState(false);
   const [reportDog, setReportDog] = useState<Dog | null>(null);
@@ -136,6 +148,10 @@ export default function MoreScreen({ route, navigation, dogs, profile, notificat
   useFocusEffect(
     useCallback(() => {
       const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (showProfile) {
+          setShowProfile(false);
+          return true;
+        }
         if (legalDoc !== null) {
           setLegalDoc(null);
           return true;
@@ -175,7 +191,7 @@ export default function MoreScreen({ route, navigation, dogs, profile, notificat
         return false;
       });
       return () => sub.remove();
-    }, [legalDoc, reportDog, showVetFinder, vetFinderFromHome, showChangePassword, showChangeEmail, showDeleteAccount, showNotifications, showLanguage, navigation])
+    }, [showProfile, legalDoc, reportDog, showVetFinder, vetFinderFromHome, showChangePassword, showChangeEmail, showDeleteAccount, showNotifications, showLanguage, navigation])
   );
 
   useEffect(() => {
@@ -268,13 +284,32 @@ export default function MoreScreen({ route, navigation, dogs, profile, notificat
     );
   }
 
+  if (showProfile && updateProfile && checkUsernameAvailable) {
+    return (
+      <ProfileScreen
+        profile={profile}
+        updateProfile={updateProfile}
+        checkUsernameAvailable={checkUsernameAvailable}
+        onDone={() => setShowProfile(false)}
+        onCancel={() => setShowProfile(false)}
+      />
+    );
+  }
+
   const allUpcoming = [...overdue, ...upcoming];
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{t('more.title')}</Text>
 
-      <View style={styles.profileCard}>
+      <TouchableOpacity
+        style={styles.profileCard}
+        onPress={() => {
+          if (updateProfile && checkUsernameAvailable) setShowProfile(true);
+        }}
+        activeOpacity={0.8}
+        disabled={!updateProfile || !checkUsernameAvailable}
+      >
         <View style={styles.profileRow}>
           {profile?.avatar_url ? (
             <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
@@ -283,14 +318,19 @@ export default function MoreScreen({ route, navigation, dogs, profile, notificat
               <Text style={styles.avatarEmoji}>🐾</Text>
             </View>
           )}
-          <View>
+          <View style={styles.profileInfoCol}>
             <Text style={styles.profileName}>{profile?.full_name ?? t('more.biscoUser')}</Text>
             <Text style={styles.profileMeta}>
               {profile?.username ? `@${profile.username} · ` : ''}{t('more.petCount', { count: dogs.length })}
             </Text>
           </View>
+          {updateProfile && checkUsernameAvailable ? (
+            <View style={styles.editProfileBadge}>
+              <Text style={styles.editProfileBadgeText}>✏️ {t('common.edit')}</Text>
+            </View>
+          ) : null}
         </View>
-      </View>
+      </TouchableOpacity>
 
       {/* Bisco Pro Membership Card (Freemium & Premium System) */}
       <View style={isPro ? styles.proCardActive : styles.proCardUpgrade}>
@@ -411,6 +451,20 @@ export default function MoreScreen({ route, navigation, dogs, profile, notificat
 
       <Text style={styles.sectionTitle}>{t('settings.title')}</Text>
       <View style={styles.card}>
+        {updateProfile && checkUsernameAvailable ? (
+          <>
+            <TouchableOpacity style={styles.row} onPress={() => setShowProfile(true)}>
+              <View style={styles.iconBox}><Text style={styles.iconText}>👤</Text></View>
+              <View style={styles.rowInfo}>
+                <Text style={styles.rowTitle}>{t('more.editProfile')}</Text>
+                <Text style={styles.rowSubtitle}>{t('more.editProfileSubtitle')}</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+            <View style={styles.divider} />
+          </>
+        ) : null}
+
         {/* Dark Theme Toggle */}
         <View style={styles.row}>
           <View style={styles.iconBox}>
@@ -759,6 +813,22 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       color: theme.textMuted,
       marginTop: 2,
       fontWeight: '500',
+    },
+    profileInfoCol: {
+      flex: 1,
+    },
+    editProfileBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 12,
+      backgroundColor: theme.surfaceAlt,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    editProfileBadgeText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.primary,
     },
     sectionTitle: {
       fontSize: 11,

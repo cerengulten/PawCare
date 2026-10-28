@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Session, PostgrestError } from '@supabase/supabase-js';
 import * as ImagePicker from 'expo-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker, { DateTimePickerAndroid, DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
@@ -64,30 +65,6 @@ const PET_SPECIES = [
   { label: 'Other', value: 'Other', emoji: '🐾' },
 ];
 
-const WELCOME_SLIDES = [
-  {
-    icon: '🩺',
-    badge: 'CLINICAL CARE',
-    title: 'Vet-Grade Health Records',
-    description:
-      'Track stool consistency, vomiting patterns, vaccine schedules, and heat cycles with complete clinical precision.',
-  },
-  {
-    icon: '💬',
-    badge: '24/7 TRIAGE',
-    title: 'Bisco AI Care Companion',
-    description:
-      'Instant answers on toxic foods, urgent symptoms, nutrition guidelines, and daily portion recommendations.',
-  },
-  {
-    icon: '📄',
-    badge: '1-TAP EXPORT',
-    title: 'Clinical PDF Vet Dossiers',
-    description:
-      'Generate and share beautiful health summaries directly with your veterinary clinic or emergency team.',
-  },
-];
-
 function toDateOnlyString(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -107,8 +84,30 @@ export default function OnboardingScreen({
 }: Props) {
   const { theme, isDarkMode } = useTheme();
   const { t } = useT();
+  const insets = useSafeAreaInsets();
   const { upgradeToPro } = useSubscription();
-  const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
+  const styles = useMemo(() => makeStyles(theme, isDarkMode, insets), [theme, isDarkMode, insets]);
+
+  const welcomeSlides = useMemo(() => [
+    {
+      icon: '🩺',
+      badge: t('onboarding.welcomeBadge1'),
+      title: t('onboarding.welcomeTitle1'),
+      description: t('onboarding.welcomeDesc1'),
+    },
+    {
+      icon: '💬',
+      badge: t('onboarding.welcomeBadge2'),
+      title: t('onboarding.welcomeTitle2'),
+      description: t('onboarding.welcomeDesc2'),
+    },
+    {
+      icon: '📄',
+      badge: t('onboarding.welcomeBadge3'),
+      title: t('onboarding.welcomeTitle3'),
+      description: t('onboarding.welcomeDesc3'),
+    },
+  ], [t]);
 
   // Initial step determination
   const initialStep: OnboardingStep = useMemo(() => {
@@ -430,8 +429,8 @@ export default function OnboardingScreen({
 
   // PASS 1: Welcome Value Slides
   if (step === 'welcome') {
-    const curSlide = WELCOME_SLIDES[welcomeIndex];
-    const isLastSlide = welcomeIndex === WELCOME_SLIDES.length - 1;
+    const curSlide = welcomeSlides[welcomeIndex];
+    const isLastSlide = welcomeIndex === welcomeSlides.length - 1;
 
     return (
       <View style={styles.container}>
@@ -443,7 +442,7 @@ export default function OnboardingScreen({
             onPress={() => setStep('identity')}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <Text style={styles.skipBtnText}>Skip</Text>
+            <Text style={styles.skipBtnText}>{t('tour.skip')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -462,7 +461,7 @@ export default function OnboardingScreen({
 
         {/* Pagination Dots */}
         <View style={styles.dotsRow}>
-          {WELCOME_SLIDES.map((_, idx) => (
+          {welcomeSlides.map((_, idx) => (
             <TouchableOpacity
               key={idx}
               onPress={() => setWelcomeIndex(idx)}
@@ -483,7 +482,7 @@ export default function OnboardingScreen({
             }}
           >
             <Text style={styles.primaryBtnText}>
-              {isLastSlide ? 'Get Started 🐾' : 'Continue'}
+              {isLastSlide ? `${t('common.continue')} 🐾` : t('common.continue')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -617,7 +616,7 @@ export default function OnboardingScreen({
       >
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.stepProgressRow}>
-            <Text style={styles.stepProgressText}>STEP 1 OF 3 · PET BASICS</Text>
+            <Text style={styles.stepProgressText}>{t('onboarding.step1Title')}</Text>
           </View>
 
           <TouchableOpacity onPress={pickPetPhoto} style={styles.photoPickerWrap}>
@@ -633,24 +632,24 @@ export default function OnboardingScreen({
             </View>
           </TouchableOpacity>
           <Text style={styles.photoCaption}>
-            {petPhotoUri ? 'Tap to change pet photo' : 'Add pet photo (Optional)'}
+            {petPhotoUri ? t('onboarding.tapToChangePhoto') : t('onboarding.addPhotoOptional')}
           </Text>
 
-          <Text style={styles.title}>Meet Your Companion</Text>
-          <Text style={styles.subtitle}>Who will you be caring for on Bisco?</Text>
+          <Text style={styles.title}>{t('onboarding.meetCompanion')}</Text>
+          <Text style={styles.subtitle}>{t('onboarding.whoCaringFor')}</Text>
 
           {petError ? <Text style={styles.errorText}>{petError}</Text> : null}
 
           <TextInput
             style={styles.input}
-            placeholder="Pet Name (e.g. Bella)"
+            placeholder={t('petForm.name')}
             placeholderTextColor={theme.textMuted}
             value={petName}
             onChangeText={setPetName}
             autoCapitalize="words"
           />
 
-          <Text style={styles.sectionLabel}>Species</Text>
+          <Text style={styles.sectionLabel}>{t('onboarding.species')}</Text>
           <View style={styles.speciesRow}>
             {PET_SPECIES.map((s) => {
               const selected = petSpecies === s.value;
@@ -674,10 +673,10 @@ export default function OnboardingScreen({
             })}
           </View>
 
-          <Text style={styles.sectionLabel}>Breed (Optional)</Text>
+          <Text style={styles.sectionLabel}>{t('onboarding.breedOptional')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="e.g. Golden Retriever, Labrador, Mixed..."
+            placeholder={t('petForm.breed')}
             placeholderTextColor={theme.textMuted}
             value={petBreed}
             onChangeText={setPetBreed}
@@ -688,7 +687,7 @@ export default function OnboardingScreen({
             <View style={styles.coatMatchCard}>
               <Text style={styles.coatMatchEmoji}>🎨</Text>
               <Text style={styles.coatMatchText}>
-                We've matched Bisco's styling to your companion's coat!
+                {t('onboarding.coatMatchedNotice')}
               </Text>
             </View>
           ) : null}
@@ -698,7 +697,7 @@ export default function OnboardingScreen({
             disabled={!petName.trim()}
             onPress={() => setStep('pet_health')}
           >
-            <Text style={styles.primaryBtnText}>Next: Health Baseline →</Text>
+            <Text style={styles.primaryBtnText}>{t('onboarding.nextHealthBaseline')}</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -714,22 +713,22 @@ export default function OnboardingScreen({
       >
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.stepProgressRow}>
-            <Text style={styles.stepProgressText}>STEP 2 OF 3 · HEALTH BASELINE</Text>
+            <Text style={styles.stepProgressText}>{t('onboarding.step2Title')}</Text>
           </View>
 
-          <Text style={styles.title}>{petName}'s Baseline</Text>
+          <Text style={styles.title}>{t('onboarding.baselineTitle', { name: petName })}</Text>
           <Text style={styles.subtitle}>
-            Helps Bisco calibrate daily water curves, meal portions, and symptom triage.
+            {t('onboarding.baselineSubtitle')}
           </Text>
 
           {petError ? <Text style={styles.errorText}>{petError}</Text> : null}
 
-          <Text style={styles.sectionLabel}>Biological Sex</Text>
+          <Text style={styles.sectionLabel}>{t('onboarding.biologicalSex')}</Text>
           <View style={styles.speciesRow}>
             {[
-              { label: 'Male', value: 'male', emoji: '♂' },
-              { label: 'Female', value: 'female', emoji: '♀' },
-              { label: 'Unknown', value: 'unknown', emoji: '?' },
+              { label: t('dogDetail.male'), value: 'male', emoji: '♂' },
+              { label: t('dogDetail.female'), value: 'female', emoji: '♀' },
+              { label: t('dogDetail.unknown'), value: 'unknown', emoji: '?' },
             ].map((s) => {
               const selected = petSex === s.value;
               return (
@@ -755,10 +754,10 @@ export default function OnboardingScreen({
           <View style={styles.switchRow}>
             <View style={styles.switchTextCol}>
               <Text style={styles.switchLabel}>
-                {petSex === 'male' ? 'Neutered' : 'Spayed / Sterilized'}
+                {petSex === 'male' ? t('onboarding.neutered') : t('onboarding.spayed')}
               </Text>
               <Text style={styles.switchSublabel}>
-                Used for cycle tracking & medical records
+                {t('onboarding.sterilizationNotice')}
               </Text>
             </View>
             <Switch
@@ -769,7 +768,7 @@ export default function OnboardingScreen({
             />
           </View>
 
-          <Text style={styles.sectionLabel}>Current Weight (kg)</Text>
+          <Text style={styles.sectionLabel}>{t('onboarding.currentWeight')}</Text>
           <TextInput
             style={styles.input}
             placeholder="e.g. 14.5"
@@ -779,15 +778,16 @@ export default function OnboardingScreen({
             keyboardType="decimal-pad"
           />
 
-          <Text style={styles.sectionLabel}>Date of Birth / Birthday (Optional)</Text>
+          <Text style={styles.sectionLabel}>{t('onboarding.dobOptional')}</Text>
           {Platform.OS === 'ios' ? (
             <View style={styles.iosDateRow}>
               <Text style={styles.iosDateLabel}>
-                {petBirthDate ? toDateOnlyString(petBirthDate) : 'Select birth date'}
+                {petBirthDate ? toDateOnlyString(petBirthDate) : t('petForm.dobOptional')}
               </Text>
               <DateTimePicker
                 value={petBirthDate ?? new Date()}
                 mode="date"
+                themeVariant={isDarkMode ? 'dark' : 'light'}
                 maximumDate={new Date()}
                 display="compact"
                 onChange={(_e, d) => {
@@ -801,7 +801,7 @@ export default function OnboardingScreen({
               onPress={openAndroidPetDatePicker}
             >
               <Text style={petBirthDate ? styles.dateTextActive : styles.dateTextPlaceholder}>
-                {petBirthDate ? toDateOnlyString(petBirthDate) : 'Tap to select birthday'}
+                {petBirthDate ? toDateOnlyString(petBirthDate) : t('petForm.dobOptional')}
               </Text>
             </TouchableOpacity>
           )}
@@ -814,7 +814,7 @@ export default function OnboardingScreen({
             {petLoading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text style={styles.primaryBtnText}>Save & Set Daily Rhythm →</Text>
+              <Text style={styles.primaryBtnText}>{t('onboarding.saveAndSetRhythm')}</Text>
             )}
           </TouchableOpacity>
 
@@ -822,7 +822,7 @@ export default function OnboardingScreen({
             style={styles.secondaryBtn}
             onPress={() => setStep('pet_basics')}
           >
-            <Text style={styles.secondaryBtnText}>← Back to Pet Basics</Text>
+            <Text style={styles.secondaryBtnText}>{t('onboarding.backToBasics')}</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -835,12 +835,12 @@ export default function OnboardingScreen({
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.stepProgressRow}>
-            <Text style={styles.stepProgressText}>STEP 3 OF 3 · DAILY RHYTHM</Text>
+            <Text style={styles.stepProgressText}>{t('onboarding.step3Title')}</Text>
           </View>
 
-          <Text style={styles.title}>{petName || 'Your Pet'}'s Care Plan</Text>
+          <Text style={styles.title}>{t('onboarding.carePlanTitle', { name: petName || t('home.yourPet') })}</Text>
           <Text style={styles.subtitle}>
-            Select the daily routines you want active on your Home dashboard from day one.
+            {t('onboarding.carePlanSubtitle')}
           </Text>
 
           <View style={styles.habitCardsStack}>
@@ -859,9 +859,9 @@ export default function OnboardingScreen({
                 <Text style={styles.habitSelectIcon}>💧</Text>
               </View>
               <View style={styles.habitSelectTextCol}>
-                <Text style={styles.habitSelectTitle}>Fresh Hydration</Text>
+                <Text style={styles.habitSelectTitle}>{t('onboarding.freshHydration')}</Text>
                 <Text style={styles.habitSelectSubtitle}>
-                  Target: 800ml/day · Quick-increment directly on Home
+                  {t('onboarding.freshHydrationSub')}
                 </Text>
               </View>
               <View
@@ -889,9 +889,9 @@ export default function OnboardingScreen({
                 <Text style={styles.habitSelectIcon}>🥩</Text>
               </View>
               <View style={styles.habitSelectTextCol}>
-                <Text style={styles.habitSelectTitle}>Daily Meals</Text>
+                <Text style={styles.habitSelectTitle}>{t('onboarding.dailyMeals')}</Text>
                 <Text style={styles.habitSelectSubtitle}>
-                  Target: 2 meals/day · Morning & Evening schedule
+                  {t('onboarding.dailyMealsSub')}
                 </Text>
               </View>
               <View
@@ -919,9 +919,9 @@ export default function OnboardingScreen({
                 <Text style={styles.habitSelectIcon}>🦮</Text>
               </View>
               <View style={styles.habitSelectTextCol}>
-                <Text style={styles.habitSelectTitle}>Daily Walk & Exercise</Text>
+                <Text style={styles.habitSelectTitle}>{t('onboarding.dailyWalk')}</Text>
                 <Text style={styles.habitSelectSubtitle}>
-                  Target: 1 walk/day (30 mins outdoor activity)
+                  {t('onboarding.dailyWalkSub')}
                 </Text>
               </View>
               <View
@@ -943,7 +943,7 @@ export default function OnboardingScreen({
             {habitsLoading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text style={styles.primaryBtnText}>Activate Care Plan 🚀</Text>
+              <Text style={styles.primaryBtnText}>{t('onboarding.activateCarePlan')}</Text>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -956,9 +956,9 @@ export default function OnboardingScreen({
     return (
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Text style={styles.title}>You're All Set! 🎉</Text>
+          <Text style={styles.title}>{t('onboarding.allSetTitle')}</Text>
           <Text style={styles.subtitle}>
-            Two quick options to get the most out of your companion's care.
+            {t('onboarding.allSetSubtitle')}
           </Text>
 
           {/* Card 1: Notifications Priming */}
@@ -968,9 +968,9 @@ export default function OnboardingScreen({
                 <Text style={styles.primingIcon}>🔔</Text>
               </View>
               <View style={styles.primingHeaderCol}>
-                <Text style={styles.primingTitle}>Smart Care Reminders</Text>
+                <Text style={styles.primingTitle}>{t('onboarding.smartRemindersTitle')}</Text>
                 <Text style={styles.primingSubtitle}>
-                  Vaccine boosters, medications, and hydration prompts
+                  {t('onboarding.smartRemindersSub')}
                 </Text>
               </View>
             </View>
@@ -989,7 +989,7 @@ export default function OnboardingScreen({
                   notificationsGranted && styles.reminderBtnTextGranted,
                 ]}
               >
-                {notificationsGranted ? '✓ Reminders Enabled' : 'Enable Smart Reminders'}
+                {notificationsGranted ? t('onboarding.remindersEnabled') : t('onboarding.enableReminders')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -997,18 +997,18 @@ export default function OnboardingScreen({
           {/* Card 2: Bisco Pro Soft Trial Card */}
           <View style={styles.proTrialCard}>
             <View style={styles.proTrialBadge}>
-              <Text style={styles.proTrialBadgeText}>7-DAY FREE TRIAL · BISCO PRO</Text>
+              <Text style={styles.proTrialBadgeText}>{t('onboarding.proTrialBadge')}</Text>
             </View>
 
-            <Text style={styles.proTrialTitle}>Lifelong Vitality for {petName || 'Your Pet'}</Text>
+            <Text style={styles.proTrialTitle}>{t('onboarding.proTrialTitle', { name: petName || t('home.yourPet') })}</Text>
             <Text style={styles.proTrialSubtitle}>
-              Unlock unlimited 24/7 Bisco AI triage, clinical PDF vet exports, and family pet care.
+              {t('onboarding.proTrialSubtitle')}
             </Text>
 
             <View style={styles.proBenefitsList}>
-              <Text style={styles.proBenefitItem}>✓ Unlimited 24/7 AI Triage & Nutrition Q&A</Text>
-              <Text style={styles.proBenefitItem}>✓ 1-Tap Clinical PDF Vet Dossier Export</Text>
-              <Text style={styles.proBenefitItem}>✓ Multi-Pet Tracking for the whole home</Text>
+              <Text style={styles.proBenefitItem}>{t('onboarding.proBenefit1')}</Text>
+              <Text style={styles.proBenefitItem}>{t('onboarding.proBenefit2')}</Text>
+              <Text style={styles.proBenefitItem}>{t('onboarding.proBenefit3')}</Text>
             </View>
 
             <TouchableOpacity
@@ -1019,7 +1019,7 @@ export default function OnboardingScreen({
               {primingLoading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text style={styles.proTrialBtnText}>Start 7-Day Free Trial 👑</Text>
+                <Text style={styles.proTrialBtnText}>{t('onboarding.startProTrialBtn')}</Text>
               )}
             </TouchableOpacity>
 
@@ -1027,7 +1027,7 @@ export default function OnboardingScreen({
               style={styles.skipTrialBtn}
               onPress={onComplete}
             >
-              <Text style={styles.skipTrialBtnText}>Continue with Free Plan →</Text>
+              <Text style={styles.skipTrialBtnText}>{t('onboarding.continueFreeBtn')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -1050,13 +1050,13 @@ export default function OnboardingScreen({
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.secondaryBtn} onPress={onComplete}>
-        <Text style={styles.secondaryBtnText}>No, take me to Bisco</Text>
+        <Text style={styles.secondaryBtnText}>{t('onboarding.noContinue')}</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-function makeStyles(theme: ThemeTokens, isDarkMode = false) {
+function makeStyles(theme: ThemeTokens, isDarkMode = false, insets = { top: 0, bottom: 0 }) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -1064,9 +1064,9 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
     },
     scrollContent: {
       flexGrow: 1,
-      padding: 24,
-      paddingTop: 54,
-      paddingBottom: 40,
+      paddingHorizontal: 24,
+      paddingTop: Math.max(insets.top + 16, 52),
+      paddingBottom: Math.max(insets.bottom + 24, 40),
     },
     // Welcome Screen
     welcomeTopNav: {
@@ -1074,7 +1074,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: 24,
-      paddingTop: 56,
+      paddingTop: Math.max(insets.top + 12, 48),
       marginBottom: 20,
     },
     welcomeBrandTag: {
@@ -1174,7 +1174,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
     },
     welcomeFooter: {
       paddingHorizontal: 24,
-      paddingBottom: 40,
+      paddingBottom: Math.max(insets.bottom + 20, 36),
     },
     // Step Progress Badge
     stepProgressRow: {

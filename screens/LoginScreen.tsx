@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import SocialSignInButtons from '../components/SocialSignInButtons';
 import ForgotPasswordScreen from './ForgotPasswordScreen';
@@ -25,7 +26,8 @@ type Props = {
 export default function LoginScreen({ onSwitch }: Props) {
   const { theme } = useTheme();
   const { t } = useT();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -55,63 +57,67 @@ export default function LoginScreen({ onSwitch }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <Text style={styles.paw}>🐾</Text>
-      <Text style={styles.title}>{t('auth.welcomeBack')}</Text>
-      <Text style={styles.subtitle}>{t('auth.signInSubtitle')}</Text>
+        <View style={styles.logoCircle}>
+          <Text style={styles.paw}>🐾</Text>
+        </View>
+        <Text style={styles.title}>{t('auth.welcomeBack')}</Text>
+        <Text style={styles.subtitle}>{t('auth.signInSubtitle')}</Text>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <TextInput
-        style={styles.input}
-        placeholder={t('auth.email')}
-        placeholderTextColor={theme.textMuted}
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
-      <View style={styles.passwordContainer}>
-        <TextInput
-          style={styles.passwordInput}
-          placeholder={t('auth.password')}
-          placeholderTextColor={theme.textMuted}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={!showPassword}
-        />
-        <TouchableOpacity
-          onPress={() => setShowPassword(v => !v)}
-          style={styles.eyeBtn}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Feather name={showPassword ? 'eye' : 'eye-off'} size={20} color={theme.textMuted} />
+        <View style={styles.card}>
+          <TextInput
+            style={styles.input}
+            placeholder={t('auth.email')}
+            placeholderTextColor={theme.textMuted}
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder={t('auth.password')}
+              placeholderTextColor={theme.textMuted}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+            />
+            <TouchableOpacity
+              onPress={() => setShowPassword(v => !v)}
+              style={styles.eyeBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Feather name={showPassword ? 'eye' : 'eye-off'} size={20} color={theme.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity onPress={() => setShowForgotPassword(true)} style={styles.forgotRow}>
+            <Text style={styles.switchLink}>{t('auth.forgotPassword')}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading} activeOpacity={0.85}>
+            {loading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.buttonText}>{t('auth.signIn')}</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <SocialSignInButtons />
+
+        <TouchableOpacity onPress={onSwitch} style={styles.switchRow}>
+          <Text style={styles.switchText}>{t('auth.noAccount')}</Text>
+          <Text style={styles.switchLink}>{t('auth.signUp')}</Text>
         </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity onPress={() => setShowForgotPassword(true)} style={styles.forgotRow}>
-        <Text style={styles.switchLink}>{t('auth.forgotPassword')}</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-        {loading ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <Text style={styles.buttonText}>{t('auth.signIn')}</Text>
-        )}
-      </TouchableOpacity>
-
-      <SocialSignInButtons />
-
-      <TouchableOpacity onPress={onSwitch} style={styles.switchRow}>
-        <Text style={styles.switchText}>{t('auth.noAccount')}</Text>
-        <Text style={styles.switchLink}>{t('auth.signUp')}</Text>
-      </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-function makeStyles(theme: ThemeTokens) {
+function makeStyles(theme: ThemeTokens, insets = { top: 0, bottom: 0 }) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -121,13 +127,23 @@ function makeStyles(theme: ThemeTokens) {
       flexGrow: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 24,
-      paddingTop: 60,
-      paddingBottom: 40,
+      paddingHorizontal: 24,
+      paddingTop: Math.max(insets.top + 20, 52),
+      paddingBottom: Math.max(insets.bottom + 24, 40),
+    },
+    logoCircle: {
+      width: 64,
+      height: 64,
+      borderRadius: 22,
+      backgroundColor: theme.moodSelBg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: theme.border,
     },
     paw: {
-      fontSize: 48,
-      marginBottom: 12,
+      fontSize: 32,
     },
     title: {
       fontSize: 26,
@@ -138,7 +154,7 @@ function makeStyles(theme: ThemeTokens) {
     subtitle: {
       fontSize: 14,
       color: theme.textMuted,
-      marginBottom: 32,
+      marginBottom: 24,
     },
     error: {
       color: theme.allergenText,
@@ -146,9 +162,23 @@ function makeStyles(theme: ThemeTokens) {
       marginBottom: 12,
       textAlign: 'center',
     },
-    input: {
+    card: {
       width: '100%',
       backgroundColor: theme.surface,
+      borderRadius: 24,
+      borderWidth: 1,
+      borderColor: theme.border,
+      padding: 18,
+      marginBottom: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.04,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    input: {
+      width: '100%',
+      backgroundColor: theme.background,
       borderRadius: theme.radiiCard,
       padding: 16,
       fontSize: 15,
@@ -161,7 +191,7 @@ function makeStyles(theme: ThemeTokens) {
       width: '100%',
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: theme.surface,
+      backgroundColor: theme.background,
       borderRadius: theme.radiiCard,
       borderWidth: 1,
       borderColor: theme.border,
@@ -196,7 +226,7 @@ function makeStyles(theme: ThemeTokens) {
     },
     switchRow: {
       flexDirection: 'row',
-      marginTop: 24,
+      marginTop: 20,
     },
     switchText: {
       color: theme.textMuted,

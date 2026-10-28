@@ -191,6 +191,7 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
                 <TouchableOpacity
                   style={[
                     styles.dayCell,
+                    inRange && !colors && styles.dayCellInRange,
                     colors && { backgroundColor: colors.bg },
                     isSelected && styles.dayCellSelected,
                     !inRange && styles.dayCellDisabled,
@@ -198,7 +199,12 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
                   disabled={!inRange}
                   onPress={() => setSelectedDate(cell.dateStr)}
                 >
-                  <Text style={[styles.dayNumber, colors && { color: colors.text }]}>{cell.dayNum}</Text>
+                  <Text style={[
+                    styles.dayNumber,
+                    inRange && styles.dayNumberInRange,
+                    colors && { color: colors.text },
+                    isSelected && styles.dayNumberSelected,
+                  ]}>{cell.dayNum}</Text>
                 </TouchableOpacity>
               </View>
             );
@@ -782,9 +788,13 @@ function makeStyles(theme: ThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
+    dayCellInRange: {
+      backgroundColor: theme.surfaceAlt,
+    },
     dayCellSelected: {
-      borderWidth: 1.5,
-      borderColor: theme.textDark,
+      borderWidth: 2,
+      borderColor: theme.primary,
+      backgroundColor: theme.moodSelBg,
     },
     dayCellDisabled: {
       opacity: 0.25,
@@ -793,6 +803,14 @@ function makeStyles(theme: ThemeTokens) {
       fontSize: 12,
       fontWeight: '500',
       color: theme.textDark,
+    },
+    dayNumberInRange: {
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    dayNumberSelected: {
+      fontWeight: '700',
+      color: theme.primaryDark || theme.primary,
     },
     dayDetailCard: {
       marginTop: 10,
