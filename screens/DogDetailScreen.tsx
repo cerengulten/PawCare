@@ -161,6 +161,8 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
     completionIds,
     logHabitToday,
     undoHabitToday,
+    resetHabitToday,
+    undoOccurrence,
     logWaterAmount,
     resetWaterToday,
     addHabit,
@@ -638,7 +640,31 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
                     actionDisabled={isWater}
                     onPressAction={() => {
                       if (!done) { logHabitToday(h.id); return; }
-                      isWater ? resetWaterToday(h.id) : undoHabitToday(h.id);
+                      isWater ? resetWaterToday(h.id) : resetHabitToday(h.id);
+                    }}
+                    onResetToday={() => {
+                      isWater ? resetWaterToday(h.id) : resetHabitToday(h.id);
+                    }}
+                    onLongPressAction={() => {
+                      if (count <= 0) return;
+                      Alert.alert(
+                        h.title,
+                        t('habitRow.manageProgress', { count, target }) || `${t('home.today') || 'Today'}: ${count}/${target}`,
+                        [
+                          { text: t('common.cancel'), style: 'cancel' },
+                          target > 1 && count > 1
+                            ? {
+                                text: t('habitRow.undoOne') || 'Undo one (-1)',
+                                onPress: () => undoOccurrence(h.id),
+                              }
+                            : null,
+                          {
+                            text: t('habitRow.resetToZero') || 'Reset to 0',
+                            style: 'destructive',
+                            onPress: () => (isWater ? resetWaterToday(h.id) : resetHabitToday(h.id)),
+                          },
+                        ].filter(Boolean) as any
+                      );
                     }}
                     onEdit={() => { setEditingHabit(h); setPresetType(undefined); setMode('habit-form'); }}
                     onDelete={() => deleteHabit(h.id)}

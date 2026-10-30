@@ -16,6 +16,8 @@ type Props = {
   subtitle: string;
   actionDisabled?: boolean;
   onPressAction: () => void;
+  onResetToday?: () => void;
+  onLongPressAction?: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onViewHistory: () => void;
@@ -33,6 +35,8 @@ export default function HabitRow({
   subtitle,
   actionDisabled = false,
   onPressAction,
+  onResetToday,
+  onLongPressAction,
   onEdit,
   onDelete,
   onViewHistory,
@@ -66,6 +70,14 @@ export default function HabitRow({
 
   const renderRightActions = () => (
     <View style={styles.actions}>
+      {count > 0 && onResetToday ? (
+        <TouchableOpacity
+          style={[styles.actionButton, styles.resetAction]}
+          onPress={() => { swipeableRef.current?.close(); onResetToday(); }}
+        >
+          <Text style={styles.actionText}>{t('habitRow.resetToday')}</Text>
+        </TouchableOpacity>
+      ) : null}
       <TouchableOpacity
         style={[styles.actionButton, styles.historyAction]}
         onPress={() => { swipeableRef.current?.close(); onViewHistory(); }}
@@ -105,20 +117,32 @@ export default function HabitRow({
     <Swipeable ref={swipeableRef} renderRightActions={renderRightActions} overshootRight={false}>
       <View style={styles.row}>
         {loggable ? (
-          <TouchableOpacity style={styles.rowContent} onPress={onPressAction} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.rowContent}
+            onPress={onPressAction}
+            onLongPress={onLongPressAction}
+            activeOpacity={0.7}
+          >
             {content}
           </TouchableOpacity>
         ) : undoable ? (
           <TouchableOpacity
             style={styles.rowContent}
             onPress={onPressAction}
-            onLongPress={onPressAction}
+            onLongPress={onLongPressAction}
             activeOpacity={0.7}
           >
             {content}
           </TouchableOpacity>
         ) : (
-          <View style={styles.rowContent}>{content}</View>
+          <TouchableOpacity
+            style={styles.rowContent}
+            onLongPress={onLongPressAction}
+            activeOpacity={0.7}
+            disabled={!onLongPressAction || count === 0}
+          >
+            {content}
+          </TouchableOpacity>
         )}
       </View>
     </Swipeable>
@@ -165,6 +189,9 @@ function makeStyles(theme: ThemeTokens) {
       width: 64,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    resetAction: {
+      backgroundColor: '#D97706',
     },
     historyAction: {
       backgroundColor: theme.textMuted,

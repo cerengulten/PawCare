@@ -543,6 +543,10 @@ const tr: typeof en = {
     deleteMessage: 'Bu, "%{title}" alışkanlığını kalıcı olarak siler.',
     noHabitsYet: 'Henüz alışkanlık yok',
     habitsProgress: '%{done}/%{total} alışkanlık',
+    resetToday: 'Sıfırla',
+    resetToZero: "0'a sıfırla",
+    undoOne: '1 geri al (-1)',
+    manageProgress: 'Bugün: %{count}/%{target} tamamlandı',
   },
   habits: {
     addTitle: 'Alışkanlık ekle',

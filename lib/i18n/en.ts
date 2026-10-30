@@ -545,6 +545,10 @@ const en = {
     deleteMessage: 'This permanently deletes "%{title}".',
     noHabitsYet: 'No habits yet',
     habitsProgress: '%{done}/%{total} habits',
+    resetToday: 'Reset',
+    resetToZero: 'Reset to 0',
+    undoOne: 'Undo one (-1)',
+    manageProgress: "Today: %{count}/%{target} completed",
   },
   habits: {
     addTitle: 'Add a habit',

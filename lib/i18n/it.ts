@@ -543,6 +543,10 @@ const it: typeof en = {
     deleteMessage: 'Questo elimina definitivamente "%{title}".',
     noHabitsYet: 'Ancora nessuna abitudine',
     habitsProgress: '%{done}/%{total} abitudini',
+    resetToday: 'Azzera',
+    resetToZero: 'Azzera a 0',
+    undoOne: 'Annulla uno (-1)',
+    manageProgress: 'Oggi: %{count}/%{target} completati',
   },
   habits: {
     addTitle: 'Aggiungi abitudine',

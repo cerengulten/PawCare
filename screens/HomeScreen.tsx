@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, BackHandler, StyleSheet } from 'react-native';
+import { View, Text, Image, ScrollView, TouchableOpacity, Alert, BackHandler, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useProfile } from '../lib/hooks/useProfile';
@@ -49,7 +49,17 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
 
   const activeDog = dogs.find(d => d.id === selectedDogId) ?? dogs[0] ?? null;
   const activeDogName = activeDog?.name ?? t('home.yourPet');
-  const { habits, completedToday, completedCounts, logHabitToday, logWaterAmount, undoHabitToday, resetWaterToday } = useHabits(activeDog?.id ?? '');
+  const {
+    habits,
+    completedToday,
+    completedCounts,
+    logHabitToday,
+    logWaterAmount,
+    undoHabitToday,
+    resetHabitToday,
+    undoOccurrence,
+    resetWaterToday,
+  } = useHabits(activeDog?.id ?? '');
   const { upcoming: upcomingVaccines, overdue: overdueVaccines } = useAllVaccines();
   const { mood } = useDogMood(activeDog?.id ?? '');
   const age = computeAge(activeDog?.birth_date ?? null);
@@ -260,11 +270,32 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                             }
                           } else {
                             if (isDone) {
-                              undoHabitToday(habit.id);
+                              resetHabitToday(habit.id);
                             } else {
                               logHabitToday(habit.id);
                             }
                           }
+                        }}
+                        onLongPress={() => {
+                          if (count <= 0) return;
+                          Alert.alert(
+                            habit.title,
+                            t('habitRow.manageProgress', { count, target }) || `${t('home.today') || 'Today'}: ${count}/${target}`,
+                            [
+                              { text: t('common.cancel'), style: 'cancel' },
+                              target > 1 && count > 1
+                                ? {
+                                    text: t('habitRow.undoOne') || 'Undo one (-1)',
+                                    onPress: () => undoOccurrence(habit.id),
+                                  }
+                                : null,
+                              {
+                                text: t('habitRow.resetToZero') || 'Reset to 0',
+                                style: 'destructive',
+                                onPress: () => (isWater ? resetWaterToday(habit.id) : resetHabitToday(habit.id)),
+                              },
+                            ].filter(Boolean) as any
+                          );
                         }}
                         activeOpacity={0.7}
                       >

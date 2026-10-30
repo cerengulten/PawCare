@@ -192,6 +192,20 @@ export function useHabits(dogId: string | null) {
     setCompletionIds(prev => { const m = new Map(prev); m.delete(habitId); return m; });
   }
 
+  async function resetHabitToday(habitId: string) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
+    if (!user) return;
+    await supabase
+      .from('habit_completions')
+      .delete()
+      .eq('habit_id', habitId)
+      .eq('owner_id', user.id)
+      .eq('completed_date', today);
+    setCompletedCounts(prev => { const m = new Map(prev); m.delete(habitId); return m; });
+    setCompletionIds(prev => { const m = new Map(prev); m.delete(habitId); return m; });
+  }
+
   async function logHabitToday(habitId: string) {
     const habit = habits.find(h => h.id === habitId);
     if (!habit) return;
@@ -200,10 +214,8 @@ export function useHabits(dogId: string | null) {
   }
 
   async function undoHabitToday(habitId: string) {
-    const habit = habits.find(h => h.id === habitId);
-    if (!habit) return;
-    if (getHabitTarget(habit) > 1) await undoOccurrence(habitId);
-    else await toggleCompletion(habitId);
+    // When undoing today's habit, reset to 0 so users don't get trapped between 1 and 2
+    await resetHabitToday(habitId);
   }
 
   async function addHabit(habit: Omit<Habit, 'id' | 'dog_id' | 'owner_id' | 'created_at' | 'notification_ids'>) {
@@ -291,6 +303,7 @@ export function useHabits(dogId: string | null) {
     undoOccurrence,
     logHabitToday,
     undoHabitToday,
+    resetHabitToday,
     logWaterAmount,
     resetWaterToday,
     completionRate,
