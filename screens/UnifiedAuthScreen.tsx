@@ -203,13 +203,6 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
               >
                 <Text style={[styles.langChipText, lang === 'tr' && styles.langChipTextActive]}>TR</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setLang('it')}
-                style={[styles.langChip, lang === 'it' && styles.langChipActive]}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.langChipText, lang === 'it' && styles.langChipTextActive]}>IT</Text>
-              </TouchableOpacity>
             </View>
           </View>
           <View style={styles.verificationIconCircle}>
@@ -292,13 +285,6 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
               activeOpacity={0.7}
             >
               <Text style={[styles.langChipText, lang === 'tr' && styles.langChipTextActive]}>TR</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setLang('it')}
-              style={[styles.langChip, lang === 'it' && styles.langChipActive]}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.langChipText, lang === 'it' && styles.langChipTextActive]}>IT</Text>
             </TouchableOpacity>
           </View>
         </View>

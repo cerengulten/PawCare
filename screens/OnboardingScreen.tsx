@@ -475,12 +475,6 @@ export default function OnboardingScreen({
               >
                 <Text style={[styles.langTextMini, lang === 'tr' && styles.langTextMiniActive]}>TR</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setLang('it')}
-                style={[styles.langChipMini, lang === 'it' && styles.langChipMiniActive]}
-              >
-                <Text style={[styles.langTextMini, lang === 'it' && styles.langTextMiniActive]}>IT</Text>
-              </TouchableOpacity>
             </View>
             <TouchableOpacity
               onPress={() => setStep('identity')}
@@ -564,12 +558,6 @@ export default function OnboardingScreen({
                 style={[styles.langChipMini, lang === 'tr' && styles.langChipMiniActive]}
               >
                 <Text style={[styles.langTextMini, lang === 'tr' && styles.langTextMiniActive]}>TR</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setLang('it')}
-                style={[styles.langChipMini, lang === 'it' && styles.langChipMiniActive]}
-              >
-                <Text style={[styles.langTextMini, lang === 'it' && styles.langTextMiniActive]}>IT</Text>
               </TouchableOpacity>
             </View>
           </View>

@@ -128,7 +128,6 @@ export function resolveRegionalPricing(lang?: Lang): RegionalPricing {
 
   // 2. Secondary fallback: If device country is neutral/undetermined, infer from language
   if (lang === 'tr') return REGIONAL_PRICING.TRY;
-  if (lang === 'it') return REGIONAL_PRICING.EUR;
 
   return REGIONAL_PRICING.USD;
 }

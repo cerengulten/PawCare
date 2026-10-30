@@ -19,10 +19,9 @@ export default function LegalDocScreen({ type, onBack }: Props) {
 
   const isTerms = type === 'terms';
   const isTr = lang === 'tr';
-  const isIt = lang === 'it';
 
   const title = isTerms ? t('settings.termsOfService') : t('settings.privacyPolicy');
-  const lastUpdated = isTr ? 'Son güncelleme: 26 Ekim 2026' : isIt ? 'Ultimo aggiornamento: 26 ottobre 2026' : 'Last updated: October 26, 2026';
+  const lastUpdated = isTr ? 'Son güncelleme: 26 Ekim 2026' : 'Last updated: October 26, 2026';
 
   const content = isTerms ? (
     isTr ? (
@@ -57,7 +56,7 @@ export default function LegalDocScreen({ type, onBack }: Props) {
 
         <Text style={styles.sectionHeader}>5. İletişim</Text>
         <Text style={styles.paragraph}>
-          Kullanım koşullarıyla ilgili sorularınız için bizimle support@bisco.app adresinden iletişime geçebilirsiniz.
+          Kullanım koşullarıyla ilgili sorularınız için bizimle cerengulten.dev@gmail.com adresinden iletişime geçebilirsiniz.
         </Text>
       </>
     ) : (
@@ -89,7 +88,7 @@ export default function LegalDocScreen({ type, onBack }: Props) {
 
         <Text style={styles.sectionHeader}>5. Contact</Text>
         <Text style={styles.paragraph}>
-          For inquiries regarding these Terms, contact us at support@bisco.app.
+          For inquiries regarding these Terms, contact us at cerengulten.dev@gmail.com.
         </Text>
       </>
     )
@@ -125,7 +124,7 @@ export default function LegalDocScreen({ type, onBack }: Props) {
 
         <Text style={styles.sectionHeader}>5. İletişim</Text>
         <Text style={styles.paragraph}>
-          Gizlilik uygulamalarımızla ilgili her türlü soru için support@bisco.app adresinden bize ulaşabilirsiniz.
+          Gizlilik uygulamalarımızla ilgili her türlü soru için cerengulten.dev@gmail.com adresinden bize ulaşabilirsiniz.
         </Text>
       </>
     ) : (
@@ -159,7 +158,7 @@ export default function LegalDocScreen({ type, onBack }: Props) {
 
         <Text style={styles.sectionHeader}>5. Contact Us</Text>
         <Text style={styles.paragraph}>
-          If you have questions about our Privacy Policy, contact us at support@bisco.app.
+          If you have questions about our Privacy Policy, contact us at cerengulten.dev@gmail.com.
         </Text>
       </>
     )

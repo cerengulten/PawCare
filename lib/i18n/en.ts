@@ -692,6 +692,16 @@ const en = {
     community: 'Community',
     communitySubtitle: 'Tips from dog owners',
     soon: 'Soon',
+    roadmapTitle: 'Bisco Roadmap & Wishlist',
+    roadmapSubtitle: 'Vote for upcoming capabilities you want our team to build next:',
+    wishlistFoodScannerTitle: 'Smart Barcode & Food Scanner',
+    wishlistFoodScannerSub: 'Scan ingredient labels to detect allergens, low-grade fillers & safety ratings',
+    wishlistCommunityTitle: 'Pet Parent Community Q&A',
+    wishlistCommunitySub: 'Connect with verified owners of the same breed and local playdate groups',
+    wishlistPrescriptionTitle: 'Medication Refill Tracker',
+    wishlistPrescriptionSub: 'Auto-countdown doses and alert you before prescription refills run out',
+    wishlistTelehealthTitle: 'Vet Telehealth Quick-Chat',
+    wishlistTelehealthSub: '24/7 triage guidance with certified veterinary technicians',
   },
   settings: {
     title: 'Settings',
@@ -870,8 +880,8 @@ const en = {
     more: {
       s1Title: 'Never miss a vet visit',
       s1Body: 'Vaccines and scheduled events across all your pets, sorted by due date so nothing slips through.',
-      s2Title: 'More features coming',
-      s2Body: "AI care chat and vet finder are on the way — tap any row to see what's planned for Bisco.",
+      s2Title: 'Feature Wishlist',
+      s2Body: 'Vote on features you want us to add to Bisco next!',
     },
   },
   vetAppointments: {

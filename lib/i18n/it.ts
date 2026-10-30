@@ -690,6 +690,16 @@ const it: typeof en = {
     community: 'Community',
     communitySubtitle: 'Consigli da altri proprietari di cani',
     soon: 'Presto',
+    roadmapTitle: 'Bisco Roadmap & Desideri',
+    roadmapSubtitle: 'Vota le prossime funzionalità che vorresti vedere:',
+    wishlistFoodScannerTitle: 'Scanner Codici a Barre & Alimenti',
+    wishlistFoodScannerSub: 'Scansiona etichette per rilevare allergeni e valutare la qualità',
+    wishlistCommunityTitle: 'Community Domande & Risposte',
+    wishlistCommunitySub: 'Connettiti con proprietari della stessa razza e gruppi locali',
+    wishlistPrescriptionTitle: 'Promemoria Farmaci',
+    wishlistPrescriptionSub: 'Conteggio automatico delle dosi per non rimanere senza',
+    wishlistTelehealthTitle: 'Chat Rapida Veterinario',
+    wishlistTelehealthSub: 'Triage 24/7 con tecnici veterinari certificati',
   },
   settings: {
     title: 'Impostazioni',
@@ -868,8 +878,8 @@ const it: typeof en = {
     more: {
       s1Title: 'Non perdere una visita dal veterinario',
       s1Body: 'Vaccini ed eventi programmati di tutti i tuoi animali, ordinati per data di scadenza così non sfugge nulla.',
-      s2Title: 'Altre funzioni in arrivo',
-      s2Body: "La chat AI e il cerca-veterinario sono in arrivo — tocca una riga per vedere cosa è previsto per Bisco.",
+      s2Title: 'Lista dei Desideri',
+      s2Body: 'Vota le funzionalità che vorresti vedere presto in Bisco!',
     },
   },
   vetAppointments: {

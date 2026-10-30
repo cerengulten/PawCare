@@ -690,6 +690,16 @@ const tr: typeof en = {
     community: 'Topluluk',
     communitySubtitle: 'Köpek sahiplerinden ipuçları',
     soon: 'Yakında',
+    roadmapTitle: 'Bisco Yol Haritası & İstek Listesi',
+    roadmapSubtitle: 'Ekibimizin geliştirmesini istediğiniz özellikleri oylayın:',
+    wishlistFoodScannerTitle: 'Akıllı Barkod & İçerik Tarayıcı',
+    wishlistFoodScannerSub: 'Alerjenleri, düşük kaliteli dolgu maddelerini ve güvenlik puanını görmek için etiketleri tarayın',
+    wishlistCommunityTitle: 'Pati Sahibi Topluluk Soru-Cevap',
+    wishlistCommunitySub: 'Aynı ırka sahip doğrulanmış köpek sahipleri ve yerel buluşma gruplarıyla bağlantı kurun',
+    wishlistPrescriptionTitle: 'İlaç & Takviye Takibi',
+    wishlistPrescriptionSub: 'Dozları otomatik geri sayar ve ilacınız bitmeden önce size hatırlatır',
+    wishlistTelehealthTitle: 'Veteriner Hızlı Danışma',
+    wishlistTelehealthSub: 'Uzman veteriner teknisyenleriyle 7/24 hızlı ön değerlendirme rehberliği',
   },
   settings: {
     title: 'Ayarlar',
@@ -868,8 +878,8 @@ const tr: typeof en = {
     more: {
       s1Title: 'Veteriner ziyaretini kaçırma',
       s1Body: 'Tüm evcil hayvanların için aşılar ve planlanan etkinlikler, hiçbir şey gözden kaçmasın diye tarihe göre sıralı.',
-      s2Title: 'Daha fazla özellik geliyor',
-      s2Body: 'Yapay zekâ bakım sohbeti ve veteriner bulucu yolda — Bisco için neler planlandığını görmek için bir satıra dokun.',
+      s2Title: 'Özellik İstek Listesi',
+      s2Body: "Bisco'ya eklenmesini istediğin özellikleri oyla ve geliştirme sürecine yön ver!",
     },
   },
   vetAppointments: {

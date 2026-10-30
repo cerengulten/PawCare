@@ -119,6 +119,37 @@ export default function MoreScreen({
   const [legalDoc, setLegalDoc] = useState<'terms' | 'privacy' | null>(null);
   const [userVotes, setUserVotes] = useState<Record<string, boolean>>({});
 
+  const wishlistItems = useMemo(() => [
+    {
+      id: 'food_scanner',
+      icon: '🔍',
+      title: t('more.wishlistFoodScannerTitle') || 'Smart Barcode & Food Scanner',
+      subtitle: t('more.wishlistFoodScannerSub') || 'Scan ingredient labels to detect allergens, low-grade fillers & safety ratings',
+      baseVotes: 142,
+    },
+    {
+      id: 'community_qa',
+      icon: '👥',
+      title: t('more.wishlistCommunityTitle') || 'Pet Parent Community Q&A',
+      subtitle: t('more.wishlistCommunitySub') || 'Connect with verified owners of the same breed and local playdate groups',
+      baseVotes: 98,
+    },
+    {
+      id: 'prescription_tracker',
+      icon: '💊',
+      title: t('more.wishlistPrescriptionTitle') || 'Medication Refill Tracker',
+      subtitle: t('more.wishlistPrescriptionSub') || 'Auto-countdown doses and alert you before prescription refills run out',
+      baseVotes: 87,
+    },
+    {
+      id: 'telehealth_chat',
+      icon: '🩺',
+      title: t('more.wishlistTelehealthTitle') || 'Vet Telehealth Quick-Chat',
+      subtitle: t('more.wishlistTelehealthSub') || '24/7 triage guidance with certified veterinary technicians',
+      baseVotes: 165,
+    },
+  ], [t]);
+
   const upcomingRef = useRef<View>(null);
   const roadmapRef = useRef<View>(null);
 
@@ -417,13 +448,13 @@ export default function MoreScreen({
         </TouchableOpacity>
       </View>
 
-      {/* Feature Wishlist & Roadmap Section (Eliminates dead 'Coming Soon' gray block) */}
-      <Text style={styles.sectionTitle}>PawCare Roadmap & Wishlist</Text>
+      {/* Feature Wishlist & Roadmap Section */}
+      <Text style={styles.sectionTitle}>{t('more.roadmapTitle') || 'Bisco Roadmap & Wishlist'}</Text>
       <View ref={roadmapRef} collapsable={false} style={styles.card}>
         <Text style={styles.wishlistHeaderSubtitle}>
-          Vote for upcoming capabilities you want our team to build next:
+          {t('more.roadmapSubtitle') || 'Vote for upcoming capabilities you want our team to build next:'}
         </Text>
-        {WISHLIST_ITEMS.map((item, idx) => {
+        {wishlistItems.map((item, idx) => {
           const hasVoted = !!userVotes[item.id];
           const voteCount = item.baseVotes + (hasVoted ? 1 : 0);
           return (
@@ -444,7 +475,7 @@ export default function MoreScreen({
                   </Text>
                 </TouchableOpacity>
               </View>
-              {idx < WISHLIST_ITEMS.length - 1 ? <View style={styles.divider} /> : null}
+              {idx < wishlistItems.length - 1 ? <View style={styles.divider} /> : null}
             </View>
           );
         })}
@@ -588,7 +619,7 @@ export default function MoreScreen({
         enabled
         steps={[
           { targetRef: upcomingRef, position: 'bottom', title: t('tour.more.s1Title'), body: t('tour.more.s1Body') },
-          { targetRef: roadmapRef, position: 'top', title: 'Feature Wishlist', body: 'Vote on features you want us to add to Bisco next!' },
+          { targetRef: roadmapRef, position: 'top', title: t('tour.more.s2Title'), body: t('tour.more.s2Body') },
         ]}
       />
     </ScrollView>

@@ -4,13 +4,12 @@ import en from './en';
 import tr from './tr';
 import it from './it';
 
-export const SUPPORTED_LANGS = ['en', 'tr', 'it'] as const;
+export const SUPPORTED_LANGS = ['en', 'tr'] as const;
 export type Lang = (typeof SUPPORTED_LANGS)[number];
 
 export const LANG_LABELS: Record<Lang, string> = {
   en: 'English',
   tr: 'Türkçe',
-  it: 'Italiano',
 };
 
 export const i18n = new I18n({ en, tr, it });
@@ -28,7 +27,7 @@ export function resolveDeviceLang(): Lang {
   return isSupportedLang(code) ? code : 'en';
 }
 
-const LOCALE_TAGS: Record<Lang, string> = { en: 'en-US', tr: 'tr-TR', it: 'it-IT' };
+const LOCALE_TAGS: Record<Lang, string> = { en: 'en-US', tr: 'tr-TR' };
 
 /** BCP-47 tag for the active language — for Intl / toLocaleDateString calls. */
 export function localeTag(): string {
