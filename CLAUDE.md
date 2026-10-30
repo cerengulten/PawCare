@@ -318,6 +318,18 @@ https://docs.expo.dev/versions/v54.0.0/ before writing Expo-related code — don
   racy under rapid double-taps.
 - **Phase 2 item 5 — Allergy profile per dog, full CRUD (2026-08-06):** food sensitivities
   were normalized out of the flat `dogs.allergens text[]` column into their own
+- **Regional Currency & Subscription Pricing (2026-10-30):**
+  - **Purchasing Power Parity (PPP):** `lib/pricing.ts` maps user locale and in-app language
+    to regional price points (Turkey TRY `₺99.99/mo`, `₺599.99/yr` equivalent to `₺50/mo`;
+    Eurozone EUR `€4.99/mo`, `€29.99/yr`; UK GBP `£4.49/mo`, `£24.99/yr`; US/Global USD
+    `$4.99/mo`, `$24.99/yr`).
+  - **Paywall Localization:** `components/PaywallModal.tsx` fully localized across EN/TR/IT with
+    dynamic currency formatting, annual savings calculation, and reason banners.
+  - **Google Play Store / App Store transition plan:** In beta mode, `lib/pricing.ts` drives the
+    preview and client-side Pro unlocks. When Google Play Store Billing / Apple In-App Purchases
+    (e.g., via RevenueCat / `react-native-purchases`) are activated for release, the native store's
+    `product.priceString` will become the primary dynamic source of truth, matching the SKU prices
+    configured in the Google Play Console and App Store Connect.
   `dog_allergens` table (`id`/`dog_id`/`owner_id`/`allergen`/`created_at`, owner-scoped RLS,
   case-insensitive unique index on `(dog_id, lower(allergen))`), schema in
   `supabase/sql/2026-08-06_dog_allergens_table.sql` (includes a one-time backfill from the

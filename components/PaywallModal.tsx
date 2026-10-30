@@ -10,42 +10,18 @@ import {
 } from 'react-native';
 import { useSubscription, SubscriptionPlan, PaywallTriggerReason } from '../lib/SubscriptionContext';
 import { useTheme } from '../lib/ThemeContext';
+import { useT } from '../lib/LanguageContext';
+import { useRegionalPricing } from '../lib/pricing';
 import { ThemeTokens } from '../lib/themes';
 
 type Props = {
   onOpenLegal?: (doc: 'terms' | 'privacy') => void;
 };
 
-const FEATURE_LIST = [
-  {
-    icon: '🐾',
-    title: 'Unlimited Pet Profiles',
-    subtitle: 'Track habits, vaccines, meals & health logs for all your furry companions.',
-  },
-  {
-    icon: '💬',
-    title: '24/7 AI Health & Nutrition Assistant',
-    subtitle: 'Unlimited fast triage, safe food lookups, and personalized canine guidance.',
-  },
-  {
-    icon: '📄',
-    title: '1-Tap Clinical PDF Dossiers',
-    subtitle: 'Export verified medical summaries formatted for clinic visits and emergency vets.',
-  },
-  {
-    icon: '🌸',
-    title: 'Estrus & Cycle Forecast Engine',
-    subtitle: 'Breed-calibrated heat tracking, fertile window prediction & symptom analysis.',
-  },
-  {
-    icon: '☁️',
-    title: 'Lifetime Photo & Health Backup',
-    subtitle: 'Keep lifelong vaccine certificates, weight curves & medical records safe.',
-  },
-];
-
 export default function PaywallModal({ onOpenLegal }: Props) {
   const { theme, isDarkMode } = useTheme();
+  const { t } = useT();
+  const pricing = useRegionalPricing();
   const {
     paywallVisible,
     paywallReason,
@@ -59,36 +35,64 @@ export default function PaywallModal({ onOpenLegal }: Props) {
 
   const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
 
+  const featureList = useMemo(() => [
+    {
+      icon: '🐾',
+      title: t('paywall.features.unlimitedPetsTitle'),
+      subtitle: t('paywall.features.unlimitedPetsSub'),
+    },
+    {
+      icon: '💬',
+      title: t('paywall.features.aiConsultantTitle'),
+      subtitle: t('paywall.features.aiConsultantSub'),
+    },
+    {
+      icon: '📄',
+      title: t('paywall.features.pdfDossiersTitle'),
+      subtitle: t('paywall.features.pdfDossiersSub'),
+    },
+    {
+      icon: '🌸',
+      title: t('paywall.features.cycleForecastTitle'),
+      subtitle: t('paywall.features.cycleForecastSub'),
+    },
+    {
+      icon: '☁️',
+      title: t('paywall.features.cloudBackupTitle'),
+      subtitle: t('paywall.features.cloudBackupSub'),
+    },
+  ], [t]);
+
   const reasonBanner = useMemo(() => {
     switch (paywallReason) {
       case 'unlimited_pets':
         return {
           emoji: '🐾',
-          title: 'Multiple Pets in the Family?',
-          body: 'Bisco Free includes 1 dog profile. Upgrade to Pro to track and care for all your furry companions together.',
+          title: t('paywall.reasons.unlimitedPetsTitle'),
+          body: t('paywall.reasons.unlimitedPetsBody'),
         };
       case 'ai_consultations':
         return {
           emoji: '💬',
-          title: "Daily Free AI Limit Reached",
-          body: "You've used today's 5 complimentary triage chats. Unlock unlimited 24/7 AI consultations with Pro.",
+          title: t('paywall.reasons.aiLimitTitle'),
+          body: t('paywall.reasons.aiLimitBody'),
         };
       case 'pdf_export':
         return {
           emoji: '📄',
-          title: 'Export Official Vet Dossiers',
-          body: 'Clinical PDF report export is a Pro feature. Give your veterinarian a complete, beautifully structured health history.',
+          title: t('paywall.reasons.pdfTitle'),
+          body: t('paywall.reasons.pdfBody'),
         };
       case 'cycle_analytics':
         return {
           emoji: '🌸',
-          title: 'Advanced Cycle Predictions',
-          body: 'Unlock breed-calibrated estrus forecasts, fertility windows, and full cycle history analytics.',
+          title: t('paywall.reasons.cycleTitle'),
+          body: t('paywall.reasons.cycleBody'),
         };
       default:
         return null;
     }
-  }, [paywallReason]);
+  }, [paywallReason, t]);
 
   const handleUpgrade = async () => {
     setLoading(true);
@@ -111,7 +115,7 @@ export default function PaywallModal({ onOpenLegal }: Props) {
           {/* Header Close Bar */}
           <View style={styles.headerRow}>
             <View style={styles.headerTag}>
-              <Text style={styles.headerTagText}>BISCO PRO</Text>
+              <Text style={styles.headerTagText}>{t('paywall.tag')}</Text>
             </View>
             <TouchableOpacity
               onPress={closePaywall}
@@ -131,9 +135,9 @@ export default function PaywallModal({ onOpenLegal }: Props) {
               <View style={styles.heroIconBadge}>
                 <Text style={styles.heroIcon}>👑</Text>
               </View>
-              <Text style={styles.heroTitle}>Upgrade to Bisco Pro</Text>
+              <Text style={styles.heroTitle}>{t('paywall.title')}</Text>
               <Text style={styles.heroSubtitle}>
-                The ultimate companion for your dog's vitality, nutrition, and lifelong health.
+                {t('paywall.subtitle')}
               </Text>
             </View>
 
@@ -150,7 +154,7 @@ export default function PaywallModal({ onOpenLegal }: Props) {
 
             {/* Feature Highlights Stack */}
             <View style={styles.featuresStack}>
-              {FEATURE_LIST.map((feat, idx) => (
+              {featureList.map((feat, idx) => (
                 <View key={idx} style={styles.featureItem}>
                   <View style={styles.featureIconBox}>
                     <Text style={styles.featureIconText}>{feat.icon}</Text>
@@ -164,7 +168,7 @@ export default function PaywallModal({ onOpenLegal }: Props) {
             </View>
 
             {/* Plan Picker Cards */}
-            <Text style={styles.pickerTitle}>Choose Your Plan</Text>
+            <Text style={styles.pickerTitle}>{t('paywall.choosePlan')}</Text>
 
             {/* Annual Plan (Best Value) */}
             <TouchableOpacity
@@ -176,19 +180,23 @@ export default function PaywallModal({ onOpenLegal }: Props) {
               activeOpacity={0.85}
             >
               <View style={styles.planBadge}>
-                <Text style={styles.planBadgeText}>SAVE 58% • 7-DAY FREE TRIAL</Text>
+                <Text style={styles.planBadgeText}>
+                  {t('paywall.saveBadge', { percent: pricing.annual.savingsPercent })}
+                </Text>
               </View>
               <View style={styles.planRow}>
                 <View style={styles.radioOuter}>
                   {selectedPlan === 'annual' && <View style={styles.radioInner} />}
                 </View>
                 <View style={styles.planInfo}>
-                  <Text style={styles.planName}>Annual Membership</Text>
-                  <Text style={styles.planBillingNote}>7 days free, then $24.99 billed annually</Text>
+                  <Text style={styles.planName}>{t('paywall.annualMembership')}</Text>
+                  <Text style={styles.planBillingNote}>
+                    {t('paywall.annualBillingNote', { price: pricing.annual.formatted })}
+                  </Text>
                 </View>
                 <View style={styles.priceBlock}>
-                  <Text style={styles.priceBig}>$2.08</Text>
-                  <Text style={styles.pricePer}>/ month</Text>
+                  <Text style={styles.priceBig}>{pricing.annual.monthlyEquivalentFormatted}</Text>
+                  <Text style={styles.pricePer}>{t('paywall.perMonth')}</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -207,12 +215,12 @@ export default function PaywallModal({ onOpenLegal }: Props) {
                   {selectedPlan === 'monthly' && <View style={styles.radioInner} />}
                 </View>
                 <View style={styles.planInfo}>
-                  <Text style={styles.planName}>Monthly Membership</Text>
-                  <Text style={styles.planBillingNote}>Flexible month-to-month billing</Text>
+                  <Text style={styles.planName}>{t('paywall.monthlyMembership')}</Text>
+                  <Text style={styles.planBillingNote}>{t('paywall.flexibleBilling')}</Text>
                 </View>
                 <View style={styles.priceBlock}>
-                  <Text style={styles.priceBig}>$4.99</Text>
-                  <Text style={styles.pricePer}>/ month</Text>
+                  <Text style={styles.priceBig}>{pricing.monthly.formatted}</Text>
+                  <Text style={styles.pricePer}>{t('paywall.perMonth')}</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -226,29 +234,29 @@ export default function PaywallModal({ onOpenLegal }: Props) {
             >
               <Text style={styles.primaryCtaText}>
                 {loading
-                  ? 'Activating...'
+                  ? t('paywall.activating')
                   : selectedPlan === 'annual'
-                  ? 'Start 7-Day Free Trial →'
-                  : 'Upgrade to Bisco Pro →'}
+                  ? t('paywall.startTrial')
+                  : t('paywall.upgradeToPro')}
               </Text>
             </TouchableOpacity>
 
             {/* Reassurance & Legal */}
             <Text style={styles.reassuranceText}>
-              Cancel anytime in your device settings. No commitments.
+              {t('paywall.cancelAnytime')}
             </Text>
 
             <View style={styles.footerLinksRow}>
               <TouchableOpacity onPress={() => restorePurchases()}>
-                <Text style={styles.footerLink}>Restore Purchases</Text>
+                <Text style={styles.footerLink}>{t('paywall.restorePurchases')}</Text>
               </TouchableOpacity>
               <Text style={styles.footerLinkDivider}>•</Text>
               <TouchableOpacity onPress={() => onOpenLegal?.('terms')}>
-                <Text style={styles.footerLink}>Terms of Service</Text>
+                <Text style={styles.footerLink}>{t('paywall.terms')}</Text>
               </TouchableOpacity>
               <Text style={styles.footerLinkDivider}>•</Text>
               <TouchableOpacity onPress={() => onOpenLegal?.('privacy')}>
-                <Text style={styles.footerLink}>Privacy Policy</Text>
+                <Text style={styles.footerLink}>{t('paywall.privacy')}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>

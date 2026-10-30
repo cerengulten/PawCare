@@ -32,6 +32,7 @@ import { RootTabParamList } from './AppTabs';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { useSubscription } from '../lib/SubscriptionContext';
+import { useRegionalPricing } from '../lib/pricing';
 import { SUPPORTED_LANGS, LANG_LABELS } from '../lib/i18n';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
@@ -100,6 +101,7 @@ export default function MoreScreen({
 }: Props) {
   const { theme, isDarkMode, toggleDarkMode } = useTheme();
   const { isPro, plan, openPaywall } = useSubscription();
+  const pricing = useRegionalPricing();
   const { t, lang, setLang } = useT();
   const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
   const { upcoming, overdue } = useAllVaccines();
@@ -341,7 +343,7 @@ export default function MoreScreen({
               <Text style={styles.proTitle}>{isPro ? 'Bisco Pro Member' : 'Upgrade to Bisco Pro'}</Text>
               <View style={isPro ? styles.proTagActive : styles.proTagUpgrade}>
                 <Text style={isPro ? styles.proTagTextActive : styles.proTagText}>
-                  {isPro ? (plan === 'annual' ? 'ANNUAL' : 'PRO') : 'SAVE 58%'}
+                  {isPro ? (plan === 'annual' ? 'ANNUAL' : 'PRO') : `SAVE ${pricing.annual.savingsPercent}%`}
                 </Text>
               </View>
             </View>
