@@ -18,21 +18,29 @@ import { SubscriptionProvider } from './lib/SubscriptionContext';
 import { cancelAllLocalNotifications } from './lib/notifications';
 import { clearHomeVetCache } from './lib/hooks/useHomeVetPreview';
 
-// Parses the `bisco://reset-password#access_token=...&refresh_token=...&type=recovery`
-// deep link Supabase's password-reset email sends the user to (see
-// ForgotPasswordScreen.tsx's resetPasswordForEmail redirectTo). Manual parsing
-// mirrors useGoogleSignIn.ts's OAuth callback handling — detectSessionInUrl is
-// false in lib/supabase.ts (correct for RN, no window.location to auto-parse),
-// so nothing else in the app will pick this up on its own.
-function parseRecoveryUrl(url: string): { access_token: string; refresh_token: string } | null {
+// Parses auth deep links (both password-reset `type=recovery` and email
+// confirmation / signup `type=signup`) routed back to `bisco://` from the
+// GitHub Pages auth bridge (or directly). DetectSessionInUrl is false in
+// lib/supabase.ts (correct for React Native, no window.location to auto-parse),
+// so this listener receives the link and manually calls setSession.
+function parseAuthUrl(url: string): { access_token?: string; refresh_token?: string; code?: string; type: string } | null {
   const hash = url.split('#')[1];
-  if (!hash) return null;
-  const params = new URLSearchParams(hash);
-  if (params.get('type') !== 'recovery') return null;
-  const access_token = params.get('access_token');
-  const refresh_token = params.get('refresh_token');
-  if (!access_token || !refresh_token) return null;
-  return { access_token, refresh_token };
+  const query = url.split('?')[1]?.split('#')[0];
+  const hashParams = hash ? new URLSearchParams(hash) : null;
+  const queryParams = query ? new URLSearchParams(query) : null;
+
+  const access_token = hashParams?.get('access_token') || queryParams?.get('access_token');
+  const refresh_token = hashParams?.get('refresh_token') || queryParams?.get('refresh_token');
+  const code = queryParams?.get('code') || hashParams?.get('code');
+  const type = hashParams?.get('type') || queryParams?.get('type') || 'signup';
+
+  if (access_token && refresh_token) {
+    return { access_token, refresh_token, type };
+  }
+  if (code) {
+    return { code, type };
+  }
+  return null;
 }
 
 function AuthedApp({ session }: { session: Session }) {
@@ -143,10 +151,23 @@ function AppInner() {
 
   useEffect(() => {
     async function handleUrl(url: string) {
-      const tokens = parseRecoveryUrl(url);
-      if (!tokens) return;
-      const { error } = await supabase.auth.setSession(tokens);
-      if (!error) setRecoveryActive(true);
+      const authData = parseAuthUrl(url);
+      if (!authData) return;
+
+      if (authData.access_token && authData.refresh_token) {
+        const { error } = await supabase.auth.setSession({
+          access_token: authData.access_token,
+          refresh_token: authData.refresh_token,
+        });
+        if (!error && authData.type === 'recovery') {
+          setRecoveryActive(true);
+        }
+      } else if (authData.code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(authData.code);
+        if (!error && authData.type === 'recovery') {
+          setRecoveryActive(true);
+        }
+      }
     }
 
     Linking.getInitialURL().then((url) => {

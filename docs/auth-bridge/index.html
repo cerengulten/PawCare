@@ -189,17 +189,22 @@
   var SUPABASE_URL = "https://dkccsdlbgjthcexucpeq.supabase.co";
   var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRrY2NzZGxiZ2p0aGNleHVjcGVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwODEzODEsImV4cCI6MjA5ODY1NzM4MX0.ORVucmZYEWeRQeMXuFv7hW7Rm5u1GN8nWm4r1fyeE68";
 
-  var params = new URLSearchParams(window.location.search);
-  var target = params.get('target');
+  var searchParams = new URLSearchParams(window.location.search);
+  var target = searchParams.get('target');
+  // Build pass-through query string without target param
+  searchParams.delete('target');
+  var remainingQuery = searchParams.toString();
+  var queryStr = remainingQuery ? '?' + remainingQuery : '';
+
   var hash = window.location.hash || '';
 
-  // Extract tokens from hash if present
+  // Extract tokens from hash or query if present
   var hashParams = new URLSearchParams(hash.replace(/^#/, ''));
-  var accessToken = hashParams.get('access_token');
-  var refreshToken = hashParams.get('refresh_token');
-  var type = hashParams.get('type');
+  var accessToken = hashParams.get('access_token') || searchParams.get('access_token');
+  var refreshToken = hashParams.get('refresh_token') || searchParams.get('refresh_token');
+  var type = hashParams.get('type') || searchParams.get('type');
 
-  var finalUrl = (target ? target : 'bisco://') + hash;
+  var finalUrl = (target ? target : 'bisco://') + queryStr + hash;
   var openBtn = document.getElementById('openAppBtn');
   var subtitle = document.getElementById('subtitle');
   var resetSection = document.getElementById('resetSection');
@@ -217,6 +222,8 @@
   if (type === 'recovery' && accessToken) {
     subtitle.textContent = "Tap below to open the Bisco app and reset your password, or set it directly in your browser:";
     resetSection.style.display = 'block';
+  } else if (type === 'signup' || type === 'email_confirmation') {
+    subtitle.innerHTML = '<span class="pulse-dot"></span>Email confirmed! Opening Bisco app… If it doesn\'t open automatically, tap the button above.';
   } else if (target) {
     subtitle.innerHTML = '<span class="pulse-dot"></span>Redirecting to Bisco app… If it doesn\'t open automatically, tap the button above.';
   } else {

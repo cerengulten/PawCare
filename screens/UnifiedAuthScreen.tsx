@@ -18,6 +18,7 @@ import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { PASSWORD_REQUIREMENTS, isPasswordValid } from '../lib/passwordPolicy';
 import { formatAuthError } from '../lib/authErrors';
+import { AUTH_BRIDGE_URL } from '../lib/authBridge';
 import SocialSignInButtons from '../components/SocialSignInButtons';
 import ForgotPasswordScreen from './ForgotPasswordScreen';
 import LegalDocScreen from './LegalDocScreen';
@@ -113,9 +114,13 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
     }
     setLoading(true);
     setError('');
+    const bridgeUrl = `${AUTH_BRIDGE_URL}?target=${encodeURIComponent('bisco://auth-callback')}`;
     const { data, error } = await supabase.auth.signUp({
       email: trimmedEmail,
       password,
+      options: {
+        emailRedirectTo: bridgeUrl,
+      },
     });
     if (error) {
       setError(formatAuthError(error, t));
@@ -148,9 +153,13 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
     setResending(true);
     setResendMessage('');
     try {
+      const bridgeUrl = `${AUTH_BRIDGE_URL}?target=${encodeURIComponent('bisco://auth-callback')}`;
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: signedUpEmail,
+        options: {
+          emailRedirectTo: bridgeUrl,
+        },
       });
       if (error) {
         setResendMessage(error.message);
