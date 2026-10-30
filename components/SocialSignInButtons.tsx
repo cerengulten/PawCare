@@ -9,7 +9,8 @@ import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import { formatAuthError } from '../lib/authErrors';
 
-const APPLE_SIGN_IN_ENABLED = true;
+// Set to true when launching on the Apple App Store
+const APPLE_SIGN_IN_ENABLED = false;
 
 type Props = {
   hideDivider?: boolean;

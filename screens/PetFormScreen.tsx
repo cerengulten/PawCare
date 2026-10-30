@@ -23,7 +23,7 @@ import { useDogs } from '../lib/hooks/useDogs';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { THEMES, THEME_LABELS, ThemeFamily, ThemeTokens } from '../lib/themes';
-import { uploadImage } from '../lib/storage';
+import { uploadImage, AVATAR_PICKER_OPTIONS } from '../lib/storage';
 import { suggestThemeFamily } from '../lib/themeSuggestion';
 import { PET_SPECIES } from '../lib/petSpecies';
 import { PET_SEX } from '../lib/petSex';
@@ -105,12 +105,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
       setError(t('petForm.photoPermission'));
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
+    const result = await ImagePicker.launchImageLibraryAsync(AVATAR_PICKER_OPTIONS);
     if (!result.canceled && result.assets.length > 0) {
       setPhotoUri(result.assets[0].uri);
     }
@@ -142,7 +137,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
     let finalPhotoUrl = photoUri;
     if (photoUri && !photoUri.startsWith('http://') && !photoUri.startsWith('https://')) {
       const fileId = dog ? `pet_${dog.id}_${Date.now()}` : `pet_${Date.now()}`;
-      finalPhotoUrl = await uploadImage(photoUri, 'pet-photos', fileId);
+      finalPhotoUrl = await uploadImage(photoUri, 'pet-photos', fileId, dog?.photo_url);
     }
 
     const payload = {

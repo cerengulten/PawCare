@@ -26,7 +26,7 @@ import PetFormScreen from './PetFormScreen';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { ThemeTokens, ThemeFamily } from '../lib/themes';
-import { uploadImage } from '../lib/storage';
+import { uploadImage, AVATAR_PICKER_OPTIONS } from '../lib/storage';
 import { suggestThemeFamily } from '../lib/themeSuggestion';
 import { requestNotificationPermissions } from '../lib/notifications';
 import { useSubscription } from '../lib/SubscriptionContext';
@@ -235,12 +235,7 @@ export default function OnboardingScreen({
       setIdentityError(t('onboarding.photoPermission'));
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
+    const result = await ImagePicker.launchImageLibraryAsync(AVATAR_PICKER_OPTIONS);
     if (!result.canceled && result.assets.length > 0) {
       setUserPhotoUri(result.assets[0].uri);
     }
@@ -252,12 +247,7 @@ export default function OnboardingScreen({
       setPetError(t('petForm.photoPermission'));
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
+    const result = await ImagePicker.launchImageLibraryAsync(AVATAR_PICKER_OPTIONS);
     if (!result.canceled && result.assets.length > 0) {
       setPetPhotoUri(result.assets[0].uri);
     }
@@ -300,7 +290,7 @@ export default function OnboardingScreen({
     let finalAvatarUrl = userPhotoUri;
     if (userPhotoUri && !userPhotoUri.startsWith('http://') && !userPhotoUri.startsWith('https://')) {
       const fileId = `avatar_${session?.user?.id ?? Date.now()}_${Date.now()}`;
-      finalAvatarUrl = await uploadImage(userPhotoUri, 'avatars', fileId);
+      finalAvatarUrl = await uploadImage(userPhotoUri, 'avatars', fileId, profile?.avatar_url);
     }
 
     const { error } = await completeOnboarding(trimmedName, trimmedUsername, finalAvatarUrl);

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Dog } from '../../types';
 import { cancelHabitReminder, cancelVaccineReminder } from '../notifications';
+import { deleteImage } from '../storage';
 
 // Takes the already-resolved user id from the caller (AuthedApp's `session.user.id`)
 // instead of each mount independently calling supabase.auth.getSession(). getSession()
@@ -50,6 +51,11 @@ export function useDogs(userId: string) {
   }
 
   async function deleteDog(id: string) {
+    const targetDog = dogs.find(d => d.id === id);
+    if (targetDog?.photo_url) {
+      deleteImage(targetDog.photo_url, 'pet-photos').catch(() => {});
+    }
+
     // Cancel any OS-scheduled local notifications for this pet's habits and vaccines
     // before the DB cascade deletes the rows that hold their notification_ids.
     const [{ data: habitRows }, { data: vaccineRows }] = await Promise.all([

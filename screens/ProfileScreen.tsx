@@ -26,7 +26,7 @@ import ChangePasswordScreen from './ChangePasswordScreen';
 import ChangeEmailScreen from './ChangeEmailScreen';
 import DeleteAccountScreen from './DeleteAccountScreen';
 import { cancelAllLocalNotifications } from '../lib/notifications';
-import { uploadImage } from '../lib/storage';
+import { uploadImage, AVATAR_PICKER_OPTIONS } from '../lib/storage';
 
 type UseProfileReturn = ReturnType<typeof useProfile>;
 
@@ -96,12 +96,7 @@ export default function ProfileScreen({ profile, updateProfile, checkUsernameAva
       setError(t('profile.photoPermission'));
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
+    const result = await ImagePicker.launchImageLibraryAsync(AVATAR_PICKER_OPTIONS);
     if (!result.canceled && result.assets.length > 0) {
       setPhotoUri(result.assets[0].uri);
     }
@@ -138,7 +133,7 @@ export default function ProfileScreen({ profile, updateProfile, checkUsernameAva
     let finalAvatarUrl = photoUri;
     if (photoUri && !photoUri.startsWith('http://') && !photoUri.startsWith('https://')) {
       const fileId = profile ? `avatar_${profile.id}_${Date.now()}` : `avatar_${Date.now()}`;
-      finalAvatarUrl = await uploadImage(photoUri, 'avatars', fileId);
+      finalAvatarUrl = await uploadImage(photoUri, 'avatars', fileId, profile?.avatar_url);
     }
 
     const { error } = await updateProfile({
