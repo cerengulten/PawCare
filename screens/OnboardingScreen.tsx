@@ -648,7 +648,7 @@ export default function OnboardingScreen({
                   key={req.labelKey}
                   style={[styles.checklistItem, met && styles.checklistItemMet]}
                 >
-                  {met ? '✓' : '○'} {t(req.labelKey)}
+                  {met ? '✓' : '○'} {t(req.labelKey, req.labelParams)}
                 </Text>
               );
             })}

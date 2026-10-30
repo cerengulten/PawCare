@@ -24,6 +24,7 @@ import ProfileScreen from './ProfileScreen';
 import { RootTabParamList } from './AppTabs';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
+import { localeTag } from '../lib/i18n';
 import { ThemeTokens } from '../lib/themes';
 
 type ProfileState = ReturnType<typeof useProfile>;
@@ -76,15 +77,15 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
 
   const formattedDate = useMemo(() => {
     try {
-      return new Date().toLocaleDateString(undefined, {
+      return new Date().toLocaleDateString(localeTag(), {
         weekday: 'long',
         month: 'short',
         day: 'numeric',
       });
     } catch {
-      return 'Today';
+      return t('home.today') || 'Today';
     }
-  }, []);
+  }, [lang, t]);
 
   const {
     nextAppointment,

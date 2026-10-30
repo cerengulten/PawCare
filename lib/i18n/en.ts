@@ -659,7 +659,7 @@ const en = {
     tipBody: 'Hypoallergenic diets work best when introduced gradually to avoid GI upset.',
     communitySoon: 'Community · Soon',
     careRhythmTitle: "TODAY'S CARE RHYTHM",
-    careRhythmCompleted: '%{completed} of %{total} completed',
+    careRhythmCompleted: '%{completed}/%{total} completed',
     careRhythmEmpty: 'Tap to customize habits',
     setRoutine: 'Set routine',
     nextTip: 'Next tip',

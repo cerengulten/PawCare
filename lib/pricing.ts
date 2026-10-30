@@ -104,11 +104,8 @@ const EUROZONE_COUNTRIES = [
 ];
 
 export function resolveRegionalPricing(lang?: Lang): RegionalPricing {
-  // If the user explicitly switched the app language, align currency to language expectations:
-  if (lang === 'tr') return REGIONAL_PRICING.TRY;
-  if (lang === 'it') return REGIONAL_PRICING.EUR;
-
-  // Otherwise check device locale / country code:
+  // 1. Primary check: Device physical region or device store currency.
+  // A user in Italy with a Turkish or English UI should see EUR (€).
   try {
     const locales = getLocales();
     const primary = locales && locales.length > 0 ? locales[0] : null;
@@ -117,12 +114,21 @@ export function resolveRegionalPricing(lang?: Lang): RegionalPricing {
 
     if (region === 'TR' || currency === 'TRY') return REGIONAL_PRICING.TRY;
     if (region === 'GB' || currency === 'GBP') return REGIONAL_PRICING.GBP;
-    if ((region && EUROZONE_COUNTRIES.includes(region)) || currency === 'EUR') {
+    if (
+      region === 'IT' ||
+      currency === 'EUR' ||
+      (region && EUROZONE_COUNTRIES.includes(region))
+    ) {
       return REGIONAL_PRICING.EUR;
     }
+    if (region === 'US' || currency === 'USD') return REGIONAL_PRICING.USD;
   } catch (err) {
     console.warn('[pricing] failed to detect locale:', err);
   }
+
+  // 2. Secondary fallback: If device country is neutral/undetermined, infer from language
+  if (lang === 'tr') return REGIONAL_PRICING.TRY;
+  if (lang === 'it') return REGIONAL_PRICING.EUR;
 
   return REGIONAL_PRICING.USD;
 }

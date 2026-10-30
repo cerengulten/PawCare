@@ -657,7 +657,7 @@ const it: typeof en = {
     tipBody: 'Le diete ipoallergeniche funzionano meglio se introdotte gradualmente per evitare disturbi gastrointestinali.',
     communitySoon: 'Community · Presto',
     careRhythmTitle: 'RITMO DI CURA ODIERNO',
-    careRhythmCompleted: '%{completed} su %{total} completati',
+    careRhythmCompleted: '%{completed}/%{total} completati',
     careRhythmEmpty: 'Tocca per personalizzare le abitudini',
     setRoutine: 'Imposta routine',
     nextTip: 'Prossimo consiglio',
