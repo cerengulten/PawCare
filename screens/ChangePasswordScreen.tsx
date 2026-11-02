@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
@@ -100,8 +102,14 @@ export default function ChangePasswordScreen({ onDone, onCancel }: Props) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>{t('changePassword.title')}</Text>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={{ width: '100%' }}>
+            <Text style={styles.title}>{t('changePassword.title')}</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -161,6 +169,8 @@ export default function ChangePasswordScreen({ onDone, onCancel }: Props) {
         <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
           <Text style={styles.switchLink}>{t('common.cancel')}</Text>
         </TouchableOpacity>
+          </View>
+        </TouchableWithoutFeedback>
       </ScrollView>
     </KeyboardAvoidingView>
     </SafeAreaView>

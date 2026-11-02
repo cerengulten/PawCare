@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,9 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { PASSWORD_REQUIREMENTS, isPasswordValid } from '../lib/passwordPolicy';
@@ -55,51 +58,69 @@ export default function SetNewPasswordScreen({ onDone }: Props) {
     onDone();
   }
 
+  const confirmInputRef = useRef<TextInput>(null);
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Text style={styles.paw}>🔑</Text>
-      <Text style={styles.title}>{t('auth.setNewPasswordTitle')}</Text>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={styles.scrollInner}>
+            <Text style={styles.paw}>🔑</Text>
+            <Text style={styles.title}>{t('auth.setNewPasswordTitle')}</Text>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+            {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <TextInput
-        style={styles.input}
-        placeholder={t('auth.newPassword')}
-        placeholderTextColor={theme.textMuted}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <TextInput
-        style={styles.input}
-        placeholder={t('auth.confirmNewPassword')}
-        placeholderTextColor={theme.textMuted}
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        secureTextEntry
-      />
+            <TextInput
+              style={styles.input}
+              placeholder={t('auth.newPassword')}
+              placeholderTextColor={theme.textMuted}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              returnKeyType="next"
+              onSubmitEditing={() => confirmInputRef.current?.focus()}
+            />
+            <TextInput
+              ref={confirmInputRef}
+              style={styles.input}
+              placeholder={t('auth.confirmNewPassword')}
+              placeholderTextColor={theme.textMuted}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+              returnKeyType="done"
+              onSubmitEditing={handleSave}
+            />
 
-      <View style={styles.checklist}>
-        {PASSWORD_REQUIREMENTS.map((req) => {
-          const met = req.test(password);
-          return (
-            <Text key={req.labelKey} style={[styles.checklistItem, met && styles.checklistItemMet]}>
-              {met ? '✓' : '○'} {t(req.labelKey)}
-            </Text>
-          );
-        })}
-      </View>
+            <View style={styles.checklist}>
+              {PASSWORD_REQUIREMENTS.map((req) => {
+                const met = req.test(password);
+                return (
+                  <Text key={req.labelKey} style={[styles.checklistItem, met && styles.checklistItemMet]}>
+                    {met ? '✓' : '○'} {t(req.labelKey)}
+                  </Text>
+                );
+              })}
+            </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading}>
-        {loading ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <Text style={styles.buttonText}>{t('common.save')}</Text>
-        )}
-      </TouchableOpacity>
+            <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading}>
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.buttonText}>{t('common.save')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </TouchableWithoutFeedback>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -109,9 +130,17 @@ function makeStyles(theme: ThemeTokens) {
     container: {
       flex: 1,
       backgroundColor: theme.background,
+    },
+    scrollContent: {
+      flexGrow: 1,
       alignItems: 'center',
       justifyContent: 'center',
       padding: 24,
+    },
+    scrollInner: {
+      width: '100%',
+      maxWidth: 400,
+      alignItems: 'center',
     },
     paw: {
       fontSize: 48,

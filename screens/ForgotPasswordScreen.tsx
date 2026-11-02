@@ -8,6 +8,9 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { formatAuthError } from '../lib/authErrors';
@@ -72,33 +75,46 @@ export default function ForgotPasswordScreen({ onBack }: Props) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Text style={styles.paw}>🔑</Text>
-      <Text style={styles.title}>{t('auth.resetTitle')}</Text>
-      <Text style={styles.subtitle}>{t('auth.resetSubtitle')}</Text>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={styles.scrollInner}>
+            <Text style={styles.paw}>🔑</Text>
+            <Text style={styles.title}>{t('auth.resetTitle')}</Text>
+            <Text style={styles.subtitle}>{t('auth.resetSubtitle')}</Text>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+            {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <TextInput
-        style={styles.input}
-        placeholder={t('auth.email')}
-        placeholderTextColor={theme.textMuted}
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
+            <TextInput
+              style={styles.input}
+              placeholder={t('auth.email')}
+              placeholderTextColor={theme.textMuted}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              returnKeyType="done"
+              onSubmitEditing={handleSend}
+            />
 
-      <TouchableOpacity style={styles.button} onPress={handleSend} disabled={loading}>
-        {loading ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <Text style={styles.buttonText}>{t('auth.sendResetLink')}</Text>
-        )}
-      </TouchableOpacity>
+            <TouchableOpacity style={styles.button} onPress={handleSend} disabled={loading}>
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.buttonText}>{t('auth.sendResetLink')}</Text>
+              )}
+            </TouchableOpacity>
 
-      <TouchableOpacity onPress={onBack} style={styles.switchRow}>
-        <Text style={styles.switchLink}>{t('auth.backToSignIn')}</Text>
-      </TouchableOpacity>
+            <TouchableOpacity onPress={onBack} style={styles.switchRow}>
+              <Text style={styles.switchLink}>{t('auth.backToSignIn')}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableWithoutFeedback>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -108,9 +124,17 @@ function makeStyles(theme: ThemeTokens) {
     container: {
       flex: 1,
       backgroundColor: theme.background,
+    },
+    scrollContent: {
+      flexGrow: 1,
       alignItems: 'center',
       justifyContent: 'center',
       padding: 24,
+    },
+    scrollInner: {
+      width: '100%',
+      maxWidth: 400,
+      alignItems: 'center',
     },
     paw: {
       fontSize: 48,

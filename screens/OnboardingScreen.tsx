@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   Platform,
   ScrollView,
   Switch,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { Session, PostgrestError } from '@supabase/supabase-js';
 import * as ImagePicker from 'expo-image-picker';
@@ -123,6 +125,8 @@ export default function OnboardingScreen({
   const [welcomeIndex, setWelcomeIndex] = useState(0);
 
   // Pass 2: User Identity State
+  const usernameInputRef = useRef<TextInput>(null);
+  const breedInputRef = useRef<TextInput>(null);
   const [fullName, setFullName] = useState(profile?.full_name ?? '');
   const [username, setUsername] = useState(profile?.username ?? '');
   const [userPhotoUri, setUserPhotoUri] = useState<string | null>(null);
@@ -544,8 +548,14 @@ export default function OnboardingScreen({
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.identityTopBar}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <View style={{ width: '100%' }}>
+              <View style={styles.identityTopBar}>
             <View style={styles.langPickerMini}>
               <TouchableOpacity
                 onPress={() => setLang('en')}
@@ -589,9 +599,12 @@ export default function OnboardingScreen({
             value={fullName}
             onChangeText={setFullName}
             autoCapitalize="words"
+            returnKeyType="next"
+            onSubmitEditing={() => usernameInputRef.current?.focus()}
           />
 
           <TextInput
+            ref={usernameInputRef}
             style={styles.input}
             placeholder={t('onboarding.chooseUsername')}
             placeholderTextColor={theme.textMuted}
@@ -599,6 +612,8 @@ export default function OnboardingScreen({
             onChangeText={setUsername}
             autoCapitalize="none"
             autoCorrect={false}
+            returnKeyType="done"
+            onSubmitEditing={Keyboard.dismiss}
           />
 
           {usernameStatus === 'checking' ? (
@@ -660,6 +675,8 @@ export default function OnboardingScreen({
           >
             <Text style={styles.signOutText}>{t('onboarding.wrongAccountSignOut')}</Text>
           </TouchableOpacity>
+            </View>
+          </TouchableWithoutFeedback>
         </ScrollView>
       </KeyboardAvoidingView>
     );
@@ -672,8 +689,14 @@ export default function OnboardingScreen({
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.stepProgressRow}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <View style={{ width: '100%' }}>
+              <View style={styles.stepProgressRow}>
             <Text style={styles.stepProgressText}>{t('onboarding.step1Title')}</Text>
           </View>
 
@@ -705,6 +728,8 @@ export default function OnboardingScreen({
             value={petName}
             onChangeText={setPetName}
             autoCapitalize="words"
+            returnKeyType="next"
+            onSubmitEditing={() => breedInputRef.current?.focus()}
           />
 
           <Text style={styles.sectionLabel}>{t('onboarding.species')}</Text>
@@ -733,12 +758,15 @@ export default function OnboardingScreen({
 
           <Text style={styles.sectionLabel}>{t('onboarding.breedOptional')}</Text>
           <TextInput
+            ref={breedInputRef}
             style={styles.input}
             placeholder={t('petForm.breed')}
             placeholderTextColor={theme.textMuted}
             value={petBreed}
             onChangeText={setPetBreed}
             autoCapitalize="words"
+            returnKeyType="done"
+            onSubmitEditing={Keyboard.dismiss}
           />
 
           {petBreed.trim() && petTheme !== 'sage_clay' ? (
@@ -757,6 +785,8 @@ export default function OnboardingScreen({
           >
             <Text style={styles.primaryBtnText}>{t('onboarding.nextHealthBaseline')}</Text>
           </TouchableOpacity>
+            </View>
+          </TouchableWithoutFeedback>
         </ScrollView>
       </KeyboardAvoidingView>
     );
@@ -769,8 +799,14 @@ export default function OnboardingScreen({
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.stepProgressRow}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <View style={{ width: '100%' }}>
+              <View style={styles.stepProgressRow}>
             <Text style={styles.stepProgressText}>{t('onboarding.step2Title')}</Text>
           </View>
 
@@ -834,6 +870,8 @@ export default function OnboardingScreen({
             value={petWeightText}
             onChangeText={setPetWeightText}
             keyboardType="decimal-pad"
+            returnKeyType="done"
+            onSubmitEditing={Keyboard.dismiss}
           />
 
           <Text style={styles.sectionLabel}>{t('onboarding.dobOptional')}</Text>
@@ -882,6 +920,8 @@ export default function OnboardingScreen({
           >
             <Text style={styles.secondaryBtnText}>{t('onboarding.backToBasics')}</Text>
           </TouchableOpacity>
+            </View>
+          </TouchableWithoutFeedback>
         </ScrollView>
       </KeyboardAvoidingView>
     );

@@ -11,6 +11,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Switch,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import DateTimePicker, {
   DateTimePickerAndroid,
@@ -171,8 +173,14 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>{dog ? t('petForm.editTitle') : t('petForm.addTitle')}</Text>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={{ width: '100%' }}>
+            <Text style={styles.title}>{dog ? t('petForm.editTitle') : t('petForm.addTitle')}</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -332,6 +340,8 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
         <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
           <Text style={styles.switchLink}>{t('common.cancel')}</Text>
         </TouchableOpacity>
+          </View>
+        </TouchableWithoutFeedback>
       </ScrollView>
     </KeyboardAvoidingView>
     </SafeAreaView>

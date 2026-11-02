@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
   Image,
   Linking,
   Modal,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
@@ -44,6 +46,7 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
   const [focusedField, setFocusedField] = useState<'email' | 'password' | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const passwordInputRef = useRef<TextInput>(null);
 
   // Sub-screens
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -131,6 +134,14 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
       setResendCooldown(60);
     }
     setLoading(false);
+  }
+
+  function handleSubmit() {
+    if (mode === 'signin') {
+      handleLogin();
+    } else {
+      handleRegister();
+    }
   }
 
   async function openEmailApp() {
@@ -267,9 +278,12 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
       >
-        {/* Language Selector Top Bar */}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={styles.scrollInner}>
+            {/* Language Selector Top Bar */}
         <View style={styles.topBar}>
           <View style={styles.langPicker}>
             <TouchableOpacity
@@ -359,6 +373,8 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
                 onChangeText={setEmail}
                 autoCapitalize="none"
                 keyboardType="email-address"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordInputRef.current?.focus()}
                 onFocus={() => setFocusedField('email')}
                 onBlur={() => setFocusedField(null)}
               />
@@ -385,12 +401,15 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
                 style={styles.inputLeadingIcon}
               />
               <TextInput
+                ref={passwordInputRef}
                 style={styles.textInput}
                 placeholder="••••••••••••"
                 placeholderTextColor={theme.textMuted}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
+                returnKeyType="done"
+                onSubmitEditing={handleSubmit}
                 onFocus={() => setFocusedField('password')}
                 onBlur={() => setFocusedField(null)}
               />
@@ -498,6 +517,8 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
         >
           <Text style={styles.guestText}>🌿 {t('auth.exploreGuest') || 'Explore Bisco as a Guest →'}</Text>
         </TouchableOpacity>
+          </View>
+        </TouchableWithoutFeedback>
       </ScrollView>
 
       {/* Guest Mode Exploration Modal */}
@@ -549,10 +570,14 @@ function makeStyles(theme: ThemeTokens, insets = { top: 0, bottom: 0 }, isDarkMo
     scrollContent: {
       flexGrow: 1,
       alignItems: 'center',
-      justifyContent: 'center',
       paddingHorizontal: 20,
       paddingTop: Math.max(insets.top + 16, 44),
-      paddingBottom: Math.max(insets.bottom + 20, 32),
+      paddingBottom: Math.max(insets.bottom + 20, 48),
+    },
+    scrollInner: {
+      width: '100%',
+      maxWidth: 420,
+      alignItems: 'center',
     },
     topBar: {
       width: '100%',
