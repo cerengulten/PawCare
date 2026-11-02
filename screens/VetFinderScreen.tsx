@@ -18,6 +18,7 @@ import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 import VetDetailSheet, { openVetDirections } from '../components/VetDetailSheet';
+import { formatOpeningHours } from '../lib/openingHoursFormatter';
 
 type Props = {
   onBack: () => void;
@@ -161,7 +162,7 @@ export default function VetFinderScreen({ onBack, activeDog, onOpenDossier }: Pr
                           </Text>
                           {v.openingHours ? (
                             <Text style={styles.hoursSnippet} numberOfLines={1}>
-                              · 🕒 {v.openingHours}
+                              · 🕒 {formatOpeningHours(v.openingHours).summary}
                             </Text>
                           ) : null}
                         </View>

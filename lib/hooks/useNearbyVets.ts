@@ -34,12 +34,56 @@ type OverpassElement = {
 
 function addressFromTags(tags: Record<string, string> | undefined): string | null {
   if (!tags) return null;
-  const parts = [tags['addr:housenumber'], tags['addr:street'], tags['addr:city']].filter(Boolean);
-  return parts.length > 0 ? parts.join(' ') : null;
+  if (tags['addr:full']) return tags['addr:full'].trim();
+
+  const streetLine = [tags['addr:street'], tags['addr:housenumber']].filter(Boolean).join(' ');
+  const neighborhood =
+    tags['addr:suburb'] ??
+    tags['addr:neighbourhood'] ??
+    tags['addr:quarter'] ??
+    tags['addr:district'];
+  const city =
+    tags['addr:city'] ??
+    tags['addr:town'] ??
+    tags['addr:village'] ??
+    tags['addr:municipality'];
+  const postcode = tags['addr:postcode'];
+
+  const citySection = [postcode, city].filter(Boolean).join(' ');
+  const parts = [streetLine, neighborhood, citySection].filter(Boolean);
+  return parts.length > 0 ? parts.join(', ') : null;
+}
+
+export async function reverseGeocodeAddress(coords: Coords): Promise<string | null> {
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${coords.lat}&lon=${coords.lon}&format=json&zoom=18&addressdetails=1`;
+    const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data) return null;
+    if (data.address) {
+      const addr = data.address;
+      const street = [addr.road, addr.house_number].filter(Boolean).join(' ');
+      const neighborhood = addr.suburb || addr.neighbourhood || addr.quarter || addr.district;
+      const city = addr.city || addr.town || addr.village || addr.municipality || addr.county;
+      const parts = [street, neighborhood, city].filter(Boolean);
+      if (parts.length > 0) return parts.join(', ');
+    }
+    return data.display_name ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchVetsNear(center: Coords): Promise<VetResult[]> {
-  const query = `[out:json][timeout:10];(node["amenity"="veterinary"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon});way["amenity"="veterinary"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon}););out center 25;`;
+  const query = `[out:json][timeout:15];(
+    node["amenity"="veterinary"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon});
+    way["amenity"="veterinary"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon});
+    node["healthcare"="veterinary"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon});
+    way["healthcare"="veterinary"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon});
+    node["amenity"="animal_hospital"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon});
+    way["amenity"="animal_hospital"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon});
+  );out center 40;`;
 
   for (const endpoint of OVERPASS_ENDPOINTS) {
     try {
@@ -65,16 +109,40 @@ export async function fetchVetsNear(center: Coords): Promise<VetResult[]> {
                 el.tags?.['veterinary:emergency'] === 'yes' ||
                 el.tags?.amenity === 'animal_rescue' ||
                 (el.tags?.opening_hours && el.tags.opening_hours.toLowerCase().includes('24/7'));
+
+              const phone =
+                el.tags?.phone ??
+                el.tags?.['contact:phone'] ??
+                el.tags?.telephone ??
+                el.tags?.mobile ??
+                el.tags?.['contact:mobile'] ??
+                null;
+
+              const website =
+                el.tags?.website ??
+                el.tags?.['contact:website'] ??
+                el.tags?.url ??
+                el.tags?.facebook ??
+                el.tags?.['contact:facebook'] ??
+                el.tags?.instagram ??
+                el.tags?.['contact:instagram'] ??
+                null;
+
+              const email =
+                el.tags?.email ??
+                el.tags?.['contact:email'] ??
+                null;
+
               return {
                 id: String(el.id),
                 name: el.tags?.name ?? String(i18n.t('vetFinder.defaultName')),
                 lat,
                 lon,
                 address: addressFromTags(el.tags),
-                phone: el.tags?.phone ?? el.tags?.['contact:phone'] ?? null,
+                phone,
                 openingHours: el.tags?.opening_hours ?? null,
-                website: el.tags?.website ?? el.tags?.['contact:website'] ?? null,
-                email: el.tags?.email ?? el.tags?.['contact:email'] ?? null,
+                website,
+                email,
                 isEmergency: !!isEmergency,
                 distanceKm: haversineKm(center, { lat, lon }),
               };

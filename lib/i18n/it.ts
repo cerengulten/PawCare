@@ -435,6 +435,8 @@ const it: typeof en = {
     dobOptional: 'Data di nascita (facoltativo)',
     nameRequired: 'Il nome è obbligatorio.',
     weightPositive: 'Il peso deve essere un numero positivo.',
+    weightRange: 'Il peso deve essere compreso tra 0,1 e 150 kg.',
+    weightInvalid: 'Inserisci un peso valido (es. 14,5).',
     photoPermission: "È necessaria l'autorizzazione alla libreria foto per scegliere una foto.",
   },
   tracker: {

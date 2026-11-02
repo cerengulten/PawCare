@@ -437,6 +437,8 @@ const en = {
     dobOptional: 'Date of birth (optional)',
     nameRequired: 'Name is required.',
     weightPositive: 'Weight must be a positive number.',
+    weightRange: 'Weight must be between 0.1 and 150 kg.',
+    weightInvalid: 'Please enter a valid weight (e.g. 14.5).',
     photoPermission: 'Photo library permission is required to pick a photo.',
   },
   tracker: {

@@ -16,6 +16,8 @@ import { Dog, VetResult } from '../types';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
+import { reverseGeocodeAddress } from '../lib/hooks/useNearbyVets';
+import { formatOpeningHours } from '../lib/openingHoursFormatter';
 
 type Props = {
   visible: boolean;
@@ -62,6 +64,19 @@ export default function VetDetailSheet({
 
   const primaryVetKey = activeDog ? `@bisco_primary_vet_${activeDog.id}` : null;
   const [isPrimary, setIsPrimary] = useState(false);
+  const [resolvedAddress, setResolvedAddress] = useState<string | null>(vet?.address ?? null);
+
+  useEffect(() => {
+    setResolvedAddress(vet?.address ?? null);
+    if (vet && !vet.address) {
+      reverseGeocodeAddress({ lat: vet.lat, lon: vet.lon }).then((geoAddr) => {
+        if (geoAddr) setResolvedAddress(geoAddr);
+      });
+    }
+  }, [vet]);
+
+  const displayAddress = resolvedAddress || vet?.address || null;
+  const formattedHours = useMemo(() => formatOpeningHours(vet?.openingHours), [vet?.openingHours]);
 
   useEffect(() => {
     if (!primaryVetKey || !vet) {
@@ -96,7 +111,7 @@ export default function VetDetailSheet({
           id: vet.id,
           name: vet.name,
           phone: vet.phone,
-          address: vet.address,
+          address: displayAddress,
           website: vet.website,
         })
       );
@@ -121,9 +136,9 @@ export default function VetDetailSheet({
     try {
       const messageParts = [
         `🏥 ${vet.name}`,
-        vet.address ? `📍 ${vet.address}` : null,
+        displayAddress ? `📍 ${displayAddress}` : null,
         vet.phone ? `📞 ${vet.phone}` : null,
-        vet.openingHours ? `🕒 ${vet.openingHours}` : null,
+        formattedHours.summary ? `🕒 ${formattedHours.summary}` : (vet.openingHours ? `🕒 ${vet.openingHours}` : null),
         vet.website ? `🌐 ${vet.website}` : null,
         `🗺️ https://www.google.com/maps/dir/?api=1&destination=${vet.lat},${vet.lon}`,
       ].filter(Boolean);
@@ -219,15 +234,21 @@ export default function VetDetailSheet({
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.actionCard, !vet.website && styles.actionCardDisabled]}
-                onPress={() => vet.website && Linking.openURL(vet.website)}
-                disabled={!vet.website}
+                style={styles.actionCard}
+                onPress={() => {
+                  if (vet.website) {
+                    Linking.openURL(vet.website);
+                  } else {
+                    const searchTarget = `${vet.name} vet ${displayAddress ?? ''}`.trim();
+                    Linking.openURL(`https://www.google.com/search?q=${encodeURIComponent(searchTarget)}`);
+                  }
+                }}
                 activeOpacity={0.7}
               >
                 <Text style={styles.actionIcon}>🌐</Text>
-                <Text style={styles.actionTitle}>{t('vetFinder.website')}</Text>
+                <Text style={styles.actionTitle}>{vet.website ? t('vetFinder.website') : 'Online Info'}</Text>
                 <Text style={styles.actionSubtitle} numberOfLines={1}>
-                  {vet.website ? 'Visit site' : t('vetFinder.noWebsiteAvailable')}
+                  {vet.website ? 'Visit site' : 'Search web'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -238,7 +259,7 @@ export default function VetDetailSheet({
                 {t('vetFinder.addressAndLocation')}
               </Text>
               <Text style={styles.addressText}>
-                {vet.address ?? 'Address details not listed on OpenStreetMap'}
+                {displayAddress ?? 'Address details not listed on OpenStreetMap'}
               </Text>
               <View style={styles.addressButtonsRow}>
                 <TouchableOpacity
@@ -263,7 +284,28 @@ export default function VetDetailSheet({
             </View>
 
             {/* Operating Hours (if present) */}
-            {vet.openingHours ? (
+            {formattedHours.lines.length > 0 ? (
+              <View style={styles.sectionCard}>
+                <Text style={styles.sectionTitle}>
+                  🕒 {t('vetFinder.operatingHours')}
+                </Text>
+                <View style={styles.scheduleTable}>
+                  {formattedHours.lines.map((line, idx) => (
+                    <View key={idx} style={styles.scheduleRow}>
+                      <Text style={styles.scheduleDay}>{line.days}</Text>
+                      <Text
+                        style={[
+                          styles.scheduleHours,
+                          line.isClosed && styles.scheduleClosed,
+                        ]}
+                      >
+                        {line.hours}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : vet.openingHours ? (
               <View style={styles.sectionCard}>
                 <Text style={styles.sectionTitle}>
                   🕒 {t('vetFinder.operatingHours')}
@@ -554,6 +596,32 @@ function makeStyles(theme: ThemeTokens) {
       fontSize: 13,
       color: theme.textDark,
       lineHeight: 18,
+    },
+    scheduleTable: {
+      marginTop: 2,
+      gap: 6,
+    },
+    scheduleRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 3,
+    },
+    scheduleDay: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.textDark,
+      flex: 1,
+    },
+    scheduleHours: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: theme.textMuted,
+      textAlign: 'right',
+    },
+    scheduleClosed: {
+      color: '#DC2626',
+      fontWeight: '700',
     },
     emergencyCard: {
       backgroundColor: '#FEF2F2',

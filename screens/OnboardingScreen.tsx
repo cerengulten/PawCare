@@ -31,6 +31,7 @@ import { ThemeTokens, ThemeFamily } from '../lib/themes';
 import { uploadImage, AVATAR_PICKER_OPTIONS } from '../lib/storage';
 import { suggestThemeFamily } from '../lib/themeSuggestion';
 import { requestNotificationPermissions } from '../lib/notifications';
+import { sanitizeWeightInput, validateWeight } from '../lib/weightValidation';
 import { useSubscription } from '../lib/SubscriptionContext';
 import { Dog } from '../types';
 
@@ -343,13 +344,24 @@ export default function OnboardingScreen({
     setPetLoading(true);
     setPetError('');
 
+    let finalWeightKg: number | null = null;
+    if (petWeightText.trim()) {
+      const weightCheck = validateWeight(petWeightText);
+      if (!weightCheck.isValid) {
+        const errorKey = weightCheck.errorMessageKey ?? 'weightInvalid';
+        setPetError(t(`petForm.${errorKey}`));
+        setPetLoading(false);
+        return;
+      }
+      finalWeightKg = weightCheck.value;
+    }
+
     let finalPhotoUrl = petPhotoUri;
     if (petPhotoUri && !petPhotoUri.startsWith('http://') && !petPhotoUri.startsWith('https://')) {
       const fileId = `dog_${session.user.id}_${Date.now()}`;
       finalPhotoUrl = await uploadImage(petPhotoUri, 'pet-photos', fileId);
     }
 
-    const weightNum = petWeightText.trim() ? parseFloat(petWeightText.replace(',', '.')) : null;
     const dobString = petBirthDate ? toDateOnlyString(petBirthDate) : null;
 
     const { data: newDog, error } = await addDog({
@@ -358,7 +370,7 @@ export default function OnboardingScreen({
       breed: petBreed.trim() || null,
       sex: petSex,
       is_sterilized: petSterilized,
-      weight_kg: weightNum && !isNaN(weightNum) ? weightNum : null,
+      weight_kg: finalWeightKg,
       birth_date: dobString,
       photo_url: finalPhotoUrl,
       theme_family: petTheme,
@@ -868,7 +880,11 @@ export default function OnboardingScreen({
             placeholder="e.g. 14.5"
             placeholderTextColor={theme.textMuted}
             value={petWeightText}
-            onChangeText={setPetWeightText}
+            onChangeText={(val) => {
+              const sanitized = sanitizeWeightInput(val);
+              setPetWeightText(sanitized);
+              if (petError) setPetError('');
+            }}
             keyboardType="decimal-pad"
             returnKeyType="done"
             onSubmitEditing={Keyboard.dismiss}

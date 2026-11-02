@@ -30,6 +30,7 @@ import { suggestThemeFamily } from '../lib/themeSuggestion';
 import { PET_SPECIES } from '../lib/petSpecies';
 import { PET_SEX } from '../lib/petSex';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
+import { sanitizeWeightInput, validateWeight } from '../lib/weightValidation';
 
 type UseDogsReturn = ReturnType<typeof useDogs>;
 
@@ -122,12 +123,13 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
 
     let weightValue: number | null = null;
     if (weightText.trim()) {
-      const parsed = Number(weightText.trim());
-      if (!Number.isFinite(parsed) || parsed <= 0) {
-        setError(t('petForm.weightPositive'));
+      const weightCheck = validateWeight(weightText);
+      if (!weightCheck.isValid) {
+        const errorKey = weightCheck.errorMessageKey ?? 'weightInvalid';
+        setError(t(`petForm.${errorKey}`));
         return;
       }
-      weightValue = parsed;
+      weightValue = weightCheck.value;
     }
 
     setLoading(true);
@@ -301,7 +303,11 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
           placeholder={t('petForm.weightOptional')}
           placeholderTextColor={theme.textMuted}
           value={weightText}
-          onChangeText={setWeightText}
+          onChangeText={(val) => {
+            const sanitized = sanitizeWeightInput(val);
+            setWeightText(sanitized);
+            if (error) setError('');
+          }}
           keyboardType="decimal-pad"
         />
 

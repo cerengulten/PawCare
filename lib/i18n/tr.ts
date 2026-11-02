@@ -435,6 +435,8 @@ const tr: typeof en = {
     dobOptional: 'Doğum tarihi (isteğe bağlı)',
     nameRequired: 'İsim gerekli.',
     weightPositive: 'Kilo pozitif bir sayı olmalı.',
+    weightRange: 'Kilo 0.1 ile 150 kg arasında olmalıdır.',
+    weightInvalid: 'Lütfen geçerli bir kilo girin (ör. 14.5).',
     photoPermission: 'Fotoğraf seçmek için fotoğraf kitaplığı izni gerekiyor.',
   },
   tracker: {
