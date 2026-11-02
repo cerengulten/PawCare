@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,118 +10,203 @@ import {
   Linking,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { Dog, VetResult } from '../types';
 import { useNearbyVets } from '../lib/hooks/useNearbyVets';
 import { buildVetMapHtml } from '../lib/vetMapHtml';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
+import VetDetailSheet, { openVetDirections } from '../components/VetDetailSheet';
 
 type Props = {
   onBack: () => void;
+  activeDog?: Dog | null;
+  onOpenDossier?: (dog: Dog) => void;
 };
 
-export default function VetFinderScreen({ onBack }: Props) {
+export default function VetFinderScreen({ onBack, activeDog, onOpenDossier }: Props) {
   const { theme } = useTheme();
   const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { vets, userLocation, loading, error, permissionDenied, searchNearMe, searchByAddress } = useNearbyVets();
   const [addressInput, setAddressInput] = useState('');
 
+  const webViewRef = useRef<WebView>(null);
+  const [selectedVet, setSelectedVet] = useState<VetResult | null>(null);
+  const [sheetVisible, setSheetVisible] = useState(false);
+
   useEffect(() => {
     searchNearMe();
   }, []);
 
+  const handleSelectVet = (v: VetResult) => {
+    setSelectedVet(v);
+    setSheetVisible(true);
+    webViewRef.current?.injectJavaScript(`
+      if (typeof map !== 'undefined') {
+        map.setView([${v.lat}, ${v.lon}], 15, { animate: true });
+      }
+      true;
+    `);
+  };
+
+  const handleMapMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'SELECT_VET' && data.id) {
+        const found = vets.find((item) => item.id === String(data.id));
+        if (found) {
+          setSelectedVet(found);
+          setSheetVisible(true);
+        }
+      }
+    } catch {
+      // ignore non-json messages
+    }
+  };
+
   return (
     <SwipeBackWrapper onBack={onBack}>
-    <View style={styles.container}>
-      <TouchableOpacity onPress={onBack} style={styles.backRow}>
-        <Text style={styles.backText}>‹ {t('common.back')}</Text>
-      </TouchableOpacity>
+      <View style={styles.container}>
+        <TouchableOpacity onPress={onBack} style={styles.backRow}>
+          <Text style={styles.backText}>‹ {t('common.back')}</Text>
+        </TouchableOpacity>
 
-      <Text style={styles.title}>{t('vetFinder.title')}</Text>
+        <Text style={styles.title}>{t('vetFinder.title')}</Text>
 
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={theme.primary} />
-          <Text style={styles.emptyText}>{t('vetFinder.findingVets')}</Text>
-        </View>
-      ) : permissionDenied ? (
-        <View style={styles.content}>
-          <Text style={styles.emptyText}>
-            {t('vetFinder.permissionDenied')}
-          </Text>
-          <View style={styles.addressRow}>
-            <TextInput
-              style={styles.addressInput}
-              placeholder={t('vetFinder.cityOrAddress')}
-              placeholderTextColor={theme.textMuted}
-              value={addressInput}
-              onChangeText={setAddressInput}
-              onSubmitEditing={() => searchByAddress(addressInput)}
-            />
-            <TouchableOpacity style={styles.searchButton} onPress={() => searchByAddress(addressInput)}>
-              <Text style={styles.searchButtonText}>{t('vetFinder.search')}</Text>
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={theme.primary} />
+            <Text style={styles.emptyText}>{t('vetFinder.findingVets')}</Text>
+          </View>
+        ) : permissionDenied ? (
+          <View style={styles.content}>
+            <Text style={styles.emptyText}>
+              {t('vetFinder.permissionDenied')}
+            </Text>
+            <View style={styles.addressRow}>
+              <TextInput
+                style={styles.addressInput}
+                placeholder={t('vetFinder.cityOrAddress')}
+                placeholderTextColor={theme.textMuted}
+                value={addressInput}
+                onChangeText={setAddressInput}
+                onSubmitEditing={() => searchByAddress(addressInput)}
+              />
+              <TouchableOpacity
+                style={styles.searchButton}
+                onPress={() => searchByAddress(addressInput)}
+              >
+                <Text style={styles.searchButtonText}>{t('vetFinder.search')}</Text>
+              </TouchableOpacity>
+            </View>
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          </View>
+        ) : error ? (
+          <View style={styles.center}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={searchNearMe}>
+              <Text style={styles.retryButtonText}>{t('vetFinder.tryAgain')}</Text>
             </TouchableOpacity>
           </View>
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        </View>
-      ) : error ? (
-        <View style={styles.center}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={searchNearMe}>
-            <Text style={styles.retryButtonText}>{t('vetFinder.tryAgain')}</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <>
-          {userLocation ? (
-            <View style={styles.mapContainer}>
-              <WebView
-                originWhitelist={['*']}
-                source={{ html: buildVetMapHtml(userLocation, vets) }}
-                style={styles.map}
-              />
-            </View>
-          ) : null}
+        ) : (
+          <>
+            {userLocation ? (
+              <View style={styles.mapContainer}>
+                <WebView
+                  ref={webViewRef}
+                  originWhitelist={['*']}
+                  source={{
+                    html: buildVetMapHtml(userLocation, vets, {
+                      highlightVetId: selectedVet?.id,
+                    }),
+                  }}
+                  style={styles.map}
+                  onMessage={handleMapMessage}
+                />
+              </View>
+            ) : null}
 
-          <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
-            {vets.length === 0 ? (
-              <Text style={styles.emptyText}>{t('vetFinder.noVetsNearby')}</Text>
-            ) : (
-              vets.map((v, idx) => (
-                <View key={v.id}>
-                  <View style={styles.vetRow}>
-                    <View style={styles.vetInfo}>
-                      <Text style={styles.vetName}>{v.name}</Text>
-                      {v.address ? <Text style={styles.vetSubtitle}>{v.address}</Text> : null}
-                      <Text style={styles.vetDistance}>{t('vetFinder.kmAway', { km: v.distanceKm.toFixed(1) })}</Text>
-                    </View>
-                    <View style={styles.actionRow}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${v.lat},${v.lon}`)}
-                      >
-                        <Text style={styles.actionButtonText}>🧭</Text>
-                      </TouchableOpacity>
-                      {v.phone ? (
+            <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+              {vets.length === 0 ? (
+                <Text style={styles.emptyText}>{t('vetFinder.noVetsNearby')}</Text>
+              ) : (
+                vets.map((v, idx) => (
+                  <View key={v.id}>
+                    <TouchableOpacity
+                      style={styles.vetRow}
+                      onPress={() => handleSelectVet(v)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.vetInfo}>
+                        <View style={styles.nameRow}>
+                          <Text style={styles.vetName} numberOfLines={1}>
+                            {v.name}
+                          </Text>
+                          {v.isEmergency ? (
+                            <View style={styles.emergencyBadge}>
+                              <Text style={styles.emergencyBadgeText}>🚨 24/7</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        {v.address ? (
+                          <Text style={styles.vetSubtitle} numberOfLines={1}>
+                            {v.address}
+                          </Text>
+                        ) : null}
+                        <View style={styles.metaRow}>
+                          <Text style={styles.vetDistance}>
+                            📍 {t('vetFinder.kmAway', { km: v.distanceKm.toFixed(1) })}
+                          </Text>
+                          {v.openingHours ? (
+                            <Text style={styles.hoursSnippet} numberOfLines={1}>
+                              · 🕒 {v.openingHours}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </View>
+
+                      <View style={styles.actionRow}>
+                        {v.phone ? (
+                          <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              Linking.openURL(`tel:${v.phone}`);
+                            }}
+                          >
+                            <Text style={styles.actionButtonText}>📞</Text>
+                          </TouchableOpacity>
+                        ) : null}
                         <TouchableOpacity
                           style={styles.actionButton}
-                          onPress={() => Linking.openURL(`tel:${v.phone}`)}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            openVetDirections(v);
+                          }}
                         >
-                          <Text style={styles.actionButtonText}>📞</Text>
+                          <Text style={styles.actionButtonText}>🧭</Text>
                         </TouchableOpacity>
-                      ) : null}
-                    </View>
+                      </View>
+                    </TouchableOpacity>
+                    {idx < vets.length - 1 ? <View style={styles.divider} /> : null}
                   </View>
-                  {idx < vets.length - 1 ? <View style={styles.divider} /> : null}
-                </View>
-              ))
-            )}
-          </ScrollView>
-        </>
-      )}
-    </View>
+                ))
+              )}
+            </ScrollView>
+          </>
+        )}
+
+        {/* Rich Clinic Detail Bottom Sheet */}
+        <VetDetailSheet
+          visible={sheetVisible}
+          vet={selectedVet}
+          activeDog={activeDog}
+          onClose={() => setSheetVisible(false)}
+          onOpenDossier={onOpenDossier}
+        />
+      </View>
     </SwipeBackWrapper>
   );
 }
@@ -233,22 +318,54 @@ function makeStyles(theme: ThemeTokens) {
     vetInfo: {
       flex: 1,
       minWidth: 0,
+      marginRight: 8,
+    },
+    nameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 2,
     },
     vetName: {
+      flexShrink: 1,
       fontSize: 15,
       fontWeight: '600',
       color: theme.textDark,
+    },
+    emergencyBadge: {
+      backgroundColor: '#FEE2E2',
+      borderRadius: 6,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderWidth: 0.5,
+      borderColor: '#FCA5A5',
+    },
+    emergencyBadgeText: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: '#DC2626',
     },
     vetSubtitle: {
       fontSize: 12,
       color: theme.textMuted,
       marginTop: 2,
     },
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 3,
+      flexWrap: 'wrap',
+    },
     vetDistance: {
       fontSize: 12,
       color: theme.primary,
-      fontWeight: '500',
-      marginTop: 2,
+      fontWeight: '600',
+    },
+    hoursSnippet: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginLeft: 4,
+      flexShrink: 1,
     },
     actionRow: {
       flexDirection: 'row',

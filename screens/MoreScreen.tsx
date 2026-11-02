@@ -107,6 +107,7 @@ export default function MoreScreen({
   const { upcoming, overdue } = useAllVaccines();
   const localNotifications = useNotifications(profile?.id ?? null);
   const notificationsState = passedNotifications ?? localNotifications;
+  const activeDog = dogs[0] ?? null;
   const [showProfile, setShowProfile] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showLanguage, setShowLanguage] = useState(false);
@@ -251,6 +252,11 @@ export default function MoreScreen({
             setVetFinderFromHome(false);
             navigation.navigate('Home');
           }
+        }}
+        activeDog={activeDog}
+        onOpenDossier={(dog) => {
+          setShowVetFinder(false);
+          setReportDog(dog);
         }}
       />
     );

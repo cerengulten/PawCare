@@ -201,6 +201,9 @@ export type VetResult = {
   phone: string | null;
   openingHours: string | null;
   distanceKm: number;
+  website?: string | null;
+  email?: string | null;
+  isEmergency?: boolean;
 };
 
 export type NotificationType =

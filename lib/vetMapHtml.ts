@@ -20,17 +20,26 @@ export function buildVetMapHtml(
 ): string {
   const { interactive = true, variant = 'normal', highlightVetId } = options;
 
-  const markersJs = vets.map(v => {
+  const markersJs = vets.map((v, i) => {
     const name = escapeHtml(v.name);
     const address = v.address ? escapeHtml(v.address) : 'Address unavailable';
     const phoneHtml = v.phone
       ? `<br/><a href="tel:${escapeHtml(v.phone)}">${escapeHtml(v.phone)}</a>`
       : '';
     const popup = `<b>${name}</b><br/>${address}${phoneHtml}`;
-    const isHighlighted = variant === 'alert' && highlightVetId === v.id;
+    const isHighlighted = (variant === 'alert' || highlightVetId != null) && highlightVetId === v.id;
     const isDimmed = variant === 'alert' && highlightVetId != null && !isHighlighted;
     const iconVar = isHighlighted ? 'vetIconHighlight' : isDimmed ? 'vetIconDim' : 'vetIcon';
-    return `L.marker([${v.lat}, ${v.lon}], { icon: ${iconVar} }).addTo(map).bindPopup(${JSON.stringify(popup)});`;
+    return `
+    (function() {
+      const m = L.marker([${v.lat}, ${v.lon}], { icon: ${iconVar} }).addTo(map).bindPopup(${JSON.stringify(popup)});
+      m.on('click', function() {
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SELECT_VET', id: '${escapeHtml(v.id)}' }));
+        }
+      });
+    })();
+    `;
   }).join('\n');
 
   const userIconColor = variant === 'alert' ? '#8A1A1A' : '#2A5A9A';
@@ -83,6 +92,18 @@ export function buildVetMapHtml(
 
     L.marker([${userLocation.lat}, ${userLocation.lon}], { icon: userIcon }).addTo(map).bindPopup('You are here');
     ${markersJs}
+
+    function handlePan(data) {
+      if (data && data.type === 'PAN_TO' && typeof data.lat === 'number' && typeof data.lon === 'number') {
+        map.setView([data.lat, data.lon], 15, { animate: true });
+      }
+    }
+    window.addEventListener('message', function(e) {
+      try { handlePan(typeof e.data === 'string' ? JSON.parse(e.data) : e.data); } catch(err) {}
+    });
+    document.addEventListener('message', function(e) {
+      try { handlePan(typeof e.data === 'string' ? JSON.parse(e.data) : e.data); } catch(err) {}
+    });
   </script>
 </body>
 </html>

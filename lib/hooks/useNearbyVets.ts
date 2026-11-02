@@ -60,6 +60,11 @@ export async function fetchVetsNear(center: Coords): Promise<VetResult[]> {
             .map(el => {
               const lat = el.lat ?? el.center?.lat ?? center.lat;
               const lon = el.lon ?? el.center?.lon ?? center.lon;
+              const isEmergency =
+                el.tags?.emergency === 'yes' ||
+                el.tags?.['veterinary:emergency'] === 'yes' ||
+                el.tags?.amenity === 'animal_rescue' ||
+                (el.tags?.opening_hours && el.tags.opening_hours.toLowerCase().includes('24/7'));
               return {
                 id: String(el.id),
                 name: el.tags?.name ?? String(i18n.t('vetFinder.defaultName')),
@@ -68,6 +73,9 @@ export async function fetchVetsNear(center: Coords): Promise<VetResult[]> {
                 address: addressFromTags(el.tags),
                 phone: el.tags?.phone ?? el.tags?.['contact:phone'] ?? null,
                 openingHours: el.tags?.opening_hours ?? null,
+                website: el.tags?.website ?? el.tags?.['contact:website'] ?? null,
+                email: el.tags?.email ?? el.tags?.['contact:email'] ?? null,
+                isEmergency: !!isEmergency,
                 distanceKm: haversineKm(center, { lat, lon }),
               };
             })
@@ -102,6 +110,9 @@ export async function fetchVetsNear(center: Coords): Promise<VetResult[]> {
             address: item.display_name ?? null,
             phone: null,
             openingHours: null,
+            website: null,
+            email: null,
+            isEmergency: false,
             distanceKm: haversineKm(center, { lat, lon }),
           };
         }).sort((a, b) => a.distanceKm - b.distanceKm);
