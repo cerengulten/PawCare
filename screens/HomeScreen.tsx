@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, Alert, BackHandler, StyleSheet } from 'react-native';
+import { View, Text, Image, ScrollView, TouchableOpacity, Alert, BackHandler, StyleSheet, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useProfile } from '../lib/hooks/useProfile';
@@ -52,8 +52,13 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
   const activeDogName = activeDog?.name ?? t('home.yourPet');
   const {
     habits,
+    dueHabitsToday,
+    weeklyTargetHabits,
+    weeklyCounts,
     completedToday,
     completedCounts,
+    completionRate,
+    isWeeklyGoalReached,
     logHabitToday,
     logWaterAmount,
     undoHabitToday,
@@ -229,31 +234,41 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
               <View style={styles.rhythmHeader}>
                 <Text style={styles.rhythmTitle}>{t('home.careRhythmTitle') || "TODAY'S CARE RHYTHM"}</Text>
                 <Text style={styles.rhythmCount}>
-                  {habits.length > 0
-                    ? t('home.careRhythmCompleted', { completed: completedToday.size, total: habits.length })
+                  {(dueHabitsToday.length > 0 ? dueHabitsToday.length : habits.length) > 0
+                    ? t('home.careRhythmCompleted', {
+                        completed: dueHabitsToday.length > 0
+                          ? dueHabitsToday.filter(h => completedToday.has(h.id)).length
+                          : completedToday.size,
+                        total: dueHabitsToday.length > 0 ? dueHabitsToday.length : habits.length,
+                      })
                     : t('home.careRhythmEmpty')}
                 </Text>
               </View>
 
-              {habits.length > 0 ? (
+              {(dueHabitsToday.length > 0 ? dueHabitsToday.length : habits.length) > 0 ? (
                 <View style={styles.rhythmProgressBar}>
                   <View
                     style={[
-                    styles.rhythmProgressFill,
-                    { width: `${Math.round((completedToday.size / habits.length) * 100)}%` },
-                  ]}
-                />
-              </View>
-            ) : null}
+                      styles.rhythmProgressFill,
+                      { width: `${completionRate}%` },
+                    ]}
+                  />
+                </View>
+              ) : null}
 
               <View style={styles.habitTokensRow}>
-                {habits.length > 0 ? (
-                  habits.slice(0, 3).map((habit) => {
+                {(dueHabitsToday.length > 0 ? dueHabitsToday : habits).length > 0 ? (
+                  (dueHabitsToday.length > 0 ? dueHabitsToday : habits).slice(0, 3).map((habit) => {
                     const isWater = habit.habit_type === 'water';
-                    const target = getHabitTarget(habit);
-                    const count = completedCounts.get(habit.id) ?? 0;
-                    const isDone = completedToday.has(habit.id);
-                    const icon = isWater ? '💧' : habit.habit_type === 'feeding' ? '🥩' : habit.habit_type === 'walking' ? '🦮' : '⭐';
+                    const isWeekly = habit.schedule_type === 'weekly_target';
+                    const target = isWeekly ? (habit.weekly_target_count ?? 1) : getHabitTarget(habit);
+                    const count = isWeekly
+                      ? (weeklyCounts.get(habit.id) ?? 0)
+                      : (completedCounts.get(habit.id) ?? 0);
+                    const isDone = isWeekly
+                      ? isWeeklyGoalReached(habit)
+                      : completedToday.has(habit.id);
+                    const icon = isWater ? '💧' : habit.habit_type === 'feeding' ? '🥩' : habit.habit_type === 'walking' ? '🦮' : habit.habit_type === 'vitamin' ? '🐟' : habit.habit_type === 'dental' ? '🪥' : '⭐';
 
                     return (
                       <TouchableOpacity
@@ -308,7 +323,13 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                             {habit.title}
                           </Text>
                           <Text style={styles.habitTokenSubtitle} numberOfLines={1}>
-                            {isWater ? `${count}/${target}ml` : isDone ? `${t('common.done') || 'Done'} ✓` : `${count}/${target}`}
+                            {isWater
+                              ? `${count}/${target}ml`
+                              : isWeekly
+                              ? `${count}/${target} wk`
+                              : isDone
+                              ? `${t('common.done') || 'Done'} ✓`
+                              : `${count}/${target}`}
                           </Text>
                         </View>
                       </TouchableOpacity>
@@ -378,6 +399,74 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
         )}
+
+        {/* Weekly Routines & Supplements Strip */}
+        {activeDog && weeklyTargetHabits.length > 0 ? (
+          <View style={styles.weeklyCard}>
+            <View style={styles.weeklyHeader}>
+              <View style={styles.weeklyHeaderIconBox}>
+                <Text style={styles.weeklyHeaderEmoji}>📅</Text>
+              </View>
+              <View style={styles.weeklyHeaderTextCol}>
+                <Text style={styles.weeklySectionTitle}>{t('habits.weeklyRoutinesSection')}</Text>
+                <Text style={styles.weeklySectionSubtitle}>
+                  {weeklyTargetHabits.filter(h => isWeeklyGoalReached(h)).length} of {weeklyTargetHabits.length} {t('habits.goalReached')}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.weeklyItemsList}>
+              {weeklyTargetHabits.map((habit, idx) => {
+                const count = weeklyCounts.get(habit.id) ?? 0;
+                const target = habit.weekly_target_count ?? 1;
+                const reached = count >= target;
+                const icon = habit.habit_type === 'vitamin' ? '🐟' : habit.habit_type === 'dental' ? '🪥' : '💊';
+
+                return (
+                  <View
+                    key={habit.id}
+                    style={[
+                      styles.weeklyItemRow,
+                      idx < weeklyTargetHabits.length - 1 && styles.weeklyItemBorder,
+                    ]}
+                  >
+                    <View style={styles.weeklyItemLeft}>
+                      <View style={[styles.weeklyItemIconBox, reached && styles.weeklyItemIconBoxDone]}>
+                        <Text style={styles.weeklyItemIcon}>{reached ? '✓' : icon}</Text>
+                      </View>
+                      <View style={styles.weeklyItemTextCol}>
+                        <Text style={[styles.weeklyItemTitle, reached && styles.weeklyItemTitleDone]} numberOfLines={1}>
+                          {habit.title}
+                        </Text>
+                        <Text style={styles.weeklyItemSubtitle}>
+                          {reached
+                            ? `${count}/${target} · ${t('habits.goalReached')}`
+                            : `${count}/${target} this week`}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.weeklyLogBtn, reached && styles.weeklyLogBtnDone]}
+                      onPress={() => {
+                        if (reached) {
+                          resetHabitToday(habit.id);
+                        } else {
+                          logHabitToday(habit.id);
+                        }
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.weeklyLogBtnText, reached && styles.weeklyLogBtnTextDone]}>
+                        {reached ? 'Done' : t('habits.logAction')}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
 
         {/* 3. Streak Card */}
         {streak > 0 ? (
@@ -811,6 +900,129 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       alignItems: 'center',
       gap: 14,
       marginBottom: 18,
+    },
+    // Weekly Routines & Supplements
+    weeklyCard: {
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      padding: 16,
+      marginBottom: 18,
+      borderWidth: 1,
+      borderColor: theme.border,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+        },
+        android: { elevation: 2 },
+      }),
+    },
+    weeklyHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+      gap: 10,
+    },
+    weeklyHeaderIconBox: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: theme.notStartedBg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    weeklyHeaderEmoji: {
+      fontSize: 16,
+    },
+    weeklyHeaderTextCol: {
+      flex: 1,
+    },
+    weeklySectionTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: theme.textDark,
+      letterSpacing: 0.3,
+    },
+    weeklySectionSubtitle: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 1,
+    },
+    weeklyItemsList: {
+      backgroundColor: theme.background,
+      borderRadius: theme.radiiCard,
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+    },
+    weeklyItemRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 10,
+    },
+    weeklyItemBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    },
+    weeklyItemLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+      gap: 10,
+      marginRight: 10,
+    },
+    weeklyItemIconBox: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: theme.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    weeklyItemIconBoxDone: {
+      backgroundColor: theme.done,
+      borderColor: theme.done,
+    },
+    weeklyItemIcon: {
+      fontSize: 16,
+    },
+    weeklyItemTextCol: {
+      flex: 1,
+    },
+    weeklyItemTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    weeklyItemTitleDone: {
+      color: theme.textMuted,
+      textDecorationLine: 'line-through',
+    },
+    weeklyItemSubtitle: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 2,
+    },
+    weeklyLogBtn: {
+      backgroundColor: theme.primary,
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+      borderRadius: 16,
+    },
+    weeklyLogBtnDone: {
+      backgroundColor: theme.done,
+    },
+    weeklyLogBtnText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: '#FFFFFF',
+    },
+    weeklyLogBtnTextDone: {
+      color: '#FFFFFF',
     },
     emptyPetIconBox: {
       width: 48,

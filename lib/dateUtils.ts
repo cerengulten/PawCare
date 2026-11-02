@@ -28,3 +28,19 @@ export function isoToLocalDateString(iso: string): string {
   if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
   return toLocalDateString(d);
 }
+
+export function getStartOfWeekDateString(d: Date = new Date()): string {
+  const date = new Date(d);
+  const day = date.getDay(); // 0 is Sun, 1 is Mon...
+  const diff = (day === 0 ? -6 : 1) - day; // Monday as day 1
+  date.setDate(date.getDate() + diff);
+  return toLocalDateString(date);
+}
+
+export function getEndOfWeekDateString(d: Date = new Date()): string {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = (day === 0 ? 0 : 7 - day); // Sunday as day 7
+  date.setDate(date.getDate() + diff);
+  return toLocalDateString(date);
+}

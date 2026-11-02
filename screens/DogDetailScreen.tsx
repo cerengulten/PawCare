@@ -70,6 +70,46 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
   const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
 
   const subtitleFor = (h: Habit, count: number, target: number, done: boolean): string => {
+    if (h.schedule_type === 'weekly_target') {
+      const wCount = weeklyCounts.get(h.id) ?? 0;
+      const wTarget = h.weekly_target_count ?? 1;
+      if (wCount >= wTarget) {
+        return t('habits.goalReached');
+      }
+      return t('habits.weeklyProgress', { count: wCount, target: wTarget });
+    }
+
+    if (h.schedule_type === 'specific_days' && h.target_days_of_week && h.target_days_of_week.length > 0) {
+      const todayWeekday = new Date().getDay() + 1;
+      const isDueToday = h.target_days_of_week.includes(todayWeekday);
+      if (!isDueToday) {
+        const map: Record<number, string> = {
+          1: 'habits.weekday.sun',
+          2: 'habits.weekday.mon',
+          3: 'habits.weekday.tue',
+          4: 'habits.weekday.wed',
+          5: 'habits.weekday.thu',
+          6: 'habits.weekday.fri',
+          7: 'habits.weekday.sat',
+        };
+        const dayNames = h.target_days_of_week
+          .map((v) => (map[v] ? t(map[v]) : ''))
+          .filter(Boolean)
+          .join(', ');
+        return t('habits.scheduledForDays', { days: dayNames });
+      }
+    }
+
+    if (h.schedule_type === 'interval_days' && h.interval_days) {
+      if (done) return t('dogDetail.doneSubtitle');
+      return t('habits.everyDaysLabel', { count: h.interval_days });
+    }
+
+    if (h.schedule_type === 'monthly') {
+      if (done) return t('dogDetail.doneSubtitle');
+      return t('habits.monthlyLabel');
+    }
+
     if (h.habit_type === 'water') return t('dogDetail.mlProgress', { count, target });
     if (done) return t('dogDetail.doneSubtitle');
     if (count > 0) return t('dogDetail.countOfTarget', { count, target });
@@ -159,6 +199,8 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
     completedToday,
     completedCounts,
     completionIds,
+    weeklyCounts,
+    isWeeklyGoalReached,
     logHabitToday,
     undoHabitToday,
     resetHabitToday,
@@ -622,9 +664,12 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
         ) : (
           <View style={styles.card}>
             {habits.map((h, idx) => {
-              const target = getHabitTarget(h);
-              const done = completedToday.has(h.id);
-              const count = completedCounts.get(h.id) ?? (done && target <= 1 ? 1 : 0);
+              const isWeekly = h.schedule_type === 'weekly_target';
+              const target = isWeekly ? (h.weekly_target_count ?? 1) : getHabitTarget(h);
+              const done = isWeekly ? isWeeklyGoalReached(h) : completedToday.has(h.id);
+              const count = isWeekly
+                ? (weeklyCounts.get(h.id) ?? 0)
+                : (completedCounts.get(h.id) ?? (done && target <= 1 ? 1 : 0));
               const inProgress = !done && count > 0;
               const isWater = h.habit_type === 'water';
 
@@ -639,6 +684,14 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
                     subtitle={subtitleFor(h, count, target, done)}
                     actionDisabled={isWater}
                     onPressAction={() => {
+                      if (isWeekly) {
+                        if (!done) {
+                          logHabitToday(h.id);
+                        } else {
+                          resetHabitToday(h.id);
+                        }
+                        return;
+                      }
                       if (!done) { logHabitToday(h.id); return; }
                       isWater ? resetWaterToday(h.id) : resetHabitToday(h.id);
                     }}

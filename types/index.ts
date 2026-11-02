@@ -53,6 +53,13 @@ export type HabitType =
   | 'custom'
   | 'dental';
 
+export type HabitScheduleType =
+  | 'daily'
+  | 'specific_days'
+  | 'weekly_target'
+  | 'interval_days'
+  | 'monthly';
+
 export type Habit = {
   id: string;
   dog_id: string;
@@ -74,6 +81,10 @@ export type Habit = {
   dosage_unit: string | null;
   reminder_weekday: number | null;
   notification_ids: string[] | null;
+  schedule_type?: HabitScheduleType;
+  target_days_of_week?: number[] | null;
+  weekly_target_count?: number | null;
+  interval_days?: number | null;
 };
 
 export type HabitCompletion = {

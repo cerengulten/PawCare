@@ -14,7 +14,7 @@ import DateTimePicker, {
   DateTimePickerAndroid,
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
-import { Habit, HabitType } from '../types';
+import { Habit, HabitType, HabitScheduleType } from '../types';
 import { useHabits } from '../lib/hooks/useHabits';
 import { requestNotificationPermissions } from '../lib/notifications';
 import { useTheme } from '../lib/ThemeContext';
@@ -38,7 +38,25 @@ type Props = {
   onCancel: () => void;
 };
 
-const FREQUENCIES: Habit['frequency'][] = ['daily', 'weekly', 'custom'];
+type ScheduleMode = 'daily' | 'specific_days' | 'weekly_target' | 'interval';
+
+const SCHEDULE_MODES: { key: ScheduleMode; labelKey: string }[] = [
+  { key: 'daily', labelKey: 'habits.scheduleDaily' },
+  { key: 'specific_days', labelKey: 'habits.scheduleSpecificDays' },
+  { key: 'weekly_target', labelKey: 'habits.scheduleWeeklyTarget' },
+  { key: 'interval', labelKey: 'habits.scheduleInterval' },
+];
+
+const WEEKDAY_BUBBLES: { value: number; bubbleKey: string; fullKey: string }[] = [
+  { value: 2, bubbleKey: 'habits.dayBubble.mon', fullKey: 'habits.weekdayFull.mon' },
+  { value: 3, bubbleKey: 'habits.dayBubble.tue', fullKey: 'habits.weekdayFull.tue' },
+  { value: 4, bubbleKey: 'habits.dayBubble.wed', fullKey: 'habits.weekdayFull.wed' },
+  { value: 5, bubbleKey: 'habits.dayBubble.thu', fullKey: 'habits.weekdayFull.thu' },
+  { value: 6, bubbleKey: 'habits.dayBubble.fri', fullKey: 'habits.weekdayFull.fri' },
+  { value: 7, bubbleKey: 'habits.dayBubble.sat', fullKey: 'habits.weekdayFull.sat' },
+  { value: 1, bubbleKey: 'habits.dayBubble.sun', fullKey: 'habits.weekdayFull.sun' },
+];
+
 const TIMES_PER_DAY_OPTIONS = [1, 2, 3, 4];
 const TIMES_PER_DAY_LABEL_KEY: Partial<Record<HabitType, string>> = {
   feeding: 'habits.mealsPerDay',
@@ -125,7 +143,33 @@ export default function HabitFormScreen({
   const defaultTitleKey = HABIT_TYPE_DEFAULT_TITLE_KEY[habitType];
 
   const [title, setTitle] = useState(habit?.title ?? (defaultTitleKey ? t(defaultTitleKey) : ''));
-  const [frequency, setFrequency] = useState<Habit['frequency']>(habit?.frequency ?? 'daily');
+  const initialScheduleMode: ScheduleMode =
+    habit?.schedule_type === 'weekly_target'
+      ? 'weekly_target'
+      : habit?.schedule_type === 'specific_days' || habit?.frequency === 'weekly'
+      ? 'specific_days'
+      : habit?.schedule_type === 'interval_days' || habit?.schedule_type === 'monthly'
+      ? 'interval'
+      : !habit && presetType === 'vitamin'
+      ? 'weekly_target'
+      : !habit && presetType === 'dental'
+      ? 'specific_days'
+      : 'daily';
+
+  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>(initialScheduleMode);
+  const [intervalSubMode, setIntervalSubMode] = useState<'interval' | 'monthly'>(
+    habit?.schedule_type === 'monthly' ? 'monthly' : 'interval'
+  );
+  const [targetDaysOfWeek, setTargetDaysOfWeek] = useState<number[]>(
+    habit?.target_days_of_week && habit.target_days_of_week.length > 0
+      ? habit.target_days_of_week
+      : habit?.reminder_weekday
+      ? [habit.reminder_weekday]
+      : [2, 4, 6] // default Mon, Wed, Fri
+  );
+  const [weeklyTargetCount, setWeeklyTargetCount] = useState<number>(habit?.weekly_target_count ?? 2);
+  const [intervalDays, setIntervalDays] = useState<number>(habit?.interval_days ?? 14);
+
   const [reminderTimes, setReminderTimes] = useState<(string | null)[]>(habit?.reminder_times ?? []);
   const [iosPickerIndex, setIosPickerIndex] = useState<number | null>(null);
   // The iOS spinner's `value` is read from this ref, not from `reminderTimes` directly —
@@ -264,6 +308,11 @@ export default function HabitFormScreen({
       return;
     }
 
+    if (scheduleMode === 'specific_days' && targetDaysOfWeek.length === 0) {
+      setError(t('habits.selectAtLeastOneDay'));
+      return;
+    }
+
     const resolvedDosageUnit = showCustomUnit ? customDosageUnit.trim() || null : dosageUnit;
     const activeReminderTimes = reminderTimes.slice(0, reminderSlotCount).filter((t): t is string => !!t);
 
@@ -278,13 +327,36 @@ export default function HabitFormScreen({
     setLoading(true);
     setError('');
 
+    const resolvedScheduleType: HabitScheduleType =
+      scheduleMode === 'interval'
+        ? intervalSubMode === 'monthly'
+          ? 'monthly'
+          : 'interval_days'
+        : scheduleMode;
+
+    const resolvedFrequency: Habit['frequency'] =
+      resolvedScheduleType === 'daily'
+        ? 'daily'
+        : resolvedScheduleType === 'specific_days'
+        ? 'weekly'
+        : 'custom';
+
     const payload = {
       title: trimmedTitle,
       category: HABIT_TYPE_CATEGORY[habitType],
       habit_type: habitType,
-      frequency,
+      frequency: resolvedFrequency,
+      schedule_type: resolvedScheduleType,
+      target_days_of_week: resolvedScheduleType === 'specific_days' ? targetDaysOfWeek : null,
+      weekly_target_count: resolvedScheduleType === 'weekly_target' ? weeklyTargetCount : null,
+      interval_days:
+        resolvedScheduleType === 'interval_days'
+          ? intervalDays
+          : resolvedScheduleType === 'monthly'
+          ? 30
+          : null,
       reminder_times: activeReminderTimes.length > 0 ? activeReminderTimes : null,
-      reminder_weekday: frequency === 'weekly' ? reminderWeekday : null,
+      reminder_weekday: resolvedScheduleType === 'specific_days' ? (targetDaysOfWeek[0] ?? null) : null,
       is_active: true,
       times_per_day: usesTimesPerDay ? timesPerDay : null,
       portion_grams: habitType === 'feeding' ? parseNumber(portionGrams) : null,
@@ -508,35 +580,165 @@ export default function HabitFormScreen({
           </>
         )}
 
-        <Text style={styles.sectionLabel}>{t('habits.frequency')}</Text>
+        <Text style={styles.sectionLabel}>{t('habits.scheduleMode')}</Text>
         <View style={styles.chipRow}>
-          {FREQUENCIES.map((f) => (
+          {SCHEDULE_MODES.map((mode) => (
             <TouchableOpacity
-              key={f}
-              style={[styles.chip, frequency === f && styles.chipSelected]}
-              onPress={() => setFrequency(f)}
+              key={mode.key}
+              style={[styles.chip, scheduleMode === mode.key && styles.chipSelected]}
+              onPress={() => setScheduleMode(mode.key)}
             >
-              <Text style={[styles.chipText, frequency === f && styles.chipTextSelected]}>{t('habits.freq.' + f)}</Text>
+              <Text style={[styles.chipText, scheduleMode === mode.key && styles.chipTextSelected]}>
+                {t(mode.labelKey)}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {frequency === 'weekly' && (
+        {scheduleMode === 'specific_days' && (
           <>
-            <Text style={styles.sectionLabel}>{t('habits.dayOfWeek')}</Text>
-            <View style={styles.chipRow}>
-              {WEEKDAYS.map((d) => (
-                <TouchableOpacity
-                  key={d.value}
-                  style={[styles.chip, reminderWeekday === d.value && styles.chipSelected]}
-                  onPress={() => setReminderWeekday(d.value)}
-                >
-                  <Text style={[styles.chipText, reminderWeekday === d.value && styles.chipTextSelected]}>
-                    {t(d.labelKey)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <Text style={styles.sectionLabel}>{t('habits.selectSpecificDays')}</Text>
+            <View style={styles.bubbleRow}>
+              {WEEKDAY_BUBBLES.map((d) => {
+                const isSelected = targetDaysOfWeek.includes(d.value);
+                return (
+                  <TouchableOpacity
+                    key={d.value}
+                    style={[styles.dayBubble, isSelected && styles.dayBubbleSelected]}
+                    onPress={() => {
+                      setTargetDaysOfWeek((prev) =>
+                        prev.includes(d.value)
+                          ? prev.filter((v) => v !== d.value)
+                          : [...prev, d.value].sort((a, b) => {
+                              const order = [2, 3, 4, 5, 6, 7, 1];
+                              return order.indexOf(a) - order.indexOf(b);
+                            })
+                      );
+                    }}
+                  >
+                    <Text style={[styles.dayBubbleText, isSelected && styles.dayBubbleTextSelected]}>
+                      {t(d.bubbleKey)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
+            <Text style={styles.activeDaysSummary}>
+              {targetDaysOfWeek.length > 0
+                ? t('habits.activeOnDays', {
+                    days: targetDaysOfWeek
+                      .map((val) => {
+                        const bubble = WEEKDAY_BUBBLES.find((b) => b.value === val);
+                        return bubble ? t(bubble.fullKey) : '';
+                      })
+                      .filter(Boolean)
+                      .join(', '),
+                  })
+                : t('habits.selectAtLeastOneDay')}
+            </Text>
+          </>
+        )}
+
+        {scheduleMode === 'weekly_target' && (
+          <>
+            <Text style={styles.sectionLabel}>{t('habits.scheduleWeeklyTarget')}</Text>
+            <View style={styles.stepperContainer}>
+              <TouchableOpacity
+                style={styles.stepperButton}
+                onPress={() => setWeeklyTargetCount((c) => Math.max(1, c - 1))}
+              >
+                <Text style={styles.stepperButtonText}>−</Text>
+              </TouchableOpacity>
+              <Text style={styles.stepperValueText}>
+                {t('habits.timesPerWeek', { count: weeklyTargetCount })}
+              </Text>
+              <TouchableOpacity
+                style={styles.stepperButton}
+                onPress={() => setWeeklyTargetCount((c) => Math.min(7, c + 1))}
+              >
+                <Text style={styles.stepperButtonText}>+</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.helperText}>
+              💡 {t('habits.weeklyTargetHelper', { count: weeklyTargetCount })}
+            </Text>
+          </>
+        )}
+
+        {scheduleMode === 'interval' && (
+          <>
+            <View style={styles.chipRow}>
+              <TouchableOpacity
+                style={[styles.chip, intervalSubMode === 'interval' && styles.chipSelected]}
+                onPress={() => setIntervalSubMode('interval')}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    intervalSubMode === 'interval' && styles.chipTextSelected,
+                  ]}
+                >
+                  {t('habits.everyNDays')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.chip, intervalSubMode === 'monthly' && styles.chipSelected]}
+                onPress={() => setIntervalSubMode('monthly')}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    intervalSubMode === 'monthly' && styles.chipTextSelected,
+                  ]}
+                >
+                  {t('habits.onceAMonth')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {intervalSubMode === 'interval' ? (
+              <>
+                <View style={styles.stepperContainer}>
+                  <TouchableOpacity
+                    style={styles.stepperButton}
+                    onPress={() => setIntervalDays((d) => Math.max(2, d - 1))}
+                  >
+                    <Text style={styles.stepperButtonText}>−</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.stepperValueText}>
+                    {t('habits.repeatEveryNDays', { days: intervalDays })}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.stepperButton}
+                    onPress={() => setIntervalDays((d) => Math.min(90, d + 1))}
+                  >
+                    <Text style={styles.stepperButtonText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.chipRow}>
+                  {[3, 7, 10, 14, 21, 30].map((preset) => (
+                    <TouchableOpacity
+                      key={preset}
+                      style={[styles.chip, intervalDays === preset && styles.chipSelected]}
+                      onPress={() => setIntervalDays(preset)}
+                    >
+                      <Text
+                        style={[
+                          styles.chipText,
+                          intervalDays === preset && styles.chipTextSelected,
+                        ]}
+                      >
+                        {t('habits.daysCount', { count: preset })}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            ) : (
+              <Text style={styles.helperText}>
+                📅 {t('habits.monthlyLabel')}: {t('habits.onceAMonth')}
+              </Text>
+            )}
           </>
         )}
 
@@ -689,6 +891,74 @@ function makeStyles(theme: ThemeTokens) {
     },
     chipTextSelected: {
       color: 'white',
+    },
+    bubbleRow: {
+      width: '100%',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 10,
+    },
+    dayBubble: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    dayBubbleSelected: {
+      backgroundColor: theme.primary,
+      borderColor: theme.primary,
+    },
+    dayBubbleText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.textDark,
+    },
+    dayBubbleTextSelected: {
+      color: '#FFFFFF',
+    },
+    activeDaysSummary: {
+      width: '100%',
+      fontSize: 12,
+      fontWeight: '500',
+      color: theme.primary,
+      marginBottom: 12,
+    },
+    stepperContainer: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: theme.surface,
+      borderRadius: theme.radiiCard,
+      borderWidth: 1,
+      borderColor: theme.border,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      marginBottom: 8,
+    },
+    stepperButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    stepperButtonText: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: theme.textDark,
+    },
+    stepperValueText: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: theme.textDark,
     },
     button: {
       width: '100%',
