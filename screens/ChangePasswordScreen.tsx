@@ -105,72 +105,82 @@ export default function ChangePasswordScreen({ onDone, onCancel }: Props) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <View style={{ width: '100%' }}>
-            <Text style={styles.title}>{t('changePassword.title')}</Text>
+        <View style={{ width: '100%' }}>
+          <Text style={styles.title}>{t('changePassword.title')}</Text>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        {hasPassword === false ? (
-          <Text style={styles.googleNote}>
-            {t('changePassword.googleNote')}
-          </Text>
-        ) : (
-          <>
-            <TextInput
-              style={styles.input}
-              placeholder={t('changePassword.currentPassword')}
-              placeholderTextColor={theme.textMuted}
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              secureTextEntry
-            />
+          {hasPassword === false ? (
+            <Text style={styles.googleNote}>
+              {t('changePassword.googleNote')}
+            </Text>
+          ) : (
+            <>
+              <TextInput
+                style={styles.input}
+                placeholder={t('changePassword.currentPassword')}
+                placeholderTextColor={theme.textMuted}
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                spellCheck={false}
+                textContentType="password"
+              />
 
-            <TextInput
-              style={styles.input}
-              placeholder={t('changePassword.newPassword')}
-              placeholderTextColor={theme.textMuted}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-            <TextInput
-              style={styles.input}
-              placeholder={t('changePassword.confirmNewPassword')}
-              placeholderTextColor={theme.textMuted}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-            />
+              <TextInput
+                style={styles.input}
+                placeholder={t('changePassword.newPassword')}
+                placeholderTextColor={theme.textMuted}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                spellCheck={false}
+                textContentType="newPassword"
+              />
+              <TextInput
+                style={styles.input}
+                placeholder={t('changePassword.confirmNewPassword')}
+                placeholderTextColor={theme.textMuted}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                spellCheck={false}
+                textContentType="newPassword"
+              />
 
-            <View style={styles.checklist}>
-              {PASSWORD_REQUIREMENTS.map((req) => {
-                const met = req.test(password);
-                return (
-                  <Text key={req.labelKey} style={[styles.checklistItem, met && styles.checklistItemMet]}>
-                    {met ? '✓' : '○'} {t(req.labelKey)}
-                  </Text>
-                );
-              })}
-            </View>
+              <View style={styles.checklist}>
+                {PASSWORD_REQUIREMENTS.map((req) => {
+                  const met = req.test(password);
+                  return (
+                    <Text key={req.labelKey} style={[styles.checklistItem, met && styles.checklistItemMet]}>
+                      {met ? '✓' : '○'} {t(req.labelKey)}
+                    </Text>
+                  );
+                })}
+              </View>
 
-            <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading || hasPassword === null}>
-              {loading ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text style={styles.buttonText}>{t('common.save')}</Text>
-              )}
-            </TouchableOpacity>
-          </>
-        )}
+              <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading || hasPassword === null}>
+                {loading ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.buttonText}>{t('common.save')}</Text>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
 
-        <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
-          <Text style={styles.switchLink}>{t('common.cancel')}</Text>
-        </TouchableOpacity>
-          </View>
-        </TouchableWithoutFeedback>
+          <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
+            <Text style={styles.switchLink}>{t('common.cancel')}</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
     </SafeAreaView>
@@ -216,6 +226,8 @@ function makeStyles(theme: ThemeTokens) {
       marginBottom: 12,
       borderWidth: 0.5,
       borderColor: theme.border,
+      textAlignVertical: 'center',
+      includeFontPadding: false,
     },
     checklist: {
       width: '100%',

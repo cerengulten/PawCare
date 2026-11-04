@@ -93,46 +93,47 @@ export default function ChangeEmailScreen({ onDone, onCancel }: Props) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <View style={{ width: '100%' }}>
-            <Text style={styles.title}>{t('changeEmail.title')}</Text>
+        <View style={{ width: '100%' }}>
+          <Text style={styles.title}>{t('changeEmail.title')}</Text>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Text style={styles.sectionLabel}>{t('changeEmail.currentEmail')}</Text>
-        <View style={styles.readOnlyInput}>
-          <Text style={styles.readOnlyText}>{currentEmail ?? '…'}</Text>
-        </View>
-
-        <Text style={styles.sectionLabel}>{t('changeEmail.newEmail')}</Text>
-        <TextInput
-          style={styles.input}
-          placeholder={t('changeEmail.newEmail')}
-          placeholderTextColor={theme.textMuted}
-          value={newEmail}
-          onChangeText={setNewEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-        <Text style={styles.helperText}>
-          {t('changeEmail.helper')}
-        </Text>
-
-        <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading}>
-          {loading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.buttonText}>{t('common.save')}</Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
-          <Text style={styles.switchLink}>{t('common.cancel')}</Text>
-        </TouchableOpacity>
+          <Text style={styles.sectionLabel}>{t('changeEmail.currentEmail')}</Text>
+          <View style={styles.readOnlyInput}>
+            <Text style={styles.readOnlyText}>{currentEmail ?? '…'}</Text>
           </View>
-        </TouchableWithoutFeedback>
+
+          <Text style={styles.sectionLabel}>{t('changeEmail.newEmail')}</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={t('changeEmail.newEmail')}
+            placeholderTextColor={theme.textMuted}
+            value={newEmail}
+            onChangeText={setNewEmail}
+            autoCapitalize="none"
+            autoCorrect={false}
+            spellCheck={false}
+            keyboardType="email-address"
+            textContentType="emailAddress"
+          />
+          <Text style={styles.helperText}>
+            {t('changeEmail.helper')}
+          </Text>
+
+          <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading}>
+            {loading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.buttonText}>{t('common.save')}</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
+            <Text style={styles.switchLink}>{t('common.cancel')}</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
     </SafeAreaView>
@@ -211,6 +212,8 @@ function makeStyles(theme: ThemeTokens) {
       marginBottom: 12,
       borderWidth: 0.5,
       borderColor: theme.border,
+      textAlignVertical: 'center',
+      includeFontPadding: false,
     },
     helperText: {
       width: '100%',

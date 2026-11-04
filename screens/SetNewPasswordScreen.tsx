@@ -68,58 +68,63 @@ export default function SetNewPasswordScreen({ onDone }: Props) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <View style={styles.scrollInner}>
-            <Text style={styles.paw}>🔑</Text>
-            <Text style={styles.title}>{t('auth.setNewPasswordTitle')}</Text>
+        <View style={styles.scrollInner}>
+          <Text style={styles.paw}>🔑</Text>
+          <Text style={styles.title}>{t('auth.setNewPasswordTitle')}</Text>
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
-            <TextInput
-              style={styles.input}
-              placeholder={t('auth.newPassword')}
-              placeholderTextColor={theme.textMuted}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              returnKeyType="next"
-              onSubmitEditing={() => confirmInputRef.current?.focus()}
-            />
-            <TextInput
-              ref={confirmInputRef}
-              style={styles.input}
-              placeholder={t('auth.confirmNewPassword')}
-              placeholderTextColor={theme.textMuted}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-              returnKeyType="done"
-              onSubmitEditing={handleSave}
-            />
+          <TextInput
+            style={styles.input}
+            placeholder={t('auth.newPassword')}
+            placeholderTextColor={theme.textMuted}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+            spellCheck={false}
+            textContentType="newPassword"
+            returnKeyType="next"
+            onSubmitEditing={() => confirmInputRef.current?.focus()}
+          />
+          <TextInput
+            ref={confirmInputRef}
+            style={styles.input}
+            placeholder={t('auth.confirmNewPassword')}
+            placeholderTextColor={theme.textMuted}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+            spellCheck={false}
+            textContentType="newPassword"
+            returnKeyType="done"
+            onSubmitEditing={handleSave}
+          />
 
-            <View style={styles.checklist}>
-              {PASSWORD_REQUIREMENTS.map((req) => {
-                const met = req.test(password);
-                return (
-                  <Text key={req.labelKey} style={[styles.checklistItem, met && styles.checklistItemMet]}>
-                    {met ? '✓' : '○'} {t(req.labelKey)}
-                  </Text>
-                );
-              })}
-            </View>
-
-            <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading}>
-              {loading ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text style={styles.buttonText}>{t('common.save')}</Text>
-              )}
-            </TouchableOpacity>
+          <View style={styles.checklist}>
+            {PASSWORD_REQUIREMENTS.map((req) => {
+              const met = req.test(password);
+              return (
+                <Text key={req.labelKey} style={[styles.checklistItem, met && styles.checklistItemMet]}>
+                  {met ? '✓' : '○'} {t(req.labelKey)}
+                </Text>
+              );
+            })}
           </View>
-        </TouchableWithoutFeedback>
+
+          <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading}>
+            {loading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.buttonText}>{t('common.save')}</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -169,6 +174,8 @@ function makeStyles(theme: ThemeTokens) {
       marginBottom: 12,
       borderWidth: 1,
       borderColor: theme.border,
+      textAlignVertical: 'center',
+      includeFontPadding: false,
     },
     checklist: {
       width: '100%',

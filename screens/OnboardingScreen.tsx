@@ -563,11 +563,10 @@ export default function OnboardingScreen({
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
         >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-            <View style={{ width: '100%' }}>
-              <View style={styles.identityTopBar}>
+          <View style={{ width: '100%' }}>
+            <View style={styles.identityTopBar}>
             <View style={styles.langPickerMini}>
               <TouchableOpacity
                 onPress={() => setLang('en')}
@@ -687,8 +686,7 @@ export default function OnboardingScreen({
           >
             <Text style={styles.signOutText}>{t('onboarding.wrongAccountSignOut')}</Text>
           </TouchableOpacity>
-            </View>
-          </TouchableWithoutFeedback>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     );
@@ -704,11 +702,10 @@ export default function OnboardingScreen({
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
         >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-            <View style={{ width: '100%' }}>
-              <View style={styles.stepProgressRow}>
+          <View style={{ width: '100%' }}>
+            <View style={styles.stepProgressRow}>
             <Text style={styles.stepProgressText}>{t('onboarding.step1Title')}</Text>
           </View>
 
@@ -797,8 +794,7 @@ export default function OnboardingScreen({
           >
             <Text style={styles.primaryBtnText}>{t('onboarding.nextHealthBaseline')}</Text>
           </TouchableOpacity>
-            </View>
-          </TouchableWithoutFeedback>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     );
@@ -814,11 +810,10 @@ export default function OnboardingScreen({
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
         >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-            <View style={{ width: '100%' }}>
-              <View style={styles.stepProgressRow}>
+          <View style={{ width: '100%' }}>
+            <View style={styles.stepProgressRow}>
             <Text style={styles.stepProgressText}>{t('onboarding.step2Title')}</Text>
           </View>
 
@@ -936,8 +931,7 @@ export default function OnboardingScreen({
           >
             <Text style={styles.secondaryBtnText}>{t('onboarding.backToBasics')}</Text>
           </TouchableOpacity>
-            </View>
-          </TouchableWithoutFeedback>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     );
@@ -1423,6 +1417,8 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false, insets = { top: 0, b
       marginBottom: 14,
       borderWidth: 1,
       borderColor: theme.border,
+      textAlignVertical: 'center',
+      includeFontPadding: false,
     },
     sectionLabel: {
       fontSize: 13,

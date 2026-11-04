@@ -173,13 +173,13 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
         },
       });
       if (error) {
-        setResendMessage(error.message);
+        setResendMessage(formatAuthError(error, t));
       } else {
         setResendMessage(t('auth.resendSuccess') || 'Verification email resent!');
         setResendCooldown(60);
       }
     } catch (err: any) {
-      setResendMessage(err?.message || 'Failed to resend');
+      setResendMessage(formatAuthError(err, t));
     } finally {
       setResending(false);
     }
@@ -278,12 +278,10 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <View style={styles.scrollInner}>
-            {/* Language Selector Top Bar */}
+        <View style={styles.scrollInner}>
+          {/* Language Selector Top Bar */}
         <View style={styles.topBar}>
           <View style={styles.langPicker}>
             <TouchableOpacity
@@ -372,7 +370,10 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
                 value={email}
                 onChangeText={setEmail}
                 autoCapitalize="none"
+                autoCorrect={false}
+                spellCheck={false}
                 keyboardType="email-address"
+                textContentType="emailAddress"
                 returnKeyType="next"
                 onSubmitEditing={() => passwordInputRef.current?.focus()}
                 onFocus={() => setFocusedField('email')}
@@ -407,6 +408,10 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
                 placeholderTextColor={theme.textMuted}
                 value={password}
                 onChangeText={setPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                spellCheck={false}
+                textContentType="password"
                 secureTextEntry={!showPassword}
                 returnKeyType="done"
                 onSubmitEditing={handleSubmit}
@@ -517,8 +522,7 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
         >
           <Text style={styles.guestText}>🌿 {t('auth.exploreGuest') || 'Explore Bisco as a Guest →'}</Text>
         </TouchableOpacity>
-          </View>
-        </TouchableWithoutFeedback>
+        </View>
       </ScrollView>
 
       {/* Guest Mode Exploration Modal */}
@@ -757,6 +761,8 @@ function makeStyles(theme: ThemeTokens, insets = { top: 0, bottom: 0 }, isDarkMo
       fontSize: 15,
       color: theme.textDark,
       paddingVertical: 0,
+      textAlignVertical: 'center',
+      includeFontPadding: false,
     },
     eyeBtn: {
       padding: 6,

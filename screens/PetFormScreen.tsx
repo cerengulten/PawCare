@@ -178,11 +178,10 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <View style={{ width: '100%' }}>
-            <Text style={styles.title}>{dog ? t('petForm.editTitle') : t('petForm.addTitle')}</Text>
+        <View style={{ width: '100%' }}>
+          <Text style={styles.title}>{dog ? t('petForm.editTitle') : t('petForm.addTitle')}</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -346,8 +345,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
         <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
           <Text style={styles.switchLink}>{t('common.cancel')}</Text>
         </TouchableOpacity>
-          </View>
-        </TouchableWithoutFeedback>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
     </SafeAreaView>
@@ -457,6 +455,8 @@ function makeStyles(theme: ThemeTokens) {
       marginBottom: 12,
       borderWidth: 0.5,
       borderColor: theme.border,
+      textAlignVertical: 'center',
+      includeFontPadding: false,
     },
     reminderRow: {
       width: '100%',

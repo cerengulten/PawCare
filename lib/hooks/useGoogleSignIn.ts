@@ -29,26 +29,24 @@ export function useGoogleSignIn() {
 
     const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
     if (result.type !== 'success') {
-      // Previously returned `{ error: null }` here, which made a redirect-URI
-      // mismatch (Supabase bouncing to its default Site URL instead of back
-      // into the app) fail completely silently — see CLAUDE.md's "Known
-      // issues" entry this was diagnosed from.
+      if (result.type === 'cancel' || result.type === 'dismiss') {
+        // User voluntarily dismissed or cancelled the modal; do not show error
+        return { error: null };
+      }
       return {
-        error: new Error(
-          `Sign-in didn't complete (${result.type}). If this keeps happening, check the redirectUri logged above against Supabase's Redirect URLs allowlist.`
-        ),
+        error: new Error('google_signin_failed'),
       };
     }
 
     const hash = result.url.split('#')[1];
     if (!hash) {
-      return { error: new Error('No session returned from Google sign-in') };
+      return { error: new Error('google_signin_failed') };
     }
     const params = new URLSearchParams(hash);
     const access_token = params.get('access_token');
     const refresh_token = params.get('refresh_token');
     if (!access_token || !refresh_token) {
-      return { error: new Error('No session returned from Google sign-in') };
+      return { error: new Error('google_signin_failed') };
     }
 
     const { error: sessionError } = await supabase.auth.setSession({ access_token, refresh_token });
