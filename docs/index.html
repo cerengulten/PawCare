@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bisco · Modern Dog Wellness Journal & Pet Care</title>
+  <meta name="description" content="Bisco is your dog's daily wellness companion. Track daily habits, meals, heat cycles, vaccines, parasite treatments, and find emergency vets nearby." />
+  <link rel="icon" type="image/png" href="https://img.icons8.com/color/96/dog.png" />
+  <style>
+    :root {
+      --bg: #FBF8F1;
+      --card: #FFFFFF;
+      --text: #2B2B26;
+      --muted: #6B685B;
+      --primary: #C85A32;
+      --primary-hover: #B24E29;
+      --secondary: #4C7A56;
+      --border: #E8E2D2;
+      --tag-bg: #F4EFE6;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #181714;
+        --card: #22201B;
+        --text: #F2EFE9;
+        --muted: #A8A495;
+        --primary: #E06D44;
+        --primary-hover: #C85A32;
+        --secondary: #74A880;
+        --border: #35322A;
+        --tag-bg: #2C2922;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    header {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      font-size: 24px;
+      color: var(--primary);
+      text-decoration: none;
+    }
+    .brand-icon {
+      font-size: 32px;
+    }
+    nav a {
+      color: var(--muted);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 15px;
+      margin-left: 20px;
+      transition: color 0.2s;
+    }
+    nav a:hover {
+      color: var(--primary);
+    }
+    .hero {
+      max-width: 960px;
+      margin: 40px auto 60px;
+      padding: 0 20px;
+      text-align: center;
+    }
+    .badge {
+      display: inline-block;
+      background: var(--tag-bg);
+      color: var(--primary);
+      border: 1px solid var(--border);
+      padding: 6px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: clamp(32px, 5vw, 48px);
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 18px;
+    }
+    .hero p {
+      font-size: 18px;
+      color: var(--muted);
+      max-width: 640px;
+      margin: 0 auto 30px;
+    }
+    .features-grid {
+      max-width: 960px;
+      margin: 0 auto 60px;
+      padding: 0 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    }
+    .card-icon {
+      font-size: 32px;
+      margin-bottom: 14px;
+    }
+    .card h3 {
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+    .card p {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      background: var(--card);
+    }
+    footer a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    footer a:hover {
+      text-decoration: underline;
+    }
+    .footer-links {
+      margin-bottom: 14px;
+    }
+    .footer-links a {
+      margin: 0 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <a href="./" class="brand">
+      <span class="brand-icon">🐾</span>
+      <span>Bisco</span>
+    </a>
+    <nav>
+      <a href="#features">Features</a>
+      <a href="./privacy.html">Privacy Policy</a>
+      <a href="./terms.html">Terms</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="badge">Warm Pet Journal & Dog Wellness</div>
+      <h1>Your dog's daily wellness,<br/>warmly organized.</h1>
+      <p>
+        Bisco helps dog parents track wellness habits, medications, heat cycles, vaccine records, vet visits, and instantly find nearby veterinary emergency care.
+      </p>
+    </section>
+
+    <section id="features" class="features-grid">
+      <div class="card">
+        <div class="card-icon">📖</div>
+        <h3>Warm Pet Journal</h3>
+        <p>Log meals, water intake, daily walks, mood, and health symptoms in a beautiful, warm interface designed for pet lovers.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon">💉</div>
+        <h3>Vaccine & Parasite Care</h3>
+        <p>Never miss a booster. Automated scheduling and reminders for internal & external parasite treatments, rabies, and core vaccines.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon">🌸</div>
+        <h3>Estrus Cycle Tracking</h3>
+        <p>Comprehensive reproductive health and heat cycle timeline with phase predictions, symptom logging, and historical cycle analytics.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon">🏥</div>
+        <h3>Vet Finder & Emergency</h3>
+        <p>Locate nearby veterinary clinics and 24/7 animal hospitals with real-time opening hours, directions, and direct calls.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon">📋</div>
+        <h3>Veterinary Dossier</h3>
+        <p>Export clean, comprehensive medical PDF dossiers to share with your vet before appointments or emergencies.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon">🔒</div>
+        <h3>Privacy First & Cloud Sync</h3>
+        <p>Your dog's health data is securely encrypted and stored with Supabase, accessible seamlessly across your devices.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-links">
+      <a href="./">Home</a>
+      <a href="./privacy.html">Privacy Policy</a>
+      <a href="./terms.html">Terms of Service</a>
+      <a href="mailto:support@bisco.app">Contact Support</a>
+    </div>
+    <p>&copy; 2026 Bisco. All rights reserved.</p>
+  </footer>
+
+</body>
+</html>
