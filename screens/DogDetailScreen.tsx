@@ -1,4 +1,5 @@
-import { RefObject, useCallback, useMemo, useRef, useState } from 'react';
+import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useVetAppointments } from '../lib/hooks/useVetAppointments';
 import { View, Text, TouchableOpacity, Image, ScrollView, Alert, BackHandler, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Dog, Habit, HabitType, DogMood, VaccineRecord, Allergen, HealthLog } from '../types';
@@ -159,17 +160,17 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
           return true;
         }
         if (mode === 'vaccine-form') {
-          setMode('vaccine-list');
+          setMode('detail');
           setEditingVaccine(null);
           return true;
         }
         if (mode === 'poop-form') {
-          setMode('health-list');
+          setMode('detail');
           setEditingLog(null);
           return true;
         }
         if (mode === 'vomit-form') {
-          setMode('vomit-list');
+          setMode('detail');
           setEditingVomitLog(null);
           return true;
         }
@@ -222,8 +223,32 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
   const { streak } = usePetStreak(dog.id, habits.map(h => h.id));
   const cycleTracking = useCycleTracking(dog.id, dog.breed);
 
+  const { appointments: dogAppointments } = useVetAppointments(dog.id);
+  const pastVetVisits = useMemo(
+    () =>
+      dogAppointments
+        .filter((a) => a.status === 'completed' || (a.notes && a.notes.trim().length > 0))
+        .sort((a, b) => new Date(b.appointmentDate).getTime() - new Date(a.appointmentDate).getTime()),
+    [dogAppointments]
+  );
+
   const cycleSpecies = mapDogSpeciesToCycleSpecies(dog.species);
-  const showHeatCycle = dog.sex === 'female' && !dog.is_sterilized && cycleSpecies !== null;
+  // Only show heat cycle tracking for intact female dogs and cats
+  const showHeatCycle = dog.sex === 'female' && !dog.is_sterilized && (cycleSpecies === 'dog' || cycleSpecies === 'cat');
+
+  useEffect(() => {
+    if (initialAction === 'parasite') {
+      setTreatmentSegment('parasites');
+      setEditingVaccine(null);
+      setMode('vaccine-form');
+      onClearInitialAction?.();
+    } else if (initialAction === 'vaccine') {
+      setTreatmentSegment('vaccines');
+      setEditingVaccine(null);
+      setMode('vaccine-form');
+      onClearInitialAction?.();
+    }
+  }, [initialAction]);
 
   const todayStr = toLocalDateString(new Date());
   const todayPoopLogs = useMemo(() => logs.filter((l) => l.logged_at?.slice(0, 10) === todayStr), [logs, todayStr]);
@@ -367,11 +392,12 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
     return (
       <VaccineFormScreen
         vaccine={editingVaccine}
+        initialType={treatmentSegment === 'parasites' ? 'parasite' : 'vaccine'}
         addVaccine={addVaccine}
         updateVaccine={updateVaccine}
         deleteVaccine={deleteVaccine}
-        onDone={() => { setMode('vaccine-list'); setEditingVaccine(null); }}
-        onCancel={() => { setMode('vaccine-list'); setEditingVaccine(null); }}
+        onDone={() => { setMode('detail'); setEditingVaccine(null); }}
+        onCancel={() => { setMode('detail'); setEditingVaccine(null); }}
       />
     );
   }
@@ -452,8 +478,8 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
         addLog={addLog}
         updateLog={updateLog}
         deleteLog={deleteLog}
-        onDone={() => { setMode('health-list'); setEditingLog(null); }}
-        onCancel={() => { setMode('health-list'); setEditingLog(null); }}
+        onDone={() => { setMode('detail'); setEditingLog(null); }}
+        onCancel={() => { setMode('detail'); setEditingLog(null); }}
       />
     );
   }
@@ -502,8 +528,8 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
         addLog={addVomitLog}
         updateLog={updateVomitLog}
         deleteLog={deleteVomitLog}
-        onDone={() => { setMode('vomit-list'); setEditingVomitLog(null); }}
-        onCancel={() => { setMode('vomit-list'); setEditingVomitLog(null); }}
+        onDone={() => { setMode('detail'); setEditingVomitLog(null); }}
+        onCancel={() => { setMode('detail'); setEditingVomitLog(null); }}
       />
     );
   }
@@ -808,7 +834,14 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
         style={styles.section}
       >
         <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>{t('dogDetail.poopTracker')}</Text>
+          <TouchableOpacity
+            onPress={() => setMode('health-list')}
+            activeOpacity={0.7}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+          >
+            <Text style={styles.sectionTitle}>{t('dogDetail.poopTracker')}</Text>
+            <Text style={{ fontSize: 16, color: theme.primary, fontWeight: '700' }}>›</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.addChip}
             onPress={() => { setEditingLog(null); setMode('poop-form'); }}
@@ -816,31 +849,38 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
             <Text style={styles.addChipText}>{t('dogDetail.addShort')}</Text>
           </TouchableOpacity>
         </View>
-        {logs.length > 0 ? (
+        {todayPoopLogs.length > 0 ? (
           <View style={styles.card}>
-            {logs.slice(0, 3).map((l, idx) => (
+            {todayPoopLogs.map((l, idx) => (
               <View key={l.id}>
                 <PoopLogCard
                   log={l}
                   onPress={() => { setEditingLog(l); setMode('poop-form'); }}
                 />
-                {idx < Math.min(logs.length, 3) - 1 ? <View style={styles.divider} /> : null}
+                {idx < todayPoopLogs.length - 1 ? <View style={styles.divider} /> : null}
               </View>
             ))}
           </View>
         ) : (
-          <Text style={styles.emptyText}>{t('dogDetail.noPoopYet')}</Text>
-        )}
-        {logs.length > 3 ? (
-          <TouchableOpacity onPress={() => setMode('health-list')} style={styles.seeAllRow}>
-            <Text style={styles.backText}>{t('common.seeAll')} →</Text>
+          <TouchableOpacity onPress={() => setMode('health-list')} activeOpacity={0.7}>
+            <Text style={styles.emptyText}>{t('dogDetail.noPoopToday')}</Text>
           </TouchableOpacity>
-        ) : null}
+        )}
+        <TouchableOpacity onPress={() => setMode('health-list')} style={styles.seeAllRow} activeOpacity={0.7}>
+          <Text style={styles.backText}>{t('dogDetail.viewAllHistory')} ({logs.length}) →</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
         <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>{t('dogDetail.vomitTracker')}</Text>
+          <TouchableOpacity
+            onPress={() => setMode('vomit-list')}
+            activeOpacity={0.7}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+          >
+            <Text style={styles.sectionTitle}>{t('dogDetail.vomitTracker')}</Text>
+            <Text style={{ fontSize: 16, color: theme.primary, fontWeight: '700' }}>›</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.addChip}
             onPress={() => { setEditingVomitLog(null); setMode('vomit-form'); }}
@@ -848,26 +888,26 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
             <Text style={styles.addChipText}>{t('dogDetail.addShort')}</Text>
           </TouchableOpacity>
         </View>
-        {vomitLogs.length > 0 ? (
+        {todayVomitLogs.length > 0 ? (
           <View style={styles.card}>
-            {vomitLogs.slice(0, 3).map((l, idx) => (
+            {todayVomitLogs.map((l, idx) => (
               <View key={l.id}>
                 <VomitLogCard
                   log={l}
                   onPress={() => { setEditingVomitLog(l); setMode('vomit-form'); }}
                 />
-                {idx < Math.min(vomitLogs.length, 3) - 1 ? <View style={styles.divider} /> : null}
+                {idx < todayVomitLogs.length - 1 ? <View style={styles.divider} /> : null}
               </View>
             ))}
           </View>
         ) : (
-          <Text style={styles.emptyText}>{t('dogDetail.noVomitYet')}</Text>
-        )}
-        {vomitLogs.length > 3 ? (
-          <TouchableOpacity onPress={() => setMode('vomit-list')} style={styles.seeAllRow}>
-            <Text style={styles.backText}>{t('common.seeAll')} →</Text>
+          <TouchableOpacity onPress={() => setMode('vomit-list')} activeOpacity={0.7}>
+            <Text style={styles.emptyText}>{t('dogDetail.noVomitToday')}</Text>
           </TouchableOpacity>
-        ) : null}
+        )}
+        <TouchableOpacity onPress={() => setMode('vomit-list')} style={styles.seeAllRow} activeOpacity={0.7}>
+          <Text style={styles.backText}>{t('dogDetail.viewAllHistory')} ({vomitLogs.length}) →</Text>
+        </TouchableOpacity>
       </View>
 
       {/* 4. Immunity & Protection Widget Card (Redesigned per UX Spec) */}
@@ -933,6 +973,44 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
             {t('treatments.managePlan') || 'Manage Preventive Care Plan →'}
           </Text>
         </TouchableOpacity>
+      </View>
+
+      {/* 5. Past Vet Visits & Clinical Notes Section */}
+      <View style={styles.section}>
+        <View style={styles.sectionTitleRow}>
+          <Text style={styles.sectionTitle}>🏥 {t('dogDetail.pastVetVisits')}</Text>
+        </View>
+        {pastVetVisits.length > 0 ? (
+          <View style={styles.card}>
+            {pastVetVisits.map((visit, idx) => (
+              <View key={visit.id} style={{ paddingVertical: 10, paddingHorizontal: 4 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: theme.textDark }}>
+                    {visit.title}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: theme.textMuted, fontWeight: '600' }}>
+                    {visit.appointmentDate}
+                  </Text>
+                </View>
+                {visit.clinicName ? (
+                  <Text style={{ fontSize: 13, color: theme.primary, fontWeight: '600', marginBottom: 4 }}>
+                    📍 {visit.clinicName}
+                  </Text>
+                ) : null}
+                {visit.notes ? (
+                  <View style={{ backgroundColor: theme.background, borderRadius: 10, padding: 10, marginTop: 4, borderWidth: 1, borderColor: theme.border }}>
+                    <Text style={{ fontSize: 13, color: theme.textDark, lineHeight: 18 }}>
+                      {visit.notes}
+                    </Text>
+                  </View>
+                ) : null}
+                {idx < pastVetVisits.length - 1 ? <View style={[styles.divider, { marginTop: 10 }]} /> : null}
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.emptyText}>{t('dogDetail.noPastVetVisits')}</Text>
+        )}
       </View>
     </ScrollView>
     {tourRefs ? (

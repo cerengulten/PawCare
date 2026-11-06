@@ -523,16 +523,16 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
             treatment={nextPreventiveTreatment}
             onPress={() => {
               if (activeDog) {
-                navigation.navigate('Pets', { dogId: activeDog.id });
+                navigation.navigate('Pets', { dogId: activeDog.id, openAddParasite: true });
               } else {
-                navigation.navigate('Pets');
+                navigation.navigate('Pets', { openAddParasite: true });
               }
             }}
             onSchedulePress={() => {
               if (activeDog) {
-                navigation.navigate('Pets', { dogId: activeDog.id });
+                navigation.navigate('Pets', { dogId: activeDog.id, openAddParasite: true });
               } else {
-                navigation.navigate('Pets');
+                navigation.navigate('Pets', { openAddParasite: true });
               }
             }}
           />
@@ -651,7 +651,7 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
             </Text>
 
             <Text style={{ fontSize: 13, fontWeight: '600', color: theme.textDark, marginBottom: 6 }}>
-              {t('vetAppointments.notesLabel') || 'Vet Clinical Notes / Prescriptions:'}
+              {t('vetAppointments.clinicalNotesLabel')}
             </Text>
             <TextInput
               style={{
@@ -666,12 +666,16 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                 textAlignVertical: 'top',
                 marginBottom: 16,
               }}
-              placeholder={t('vetAppointments.notesPlaceholder') || 'E.g. Weight checked 12kg, prescribed antibiotic 2x daily, follow-up in 2 weeks...'}
+              placeholder={t('vetAppointments.notesPlaceholder')}
               placeholderTextColor={theme.textMuted}
               value={completeNotes}
               onChangeText={setCompleteNotes}
               multiline
             />
+
+            <Text style={{ fontSize: 12, color: theme.textMuted, marginBottom: 16, lineHeight: 16 }}>
+              📋 {t('vetAppointments.savedToReportNotice')}
+            </Text>
 
             <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end' }}>
               <TouchableOpacity
@@ -684,7 +688,7 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                 onPress={handleSaveCompletion}
                 style={{ backgroundColor: theme.primary, paddingVertical: 10, paddingHorizontal: 18, borderRadius: 10 }}
               >
-                <Text style={{ color: '#fff', fontWeight: '700' }}>{t('common.save') || 'Save Notes & Complete'}</Text>
+                <Text style={{ color: '#fff', fontWeight: '700' }}>{t('vetAppointments.saveAndComplete')}</Text>
               </TouchableOpacity>
             </View>
           </View>

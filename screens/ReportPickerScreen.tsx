@@ -21,6 +21,7 @@ import {
   buildMealReport,
   buildSymptomReport,
   buildVaccineReport,
+  buildVetVisitReport,
   ReportBuild,
 } from '../lib/reportBuilders';
 
@@ -81,6 +82,7 @@ export default function ReportPickerScreen({ dog, onBack }: Props) {
       buildMealReport(dog, mealDetails),
       buildSymptomReport(dog, logs, vomitLogs),
       buildVaccineReport(dog, overdue, upcoming),
+      buildVetVisitReport(dog, vetAppointments),
     ].filter((r): r is ReportBuild => r !== null);
 
     if (reports.length === 0) {
@@ -110,6 +112,7 @@ export default function ReportPickerScreen({ dog, onBack }: Props) {
     { key: 'meal', label: t('reportPicker.rowMeal'), onPress: () => exportSingle('meal', buildMealReport(dog, mealDetails), t('reportPicker.noMeal')) },
     { key: 'symptom', label: t('reportPicker.rowSymptom'), onPress: () => exportSingle('symptom', buildSymptomReport(dog, logs, vomitLogs), t('reportPicker.noSymptom')) },
     { key: 'vaccine', label: t('reportPicker.rowVaccine'), onPress: () => exportSingle('vaccine', buildVaccineReport(dog, overdue, upcoming), t('reportPicker.noVaccine')) },
+    { key: 'vet_visits', label: t('reportPicker.rowVetVisits'), onPress: () => exportSingle('vet_visits', buildVetVisitReport(dog, vetAppointments), t('reportPicker.noVetVisits')) },
     { key: 'all', label: t('reportPicker.rowAll'), onPress: exportAll },
   ];
 

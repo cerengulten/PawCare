@@ -61,13 +61,22 @@ export default function PetsScreen({
     }, [mode])
   );
 
+  const [initialOpenAction, setInitialOpenAction] = useState<'parasite' | 'vaccine' | null>(null);
+
   useEffect(() => {
     const paramDogId = route.params?.dogId;
     if (paramDogId) {
       selectDog(paramDogId);
-      navigation.setParams({ dogId: undefined });
     }
-  }, [route.params?.dogId]);
+    if (route.params?.openAddParasite) {
+      setInitialOpenAction('parasite');
+    } else if (route.params?.openAddVaccine) {
+      setInitialOpenAction('vaccine');
+    }
+    if (paramDogId || route.params?.openAddParasite || route.params?.openAddVaccine) {
+      navigation.setParams({ dogId: undefined, openAddParasite: undefined, openAddVaccine: undefined });
+    }
+  }, [route.params?.dogId, route.params?.openAddParasite, route.params?.openAddVaccine]);
 
   const selectedDog = selectedDogId ? dogs.find(d => d.id === selectedDogId) ?? null : null;
 
@@ -128,6 +137,8 @@ export default function PetsScreen({
         <DogDetailScreen
           dog={selectedDog}
           updateDog={updateDog}
+          initialAction={initialOpenAction}
+          onClearInitialAction={() => setInitialOpenAction(null)}
           onEdit={() => { setEditingDog(selectedDog); setMode('form'); }}
           onDelete={async () => { await deleteDog(selectedDog.id); }}
           tourRefs={{ switcherRef }}
