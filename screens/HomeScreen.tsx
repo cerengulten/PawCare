@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, Alert, BackHandler, StyleSheet, Platform } from 'react-native';
+import { View, Text, Image, ScrollView, TouchableOpacity, Alert, BackHandler, StyleSheet, Platform, Modal, TextInput, KeyboardAvoidingView } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useProfile } from '../lib/hooks/useProfile';
@@ -93,12 +93,43 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
   }, [lang, t]);
 
   const {
+    appointments,
     nextAppointment,
     addAppointment,
     editAppointment,
     removeAppointment,
     markCompleted,
   } = useVetAppointments();
+
+  const [completingAppt, setCompletingAppt] = useState<VetAppointment | null>(null);
+  const [completeNotes, setCompleteNotes] = useState('');
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+
+  function handleCompleteWithNotes(id: string) {
+    const appt = appointments.find((a) => a.id === id) || (nextAppointment?.id === id ? nextAppointment : null);
+    if (appt) {
+      setCompletingAppt(appt);
+      setCompleteNotes(appt.notes || '');
+      setShowCompleteModal(true);
+    } else {
+      markCompleted(id);
+    }
+  }
+
+  async function handleSaveCompletion() {
+    if (completingAppt) {
+      if (editAppointment) {
+        await editAppointment({
+          ...completingAppt,
+          notes: completeNotes.trim() || completingAppt.notes,
+          status: 'completed',
+        });
+      }
+      await markCompleted(completingAppt.id);
+    }
+    setShowCompleteModal(false);
+    setCompletingAppt(null);
+  }
 
   const currentTip = useMemo(() => getDailyVetTip(tipOffset, lang), [tipOffset, lang]);
 
@@ -519,7 +550,7 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
               setEditingAppointment(appt);
               setShowVetModal(true);
             }}
-            onCompletePress={(id) => markCompleted(id)}
+            onCompletePress={(id) => handleCompleteWithNotes(id)}
           />
         </View>
 
@@ -600,6 +631,66 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
       </ScrollView>
 
       {/* Vet Appointment Schedule & Edit Modal */}
+      {/* Vet Visit Completion & Clinical Notes Modal */}
+      <Modal
+        visible={showCompleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCompleteModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}
+        >
+          <View style={{ width: '100%', maxWidth: 400, backgroundColor: theme.surface, borderRadius: 20, padding: 20 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: theme.textDark, marginBottom: 6 }}>
+              🩺 {t('vetAppointments.completeVisitTitle') || 'Complete Vet Visit & Add Notes'}
+            </Text>
+            <Text style={{ fontSize: 13, color: theme.textMuted, marginBottom: 14 }}>
+              {completingAppt?.clinicName ? `${completingAppt.clinicName} · ` : ''}{completingAppt?.title}
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.textDark, marginBottom: 6 }}>
+              {t('vetAppointments.notesLabel') || 'Vet Clinical Notes / Prescriptions:'}
+            </Text>
+            <TextInput
+              style={{
+                backgroundColor: theme.background,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: theme.border,
+                padding: 12,
+                fontSize: 14,
+                color: theme.textDark,
+                minHeight: 90,
+                textAlignVertical: 'top',
+                marginBottom: 16,
+              }}
+              placeholder={t('vetAppointments.notesPlaceholder') || 'E.g. Weight checked 12kg, prescribed antibiotic 2x daily, follow-up in 2 weeks...'}
+              placeholderTextColor={theme.textMuted}
+              value={completeNotes}
+              onChangeText={setCompleteNotes}
+              multiline
+            />
+
+            <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end' }}>
+              <TouchableOpacity
+                onPress={() => setShowCompleteModal(false)}
+                style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10 }}
+              >
+                <Text style={{ color: theme.textMuted, fontWeight: '600' }}>{t('common.cancel') || 'Cancel'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSaveCompletion}
+                style={{ backgroundColor: theme.primary, paddingVertical: 10, paddingHorizontal: 18, borderRadius: 10 }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '700' }}>{t('common.save') || 'Save Notes & Complete'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       <VetAppointmentModal
         visible={showVetModal}
         appointment={editingAppointment}
