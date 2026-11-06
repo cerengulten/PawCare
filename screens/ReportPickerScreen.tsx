@@ -1,3 +1,4 @@
+import { useVetAppointments } from '../lib/hooks/useVetAppointments';
 import { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet, ActivityIndicator } from 'react-native';
 import { Dog } from '../types';
@@ -28,7 +29,7 @@ type Props = {
   onBack: () => void;
 };
 
-type ReportKey = 'mood' | 'meal' | 'symptom' | 'vaccine' | 'all';
+type ReportKey = 'mood' | 'meal' | 'symptom' | 'vaccine' | 'vet_visits' | 'all';
 
 export default function ReportPickerScreen({ dog, onBack }: Props) {
   const { theme } = useTheme();
@@ -41,6 +42,7 @@ export default function ReportPickerScreen({ dog, onBack }: Props) {
   const { logs } = useHealthLogs(dog.id);
   const { logs: vomitLogs } = useVomitLogs(dog.id);
   const { upcoming, overdue } = useVaccines(dog.id);
+  const { appointments: vetAppointments } = useVetAppointments(dog.id);
   const [exportingReport, setExportingReport] = useState<ReportKey | null>(null);
 
   const exportSingle = async (key: ReportKey, report: ReportBuild | null, noDataMessage: string) => {

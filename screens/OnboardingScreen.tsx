@@ -829,7 +829,6 @@ export default function OnboardingScreen({
             {[
               { label: t('dogDetail.male'), value: 'male', emoji: '♂' },
               { label: t('dogDetail.female'), value: 'female', emoji: '♀' },
-              { label: t('dogDetail.unknown'), value: 'unknown', emoji: '?' },
             ].map((s) => {
               const selected = petSex === s.value;
               return (

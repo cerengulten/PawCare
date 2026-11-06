@@ -51,7 +51,6 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
   // Sub-screens
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [legalDoc, setLegalDoc] = useState<'terms' | 'privacy' | null>(null);
-  const [showGuestModal, setShowGuestModal] = useState(false);
 
   // Email confirmation state
   const [signedUpEmail, setSignedUpEmail] = useState<string | null>(null);
@@ -514,53 +513,10 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
           ) : null}
         </View>
 
-        {/* F. Frictionless Guest Mode Preview */}
-        <TouchableOpacity
-          style={styles.guestRow}
-          onPress={() => setShowGuestModal(true)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.guestText}>🌿 {t('auth.exploreGuest') || 'Explore Bisco as a Guest →'}</Text>
-        </TouchableOpacity>
         </View>
       </ScrollView>
 
-      {/* Guest Mode Exploration Modal */}
-      <Modal
-        visible={showGuestModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowGuestModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalIconBox}>
-              <Text style={styles.modalIconText}>🐾</Text>
-            </View>
-            <Text style={styles.modalTitle}>{t('auth.guestModalTitle') || 'Welcome to Bisco!'}</Text>
-            <Text style={styles.modalBody}>
-              {t('auth.guestModalDesc') ||
-                "Bisco gives you 24/7 AI vet triage, smart health tracking, and automated reminders for vaccines and parasite doses. Create your free account in seconds to personalize your pet's records."}
-            </Text>
-            <TouchableOpacity
-              style={styles.modalPrimaryBtn}
-              onPress={() => {
-                setShowGuestModal(false);
-                setMode('signup');
-              }}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.modalPrimaryBtnText}>{t('auth.guestModalCta') || 'Create Free Account'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.modalCloseBtn}
-              onPress={() => setShowGuestModal(false)}
-            >
-              <Text style={styles.modalCloseBtnText}>{t('common.close') || 'Close'}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+
     </KeyboardAvoidingView>
   );
 }

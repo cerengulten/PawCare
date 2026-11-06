@@ -25,7 +25,6 @@ export interface RegionalPricing {
 /**
  * Regional Pricing Matrix (Purchasing Power Parity - PPP).
  *
- * NOTE FOR GOOGLE PLAY & APP STORE LAUNCH:
  * In beta / pre-store mode, this matrix provides realistic regional currency
  * and PPP price points (e.g. ₺99.99/mo in Turkey vs €4.99 in Italy vs $4.99 in US).
  * When Google Play Billing / In-App Purchases (e.g. RevenueCat) are enabled,
@@ -104,24 +103,35 @@ const EUROZONE_COUNTRIES = [
 ];
 
 export function resolveRegionalPricing(lang?: Lang): RegionalPricing {
-  // 1. Primary check: Device physical region or device store currency.
-  // A user in Italy with a Turkish or English UI should see EUR (€).
   try {
     const locales = getLocales();
-    const primary = locales && locales.length > 0 ? locales[0] : null;
-    const region = primary?.regionCode?.toUpperCase();
-    const currency = primary?.currencyCode?.toUpperCase();
+    let detectedRegion = '';
+    let detectedCurrency = '';
 
-    if (region === 'TR' || currency === 'TRY') return REGIONAL_PRICING.TRY;
-    if (region === 'GB' || currency === 'GBP') return REGIONAL_PRICING.GBP;
+    if (locales && locales.length > 0) {
+      for (const loc of locales) {
+        if (!detectedRegion && loc.regionCode) detectedRegion = loc.regionCode.toUpperCase();
+        if (!detectedCurrency && loc.currencyCode) detectedCurrency = loc.currencyCode.toUpperCase();
+      }
+    }
+
+    // 1. If device is in Italy or Eurozone, or currency is EUR, strictly show EUR
     if (
-      region === 'IT' ||
-      currency === 'EUR' ||
-      (region && EUROZONE_COUNTRIES.includes(region))
+      detectedRegion === 'IT' ||
+      detectedCurrency === 'EUR' ||
+      (detectedRegion && EUROZONE_COUNTRIES.includes(detectedRegion))
     ) {
       return REGIONAL_PRICING.EUR;
     }
-    if (region === 'US' || currency === 'USD') return REGIONAL_PRICING.USD;
+
+    // 2. Turkey priority if region is TR or currency is TRY
+    if (detectedRegion === 'TR' || detectedCurrency === 'TRY') return REGIONAL_PRICING.TRY;
+
+    // 3. United Kingdom
+    if (detectedRegion === 'GB' || detectedCurrency === 'GBP') return REGIONAL_PRICING.GBP;
+
+    // 4. US
+    if (detectedRegion === 'US' || detectedCurrency === 'USD') return REGIONAL_PRICING.USD;
   } catch (err) {
     console.warn('[pricing] failed to detect locale:', err);
   }

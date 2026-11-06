@@ -49,6 +49,8 @@ type Props = {
   updateDog: ReturnType<typeof useDogs>['updateDog'];
   onEdit: () => void;
   onDelete: () => void;
+  initialAction?: 'parasite' | 'vaccine' | null;
+  onClearInitialAction?: () => void;
   tourRefs?: {
     switcherRef: RefObject<View | null>;
   };
@@ -64,7 +66,7 @@ const MOOD_OPTIONS: { value: DogMood['mood']; emoji: string }[] = [
   { value: 'sick', emoji: '🤒' },
 ];
 
-export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tourRefs }: Props) {
+export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, initialAction, onClearInitialAction, tourRefs }: Props) {
   const { theme, isDarkMode } = useTheme();
   const { t } = useT();
   const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
@@ -222,6 +224,10 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, tour
 
   const cycleSpecies = mapDogSpeciesToCycleSpecies(dog.species);
   const showHeatCycle = dog.sex === 'female' && !dog.is_sterilized && cycleSpecies !== null;
+
+  const todayStr = toLocalDateString(new Date());
+  const todayPoopLogs = useMemo(() => logs.filter((l) => l.logged_at?.slice(0, 10) === todayStr), [logs, todayStr]);
+  const todayVomitLogs = useMemo(() => vomitLogs.filter((l) => l.logged_at?.slice(0, 10) === todayStr), [vomitLogs, todayStr]);
 
   const mealDetailCompletionId = mealDetailHabitId ? completionIds.get(mealDetailHabitId) ?? null : null;
   const mealDetailInitial = mealDetailCompletionId ? getMealDetail(mealDetailCompletionId) ?? null : null;

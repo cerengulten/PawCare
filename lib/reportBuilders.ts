@@ -1,3 +1,4 @@
+import { VetAppointment } from './vetAppointments';
 import { colors } from './reportTheme';
 import { computeAge } from './petAge';
 import { daysAway, formatDate as formatDueDate } from './vaccineDisplay';
@@ -300,6 +301,47 @@ export function buildVaccineReport(
       { key: t('reports.vaccine.overdue'), value: `${overdue.length}` },
       { key: t('reports.vaccine.upcoming30'), value: `${allVaccines.filter(v => !overdue.includes(v) && daysAway(v.next_due_date) <= 30).length}` },
       exportedRow(formatDueDate),
+      generatedByRow(),
+    ],
+  };
+}
+
+export function buildVetVisitReport(
+  dog: Dog,
+  appointments: VetAppointment[]
+): ReportBuild | null {
+  if (appointments.length === 0) return null;
+
+  const sorted = [...appointments].sort(
+    (a, b) => new Date(b.appointmentDate).getTime() - new Date(a.appointmentDate).getTime()
+  );
+
+  const tableRows = sorted.map((v, i) => `
+    <tr style="background:${i % 2 === 1 ? '#F8FCF6' : '#FFFFFF'};">
+      <td style="font-weight:600;">${escapeHtml(v.appointmentDate)}</td>
+      <td>${escapeHtml(v.clinicName || '—')}</td>
+      <td>${escapeHtml(v.title || 'Checkup')}</td>
+      <td style="font-size:11px;color:#555;">${escapeHtml(v.notes ? v.notes : '—')}</td>
+    </tr>
+  `).join('');
+
+  const today = new Date();
+  const monthAbbrev = today.toLocaleDateString('en-US', { month: 'short' });
+
+  return {
+    heading: t('reports.vetVisits.heading') || 'Veterinary Visits & Clinical Notes',
+    filename: `${dog.name.replace(/\s+/g, '_')}_vet_notes_${monthAbbrev}${today.getFullYear()}.pdf`,
+    title: t('reports.vetVisits.title') || 'Veterinary Visit History & Clinical Records',
+    tableHeaders: [
+      t('reports.vetVisits.colDate') || 'Date',
+      t('reports.vetVisits.colClinic') || 'Clinic',
+      t('reports.vetVisits.colReason') || 'Purpose',
+      t('reports.vetVisits.colNotes') || 'Clinical Notes / Treatment Plan',
+    ],
+    tableRowsHtml: tableRows,
+    summaryRows: [
+      { key: t('reports.vetVisits.totalVisits') || 'Total Vet Visits', value: `${sorted.length}` },
+      exportedRow(longDate),
       generatedByRow(),
     ],
   };

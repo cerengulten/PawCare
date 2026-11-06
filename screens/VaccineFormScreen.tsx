@@ -35,6 +35,7 @@ type UseVaccinesReturn = ReturnType<typeof useVaccines>;
 
 type Props = {
   vaccine: VaccineRecord | null;
+  initialType?: 'parasite' | 'vaccine';
   addVaccine: UseVaccinesReturn['addVaccine'];
   updateVaccine: UseVaccinesReturn['updateVaccine'];
   deleteVaccine: UseVaccinesReturn['deleteVaccine'];
@@ -89,6 +90,7 @@ const CADENCE_OPTIONS = [
 
 export default function VaccineFormScreen({
   vaccine,
+  initialType: incomingType,
   addVaccine,
   updateVaccine,
   deleteVaccine,
@@ -99,7 +101,11 @@ export default function VaccineFormScreen({
   const { t } = useT();
   const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
 
-  const initialType = vaccine ? detectTreatmentType(vaccine.vaccine_name, vaccine.notes) : 'vaccine';
+  const initialType = vaccine
+    ? detectTreatmentType(vaccine.vaccine_name, vaccine.notes)
+    : incomingType === 'parasite'
+    ? 'internal_parasite'
+    : 'vaccine';
   const initialCadence = vaccine ? detectCadenceMonths(initialType, vaccine.notes, vaccine.vaccine_name) : 12;
 
   const [treatmentType, setTreatmentType] = useState<TreatmentType>(initialType);
