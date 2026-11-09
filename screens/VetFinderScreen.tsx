@@ -52,9 +52,11 @@ export default function VetFinderScreen({ onBack, activeDog, onOpenDossier }: Pr
     setSelectedVet(v);
     setSheetVisible(true);
     const safeId = JSON.stringify(v.id);
+    const safeLat = Number.isFinite(Number(v.lat)) ? Number(v.lat) : 0;
+    const safeLon = Number.isFinite(Number(v.lon)) ? Number(v.lon) : 0;
     webViewRef.current?.injectJavaScript(`
       if (typeof map !== 'undefined') {
-        map.setView([${v.lat}, ${v.lon}], 15, { animate: true });
+        map.setView([${safeLat}, ${safeLon}], 15, { animate: true });
       }
       if (typeof highlightVetMarker === 'function') {
         highlightVetMarker(${safeId});
@@ -147,7 +149,7 @@ export default function VetFinderScreen({ onBack, activeDog, onOpenDossier }: Pr
               <View style={styles.mapContainer}>
                 <WebView
                   ref={webViewRef}
-                  originWhitelist={['*']}
+                  originWhitelist={['https://*', 'about:blank']}
                   source={{ html: mapHtml }}
                   style={styles.map}
                   onMessage={handleMapMessage}

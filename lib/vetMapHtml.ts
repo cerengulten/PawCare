@@ -1,7 +1,17 @@
 import { VetResult } from '../types';
 
 function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function safeCoord(n: unknown): number {
+  const val = Number(n);
+  return Number.isFinite(val) ? val : 0;
 }
 
 export type VetMapOptions = {
@@ -20,19 +30,25 @@ export function buildVetMapHtml(
 ): string {
   const { interactive = true, variant = 'normal', highlightVetId } = options;
 
+  const userLat = safeCoord(userLocation?.lat);
+  const userLon = safeCoord(userLocation?.lon);
+
   const markersJs = vets
     .map((v) => {
       const id = escapeHtml(v.id);
       const name = escapeHtml(v.name);
       const address = v.address ? escapeHtml(v.address) : '';
-      const kmText = `${v.distanceKm.toFixed(1)} km`;
-      const popup = `<div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:2px 0;"><strong style="font-size:13px;color:#1F1A17;">${name}</strong><br/><span style="font-size:11px;color:#D96B47;font-weight:600;">${kmText}</span>${address ? `<br/><span style="font-size:11px;color:#6E655F;">${address}</span>` : ''}</div>`;
+      const vLat = safeCoord(v.lat);
+      const vLon = safeCoord(v.lon);
+      const kmVal = safeCoord(v.distanceKm);
+      const kmText = `${kmVal.toFixed(1)} km`;
+      const popup = `<div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:2px 0;"><strong style="font-size:13px;color:#1F1A17;">${name}</strong><br/><span style="font-size:11px;color:#3A6B4C;font-weight:600;">${kmText}</span>${address ? `<br/><span style="font-size:11px;color:#6E655F;">${address}</span>` : ''}</div>`;
       const isHighlighted = (variant === 'alert' || highlightVetId != null) && highlightVetId === v.id;
       const isDimmed = variant === 'alert' && highlightVetId != null && !isHighlighted;
       const iconVar = isHighlighted ? 'vetIconHighlight' : isDimmed ? 'vetIconDim' : 'vetIcon';
       return `
       (function() {
-        const m = L.marker([${v.lat}, ${v.lon}], { icon: ${iconVar} }).addTo(map).bindPopup(${JSON.stringify(popup)});
+        const m = L.marker([${vLat}, ${vLon}], { icon: ${iconVar} }).addTo(map).bindPopup(${JSON.stringify(popup)});
         markerMap[${JSON.stringify(id)}] = m;
         m.on('click', function() {
           highlightVetMarker(${JSON.stringify(id)});
@@ -52,11 +68,11 @@ export function buildVetMapHtml(
     ? ''
     : 'dragging: false, zoomControl: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false, boxZoom: false, keyboard: false, tap: false,';
 
-  const pinSvgNormal = `<svg width="28" height="34" viewBox="0 0 28 34" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.28));"><path d="M14 0C6.268 0 0 6.268 0 14C0 24.5 14 34 14 34C14 34 28 24.5 28 14C28 6.268 21.732 0 14 0Z" fill="#D96B47"/><circle cx="14" cy="14" r="8.5" fill="#FFFFFF"/><path d="M14 10V18M10 14H18" stroke="#D96B47" stroke-width="2.3" stroke-linecap="round"/></svg>`;
+  const pinSvgNormal = `<svg width="28" height="34" viewBox="0 0 28 34" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.28));"><path d="M14 0C6.268 0 0 6.268 0 14C0 24.5 14 34 14 34C14 34 28 24.5 28 14C28 6.268 21.732 0 14 0Z" fill="#3A6B4C"/><circle cx="14" cy="14" r="8.5" fill="#FFFFFF"/><path d="M14 10V18M10 14H18" stroke="#3A6B4C" stroke-width="2.3" stroke-linecap="round"/></svg>`;
 
-  const pinSvgHighlight = `<svg width="34" height="42" viewBox="0 0 28 34" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 4px 8px rgba(184,74,39,0.5));"><path d="M14 0C6.268 0 0 6.268 0 14C0 24.5 14 34 14 34C14 34 28 24.5 28 14C28 6.268 21.732 0 14 0Z" fill="#B84A27"/><circle cx="14" cy="14" r="9" fill="#FFFFFF"/><path d="M14 9.5V18.5M9.5 14H18.5" stroke="#B84A27" stroke-width="2.5" stroke-linecap="round"/></svg>`;
+  const pinSvgHighlight = `<svg width="34" height="42" viewBox="0 0 28 34" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 4px 8px rgba(38,74,51,0.5));"><path d="M14 0C6.268 0 0 6.268 0 14C0 24.5 14 34 14 34C14 34 28 24.5 28 14C28 6.268 21.732 0 14 0Z" fill="#264A33"/><circle cx="14" cy="14" r="9" fill="#FFFFFF"/><path d="M14 9.5V18.5M9.5 14H18.5" stroke="#264A33" stroke-width="2.5" stroke-linecap="round"/></svg>`;
 
-  const pinSvgDim = `<svg width="24" height="30" viewBox="0 0 28 34" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.55;"><path d="M14 0C6.268 0 0 6.268 0 14C0 24.5 14 34 14 34C14 34 28 24.5 28 14C28 6.268 21.732 0 14 0Z" fill="#D96B47"/><circle cx="14" cy="14" r="8" fill="#FFFFFF"/><path d="M14 10V18M10 14H18" stroke="#D96B47" stroke-width="2.2" stroke-linecap="round"/></svg>`;
+  const pinSvgDim = `<svg width="24" height="30" viewBox="0 0 28 34" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.55;"><path d="M14 0C6.268 0 0 6.268 0 14C0 24.5 14 34 14 34C14 34 28 24.5 28 14C28 6.268 21.732 0 14 0Z" fill="#3A6B4C"/><circle cx="14" cy="14" r="8" fill="#FFFFFF"/><path d="M14 10V18M10 14H18" stroke="#3A6B4C" stroke-width="2.2" stroke-linecap="round"/></svg>`;
 
   return `
 <!DOCTYPE html>
@@ -74,7 +90,7 @@ export function buildVetMapHtml(
   <div id="map"></div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    const map = L.map('map', { ${interactionOptions} attributionControl: true }).setView([${userLocation.lat}, ${userLocation.lon}], 13);
+    const map = L.map('map', { ${interactionOptions} attributionControl: true }).setView([${userLat}, ${userLon}], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -109,7 +125,7 @@ export function buildVetMapHtml(
     });
 
     const markerMap = {};
-    L.marker([${userLocation.lat}, ${userLocation.lon}], { icon: userIcon }).addTo(map).bindPopup('You are here');
+    L.marker([${userLat}, ${userLon}], { icon: userIcon }).addTo(map).bindPopup('You are here');
     ${markersJs}
 
     function highlightVetMarker(selectedId) {

@@ -5,26 +5,36 @@ on conflict (id) do nothing;
 
 -- Public read access for avatars and pet photos
 drop policy if exists "Public Access Pet Photos" on storage.objects;
-create policy "Public Access Pet Photos" on storage.objects for select using (bucket_id = 'pet-photos');
+create policy "Public Access Pet Photos" on storage.objects
+  for select using (bucket_id = 'pet-photos');
 
 drop policy if exists "Public Access Avatars" on storage.objects;
-create policy "Public Access Avatars" on storage.objects for select using (bucket_id = 'avatars');
+create policy "Public Access Avatars" on storage.objects
+  for select using (bucket_id = 'avatars');
 
--- Authenticated upload access
+-- Authenticated upload access + owner-scoped update/delete access
 drop policy if exists "Authenticated users can upload pet photos" on storage.objects;
-create policy "Authenticated users can upload pet photos" on storage.objects for insert with check (bucket_id = 'pet-photos' and auth.role() = 'authenticated');
+create policy "Authenticated users can upload pet photos" on storage.objects
+  for insert with check (bucket_id = 'pet-photos' and auth.role() = 'authenticated' and auth.uid() = owner);
 
 drop policy if exists "Authenticated users can update pet photos" on storage.objects;
-create policy "Authenticated users can update pet photos" on storage.objects for update using (bucket_id = 'pet-photos' and auth.role() = 'authenticated');
+create policy "Authenticated users can update pet photos" on storage.objects
+  for update using (bucket_id = 'pet-photos' and auth.uid() = owner)
+  with check (bucket_id = 'pet-photos' and auth.uid() = owner);
 
 drop policy if exists "Authenticated users can delete pet photos" on storage.objects;
-create policy "Authenticated users can delete pet photos" on storage.objects for delete using (bucket_id = 'pet-photos' and auth.role() = 'authenticated');
+create policy "Authenticated users can delete pet photos" on storage.objects
+  for delete using (bucket_id = 'pet-photos' and auth.uid() = owner);
 
 drop policy if exists "Authenticated users can upload avatars" on storage.objects;
-create policy "Authenticated users can upload avatars" on storage.objects for insert with check (bucket_id = 'avatars' and auth.role() = 'authenticated');
+create policy "Authenticated users can upload avatars" on storage.objects
+  for insert with check (bucket_id = 'avatars' and auth.role() = 'authenticated' and auth.uid() = owner);
 
 drop policy if exists "Authenticated users can update avatars" on storage.objects;
-create policy "Authenticated users can update avatars" on storage.objects for update using (bucket_id = 'avatars' and auth.role() = 'authenticated');
+create policy "Authenticated users can update avatars" on storage.objects
+  for update using (bucket_id = 'avatars' and auth.uid() = owner)
+  with check (bucket_id = 'avatars' and auth.uid() = owner);
 
 drop policy if exists "Authenticated users can delete avatars" on storage.objects;
-create policy "Authenticated users can delete avatars" on storage.objects for delete using (bucket_id = 'avatars' and auth.role() = 'authenticated');
+create policy "Authenticated users can delete avatars" on storage.objects
+  for delete using (bucket_id = 'avatars' and auth.uid() = owner);

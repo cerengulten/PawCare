@@ -15,6 +15,13 @@ export const AVATAR_PICKER_OPTIONS: ImagePickerOptions = {
   quality: 0.8,
 };
 
+function sanitizeStoragePath(rawPath: string): string {
+  return rawPath
+    .replace(/\.\./g, '')
+    .replace(/^\/+/, '')
+    .replace(/[^a-zA-Z0-9._/-]/g, '_');
+}
+
 function base64ToUint8Array(base64: string): Uint8Array {
   const binaryString = globalThis.atob
     ? globalThis.atob(base64)
@@ -54,15 +61,15 @@ async function compressImageBeforeUpload(uri: string): Promise<{ uri: string; ex
     // Fallback if native module is unavailable in an older OTA client
   }
 
-  const ext = uri.split('.').pop()?.toLowerCase() || 'jpg';
+  const rawExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
+  const ext = rawExt === 'png' || rawExt === 'webp' || rawExt === 'jpg' || rawExt === 'jpeg' ? rawExt : 'jpg';
   const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
   return { uri, ext, mimeType };
 }
 
 /**
  * Deletes an existing image from a Supabase Storage bucket by its URL or relative path.
- * Used when a user updates their profile/pet picture or deletes a pet, ensuring orphaned
- * files do not accumulate in storage.
+ * Owner-scoped RLS on storage.objects ensures a user can only delete their own objects.
  */
 export async function deleteImage(
   urlOrPath: string | null | undefined,
@@ -76,10 +83,10 @@ export async function deleteImage(
       relativePath = urlOrPath.split(marker)[1];
     }
     // Strip any cache-busting query params if present
-    relativePath = relativePath.split('?')[0];
+    relativePath = sanitizeStoragePath(relativePath.split('?')[0]);
 
     // Only attempt deletion for remote storage objects, not local file:// URIs
-    if (relativePath && !relativePath.startsWith('file://') && !relativePath.startsWith('content://')) {
+    if (relativePath && !urlOrPath.startsWith('file://') && !urlOrPath.startsWith('content://')) {
       const { error } = await supabase.storage.from(bucket).remove([relativePath]);
       if (error) {
         console.warn('Storage removal notice:', error);
@@ -109,7 +116,8 @@ export async function uploadImage(
 
   try {
     const compressed = await compressImageBeforeUpload(uri);
-    const filePath = `${fileName}.${compressed.ext}`;
+    const safeFileName = sanitizeStoragePath(fileName);
+    const filePath = `${safeFileName}.${compressed.ext}`;
 
     const base64 = await FileSystem.readAsStringAsync(compressed.uri, {
       encoding: 'base64',

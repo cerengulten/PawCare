@@ -59,6 +59,9 @@ const REVENUECAT_ANDROID_KEY =
   process.env.EXPO_PUBLIC_REVENUECAT_KEY ||
   '';
 
+const IS_PREVIEW_PRO_ALLOWED =
+  __DEV__ || process.env.EXPO_PUBLIC_ALLOW_PREVIEW_PRO === 'true';
+
 const SubscriptionContext = createContext<SubscriptionContextValue | null>(null);
 
 function getTodayKey(): string {
@@ -130,43 +133,52 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       setPlan(null);
       setExpiresAt(null);
       await AsyncStorage.removeItem(SUBSCRIPTION_STORAGE_KEY).catch(() => {});
+      await AsyncStorage.removeItem(LEGACY_SUBSCRIPTION_STORAGE_KEY).catch(() => {});
       return false;
     }
   }, []);
 
-  // Initialize RevenueCat (when API key is set) or load local QA preview subscription state
+  // Initialize RevenueCat (when API key is set) or load local subscription state if allowed
   useEffect(() => {
     let removeListener: (() => void) | undefined;
 
     (async () => {
-      try {
-        const raw =
-          (await AsyncStorage.getItem(SUBSCRIPTION_STORAGE_KEY)) ||
-          (await AsyncStorage.getItem(LEGACY_SUBSCRIPTION_STORAGE_KEY));
-        if (raw) {
-          const parsed: StoredSubscription = JSON.parse(raw);
-          if (parsed.tier === 'pro') {
-            if (parsed.expiresAt && new Date(parsed.expiresAt) < new Date()) {
-              setTier('free');
-              setPlan(null);
-              setExpiresAt(null);
-              await AsyncStorage.removeItem(SUBSCRIPTION_STORAGE_KEY);
-              await AsyncStorage.removeItem(LEGACY_SUBSCRIPTION_STORAGE_KEY);
-            } else {
-              setTier('pro');
-              setPlan(parsed.plan);
-              setExpiresAt(parsed.expiresAt);
+      const apiKey = Platform.OS === 'ios' ? REVENUECAT_IOS_KEY : REVENUECAT_ANDROID_KEY;
+
+      // Only trust cached AsyncStorage on startup if in __DEV__/Preview mode OR while waiting for RevenueCat to confirm
+      if (IS_PREVIEW_PRO_ALLOWED || Boolean(apiKey)) {
+        try {
+          const raw =
+            (await AsyncStorage.getItem(SUBSCRIPTION_STORAGE_KEY)) ||
+            (await AsyncStorage.getItem(LEGACY_SUBSCRIPTION_STORAGE_KEY));
+          if (raw) {
+            const parsed: StoredSubscription = JSON.parse(raw);
+            if (parsed.tier === 'pro') {
+              if (parsed.expiresAt && new Date(parsed.expiresAt) < new Date()) {
+                setTier('free');
+                setPlan(null);
+                setExpiresAt(null);
+                await AsyncStorage.removeItem(SUBSCRIPTION_STORAGE_KEY);
+                await AsyncStorage.removeItem(LEGACY_SUBSCRIPTION_STORAGE_KEY);
+              } else {
+                setTier('pro');
+                setPlan(parsed.plan);
+                setExpiresAt(parsed.expiresAt);
+              }
             }
           }
+        } catch {
+          // ignore cache read error
         }
-      } catch {
-        // ignore cache read error
+      } else {
+        // Production without RevenueCat configured: do not trust unverified local storage
+        await AsyncStorage.removeItem(SUBSCRIPTION_STORAGE_KEY).catch(() => {});
+        await AsyncStorage.removeItem(LEGACY_SUBSCRIPTION_STORAGE_KEY).catch(() => {});
       }
 
-      // If RevenueCat API keys are configured, verify live store entitlements
+      // Verify live store entitlements with RevenueCat when API key is configured
       try {
-        const apiKey = Platform.OS === 'ios' ? REVENUECAT_IOS_KEY : REVENUECAT_ANDROID_KEY;
-        const Purchases = await getRevenueCatModule();
+        const Purchases = apiKey ? await getRevenueCatModule() : null;
         if (Purchases && apiKey) {
           if (!rcConfigured) {
             Purchases.configure({ apiKey });
@@ -250,31 +262,38 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       const apiKey = Platform.OS === 'ios' ? REVENUECAT_IOS_KEY : REVENUECAT_ANDROID_KEY;
       const Purchases = apiKey ? await getRevenueCatModule() : null;
 
-      // QA / Preview Fallback when RevenueCat API key is not configured yet
       if (!Purchases || !apiKey) {
-        const now = new Date();
-        const expiry = new Date(now);
-        if (chosenPlan === 'annual') {
-          expiry.setFullYear(expiry.getFullYear() + 1);
-        } else {
-          expiry.setMonth(expiry.getMonth() + 1);
+        if (IS_PREVIEW_PRO_ALLOWED) {
+          const now = new Date();
+          const expiry = new Date(now);
+          if (chosenPlan === 'annual') {
+            expiry.setFullYear(expiry.getFullYear() + 1);
+          } else {
+            expiry.setMonth(expiry.getMonth() + 1);
+          }
+
+          const payload: StoredSubscription = {
+            tier: 'pro',
+            plan: chosenPlan,
+            subscribedAt: now.toISOString(),
+            expiresAt: expiry.toISOString(),
+          };
+
+          await AsyncStorage.setItem(SUBSCRIPTION_STORAGE_KEY, JSON.stringify(payload));
+          setTier('pro');
+          setPlan(chosenPlan);
+          setExpiresAt(payload.expiresAt);
+          setPaywallVisible(false);
+          Alert.alert(
+            'Welcome to Bisco Pro! 🐾',
+            'Your upgrade is active (Preview Mode). Unlimited pet profiles, 24/7 AI consultations, and Vet PDF dossiers are now unlocked!'
+          );
+          return;
         }
 
-        const payload: StoredSubscription = {
-          tier: 'pro',
-          plan: chosenPlan,
-          subscribedAt: now.toISOString(),
-          expiresAt: expiry.toISOString(),
-        };
-
-        await AsyncStorage.setItem(SUBSCRIPTION_STORAGE_KEY, JSON.stringify(payload));
-        setTier('pro');
-        setPlan(chosenPlan);
-        setExpiresAt(payload.expiresAt);
-        setPaywallVisible(false);
         Alert.alert(
-          'Welcome to Bisco Pro! 🐾',
-          'Your upgrade is active (Preview Mode). Unlimited pet profiles, 24/7 AI consultations, and Vet PDF dossiers are now unlocked!'
+          'Store Unavailable',
+          'In-App Purchases are not available right now. Please install Bisco from the App Store or Google Play to subscribe.'
         );
         return;
       }
@@ -335,8 +354,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const cancelPro = async () => {
     const apiKey = Platform.OS === 'ios' ? REVENUECAT_IOS_KEY : REVENUECAT_ANDROID_KEY;
-    if (!apiKey) {
-      // QA / Preview Mode: allow instant reset to Free tier for testing
+    if (!apiKey && IS_PREVIEW_PRO_ALLOWED) {
       try {
         await AsyncStorage.removeItem(SUBSCRIPTION_STORAGE_KEY);
         await AsyncStorage.removeItem(LEGACY_SUBSCRIPTION_STORAGE_KEY);
@@ -372,16 +390,18 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       const Purchases = apiKey ? await getRevenueCatModule() : null;
 
       if (!Purchases || !apiKey) {
-        const raw = await AsyncStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
-        if (raw) {
-          const parsed: StoredSubscription = JSON.parse(raw);
-          if (parsed.tier === 'pro' && (!parsed.expiresAt || new Date(parsed.expiresAt) > new Date())) {
-            setTier('pro');
-            setPlan(parsed.plan);
-            setExpiresAt(parsed.expiresAt);
-            setPaywallVisible(false);
-            Alert.alert('Purchases Restored!', 'Your Bisco Pro subscription is active.');
-            return true;
+        if (IS_PREVIEW_PRO_ALLOWED) {
+          const raw = await AsyncStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
+          if (raw) {
+            const parsed: StoredSubscription = JSON.parse(raw);
+            if (parsed.tier === 'pro' && (!parsed.expiresAt || new Date(parsed.expiresAt) > new Date())) {
+              setTier('pro');
+              setPlan(parsed.plan);
+              setExpiresAt(parsed.expiresAt);
+              setPaywallVisible(false);
+              Alert.alert('Purchases Restored!', 'Your Bisco Pro subscription is active.');
+              return true;
+            }
           }
         }
         Alert.alert('No Subscription Found', 'We could not find an active Bisco Pro subscription for this account.');

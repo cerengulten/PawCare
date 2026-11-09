@@ -47,6 +47,20 @@ declare
   v_owner_id uuid := auth.uid();
   v_count smallint;
 begin
+  if v_owner_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_max is null or p_max <= 0 then
+    raise exception 'Invalid p_max: must be > 0';
+  end if;
+
+  if not exists (
+    select 1 from public.habits where id = p_habit_id and owner_id = v_owner_id
+  ) then
+    raise exception 'Unauthorized: habit does not belong to current user';
+  end if;
+
   insert into public.habit_completions (habit_id, owner_id, completed_date, occurrence_count)
   values (p_habit_id, v_owner_id, p_completed_date, 1)
   on conflict (habit_id, owner_id, completed_date)
@@ -68,6 +82,16 @@ declare
   v_owner_id uuid := auth.uid();
   v_count smallint;
 begin
+  if v_owner_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if not exists (
+    select 1 from public.habits where id = p_habit_id and owner_id = v_owner_id
+  ) then
+    raise exception 'Unauthorized: habit does not belong to current user';
+  end if;
+
   update public.habit_completions
   set occurrence_count = occurrence_count - 1
   where habit_id = p_habit_id and owner_id = v_owner_id and completed_date = p_completed_date

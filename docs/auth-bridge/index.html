@@ -12,8 +12,8 @@
     --card-bg: #FFFFFF;
     --text: #2B2B26;
     --muted: #7A7563;
-    --primary: #C85A32;
-    --primary-hover: #B24E29;
+    --primary: #3A6B4C;
+    --primary-hover: #264A33;
     --accent: #4C7A56;
     --border: #E8E2D2;
     --success: #2E7D32;
@@ -25,8 +25,8 @@
       --card-bg: #24241F;
       --text: #EFEDE4;
       --muted: #A3A090;
-      --primary: #E06D44;
-      --primary-hover: #C85A32;
+      --primary: #5B936D;
+      --primary-hover: #3A6B4C;
       --accent: #7FB58A;
       --border: #383830;
       --success: #81C784;
@@ -172,12 +172,12 @@
 
     <form class="web-form" id="resetForm" onsubmit="handleWebReset(event)">
       <div>
-        <label class="input-label" for="newPw">New Password (at least 6 characters)</label>
-        <input type="password" id="newPw" required minlength="6" placeholder="Enter new password" />
+        <label class="input-label" for="newPw">New Password (at least 8 characters)</label>
+        <input type="password" id="newPw" required minlength="8" placeholder="Enter new password" />
       </div>
       <div>
         <label class="input-label" for="confirmPw">Confirm Password</label>
-        <input type="password" id="confirmPw" required minlength="6" placeholder="Repeat new password" />
+        <input type="password" id="confirmPw" required minlength="8" placeholder="Repeat new password" />
       </div>
       <button type="submit" class="btn btn-secondary" id="savePwBtn">Save New Password</button>
       <div id="statusMsg" class="status-msg"></div>
@@ -189,8 +189,20 @@
   var SUPABASE_URL = "https://dkccsdlbgjthcexucpeq.supabase.co";
   var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRrY2NzZGxiZ2p0aGNleHVjcGVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwODEzODEsImV4cCI6MjA5ODY1NzM4MX0.ORVucmZYEWeRQeMXuFv7hW7Rm5u1GN8nWm4r1fyeE68";
 
+  // Strict scheme allowlist to prevent open redirect / OAuth token exfiltration
+  function isAllowedDeepLinkTarget(rawTarget) {
+    if (!rawTarget || typeof rawTarget !== 'string') return false;
+    var trimmed = rawTarget.trim();
+    if (!/^(bisco:\/\/|exp:\/\/)/i.test(trimmed)) return false;
+    if (/^(javascript|data|vbscript|http|https|file|ftp):/i.test(trimmed)) return false;
+    if (trimmed.indexOf('//', 8) !== -1) return false;
+    return true;
+  }
+
   var searchParams = new URLSearchParams(window.location.search);
-  var target = searchParams.get('target');
+  var rawTarget = searchParams.get('target');
+  var safeTarget = isAllowedDeepLinkTarget(rawTarget) ? rawTarget.trim() : 'bisco://';
+
   // Build pass-through query string without target param
   searchParams.delete('target');
   var remainingQuery = searchParams.toString();
@@ -204,28 +216,36 @@
   var refreshToken = hashParams.get('refresh_token') || searchParams.get('refresh_token');
   var type = hashParams.get('type') || searchParams.get('type');
 
-  var finalUrl = (target ? target : 'bisco://') + queryStr + hash;
+  var finalUrl = safeTarget + queryStr + hash;
   var openBtn = document.getElementById('openAppBtn');
   var subtitle = document.getElementById('subtitle');
   var resetSection = document.getElementById('resetSection');
 
   openBtn.href = finalUrl;
-  openBtn.addEventListener('click', function(e) {
+  openBtn.addEventListener('click', function() {
     window.location.href = finalUrl;
   });
 
-  // Attempt auto-redirect once
+  // Attempt auto-redirect once to validated custom scheme
   try {
     window.location.href = finalUrl;
   } catch (e) {}
+
+  function setSubtitleWithPulse(text) {
+    subtitle.textContent = '';
+    var dot = document.createElement('span');
+    dot.className = 'pulse-dot';
+    subtitle.appendChild(dot);
+    subtitle.appendChild(document.createTextNode(text));
+  }
 
   if (type === 'recovery' && accessToken) {
     subtitle.textContent = "Tap below to open the Bisco app and reset your password, or set it directly in your browser:";
     resetSection.style.display = 'block';
   } else if (type === 'signup' || type === 'email_confirmation') {
-    subtitle.innerHTML = '<span class="pulse-dot"></span>Email confirmed! Opening Bisco app… If it doesn\'t open automatically, tap the button above.';
-  } else if (target) {
-    subtitle.innerHTML = '<span class="pulse-dot"></span>Redirecting to Bisco app… If it doesn\'t open automatically, tap the button above.';
+    setSubtitleWithPulse("Email confirmed! Opening Bisco app… If it doesn't open automatically, tap the button above.");
+  } else if (rawTarget && isAllowedDeepLinkTarget(rawTarget)) {
+    setSubtitleWithPulse("Redirecting to Bisco app… If it doesn't open automatically, tap the button above.");
   } else {
     subtitle.textContent = "Open the Bisco app to continue.";
   }
@@ -240,9 +260,9 @@
     msg.className = 'status-msg';
     msg.textContent = '';
 
-    if (p1.length < 6) {
+    if (p1.length < 8) {
       msg.className = 'status-msg error';
-      msg.textContent = 'Password must be at least 6 characters.';
+      msg.textContent = 'Password must be at least 8 characters.';
       return;
     }
     if (p1 !== p2) {
@@ -256,7 +276,6 @@
       btn.textContent = 'Updating password…';
 
       var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-      // Set the session with the token from the recovery email
       var sessionRes = await sb.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken || ''

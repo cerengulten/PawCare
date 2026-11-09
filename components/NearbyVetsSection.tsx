@@ -101,7 +101,7 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
                 </View>
               ) : (
                 <WebView
-                  originWhitelist={['*']}
+                  originWhitelist={['https://*', 'about:blank']}
                   source={{
                     html: buildVetMapHtml(userLocation, vets, {
                       interactive: false,
@@ -169,7 +169,7 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
               </View>
             ) : (
               <WebView
-                originWhitelist={['*']}
+                originWhitelist={['https://*', 'about:blank']}
                 source={{ html: buildVetMapHtml(userLocation, vets, { interactive: false }) }}
                 style={styles.map}
                 onError={() => setMapFailed(true)}
