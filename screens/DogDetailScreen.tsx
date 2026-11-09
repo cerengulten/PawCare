@@ -320,14 +320,24 @@ export default function DogDetailScreen({
     return days;
   }, [logs, vomitLogs, t]);
 
-  // 30-Day Digestive Analytics for Hub & Journal
+  // Adaptive Digestive Analytics for Hub & Journal (scales to pet's actual active days, max 30d)
   const digestiveMetrics = useMemo(() => {
     const now = Date.now();
-    const ms30d = 30 * 24 * 60 * 60 * 1000;
-    const ms7d = 7 * 24 * 60 * 60 * 1000;
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const ms30d = 30 * msPerDay;
+    const ms7d = 7 * msPerDay;
+
+    const dogCreatedMs = dog.created_at ? new Date(dog.created_at).getTime() : now;
+    const allLogTimes = [...logs, ...vomitLogs]
+      .map((l) => new Date(l.logged_at).getTime())
+      .filter((ts) => !Number.isNaN(ts));
+    const earliestActivityMs = allLogTimes.length > 0 ? Math.min(dogCreatedMs, ...allLogTimes) : dogCreatedMs;
+    const activeSpanDays = Math.max(1, Math.ceil((now - earliestActivityMs) / msPerDay));
+    const windowDays = Math.min(30, activeSpanDays);
 
     const poops30d = logs.filter((l) => now - new Date(l.logged_at).getTime() <= ms30d);
     const vomits7d = vomitLogs.filter((l) => now - new Date(l.logged_at).getTime() <= ms7d);
+    const hasAnyEntries = logs.length > 0 || vomitLogs.length > 0;
 
     const activePoopDays = new Set(poops30d.map((l) => l.logged_at?.slice(0, 10))).size;
     const avgDailyStool = activePoopDays > 0 ? (poops30d.length / activePoopDays).toFixed(1) : '0.0';
@@ -338,11 +348,11 @@ export default function DogDetailScreen({
     }).length;
     const idealPct = poops30d.length > 0 ? Math.round((idealCount / poops30d.length) * 100) : 100;
 
-    let calmDays = 30;
+    let calmDays = windowDays;
     if (vomitLogs.length > 0) {
       const latestVomitMs = Math.max(...vomitLogs.map((v) => new Date(v.logged_at).getTime()));
-      const diffDays = Math.max(0, Math.floor((now - latestVomitMs) / (24 * 60 * 60 * 1000)));
-      calmDays = Math.min(30, diffDays);
+      const diffDays = Math.max(0, Math.floor((now - latestVomitMs) / msPerDay));
+      calmDays = Math.min(windowDays, diffDays);
     }
 
     const latestPoop = logs[0] ?? null;
@@ -356,6 +366,8 @@ export default function DogDetailScreen({
       });
 
     return {
+      windowDays,
+      hasAnyEntries,
       avgDailyStool,
       idealPct,
       calmDays,
@@ -364,7 +376,7 @@ export default function DogDetailScreen({
       latestPoopConsistency,
       needsAttention,
     };
-  }, [logs, vomitLogs, todayPoopLogs]);
+  }, [dog.created_at, logs, vomitLogs, todayPoopLogs]);
 
   // Combined date-grouped logs for Digestive Journal
   const groupedDigestiveLogs = useMemo(() => {
@@ -635,17 +647,24 @@ export default function DogDetailScreen({
 
             <Text style={styles.title}>{t('dogDetail.digestiveJournal.title')}</Text>
             <Text style={styles.subtitle}>
-              {t('dogDetail.digestiveJournal.subtitle', { name: dog.name })}
+              {digestiveMetrics.windowDays <= 1
+                ? t('dogDetail.digestiveJournal.subtitleToday', { name: dog.name })
+                : t('dogDetail.digestiveJournal.subtitle', {
+                    days: digestiveMetrics.windowDays,
+                    name: dog.name,
+                  })}
             </Text>
 
-            {/* 30-Day Gut Health KPI Ribbon */}
+            {/* Adaptive Gut Health KPI Ribbon */}
             <View style={styles.journalKpiRibbon}>
               <View style={styles.journalKpiCard}>
                 <Text style={styles.journalKpiVal}>{digestiveMetrics.avgDailyStool}x</Text>
                 <Text style={styles.journalKpiLabel}>{t('dogDetail.digestiveJournal.kpiAvgDaily')}</Text>
               </View>
               <View style={[styles.journalKpiCard, styles.journalKpiCardCenter]}>
-                <Text style={[styles.journalKpiVal, { color: theme.done }]}>{digestiveMetrics.idealPct}%</Text>
+                <Text style={[styles.journalKpiVal, { color: theme.done }]}>
+                  {logs.length > 0 ? `${digestiveMetrics.idealPct}%` : '—'}
+                </Text>
                 <Text style={styles.journalKpiLabel}>{t('dogDetail.digestiveJournal.kpiIdealPct')}</Text>
               </View>
               <View style={styles.journalKpiCard}>
@@ -660,18 +679,23 @@ export default function DogDetailScreen({
             <View style={styles.journalInsightCard}>
               <Text style={styles.journalInsightTitle}>
                 ✨{' '}
-                {digestiveMetrics.needsAttention
-                  ? t('dogDetail.digestiveJournal.insightWatchTitle')
-                  : t('dogDetail.digestiveJournal.insightStableTitle')}
+                {!digestiveMetrics.hasAnyEntries
+                  ? t('dogDetail.digestiveJournal.insightNewTitle')
+                  : digestiveMetrics.needsAttention
+                    ? t('dogDetail.digestiveJournal.insightWatchTitle')
+                    : t('dogDetail.digestiveJournal.insightStableTitle')}
               </Text>
               <Text style={styles.journalInsightBody}>
-                {digestiveMetrics.needsAttention
-                  ? t('dogDetail.digestiveJournal.insightWatchBody')
-                  : t('dogDetail.digestiveJournal.insightStableBody', {
-                      name: dog.name,
-                      pct: digestiveMetrics.idealPct,
-                      days: digestiveMetrics.calmDays,
-                    })}
+                {!digestiveMetrics.hasAnyEntries
+                  ? t('dogDetail.digestiveJournal.insightNewBody', { name: dog.name })
+                  : digestiveMetrics.needsAttention
+                    ? t('dogDetail.digestiveJournal.insightWatchBody')
+                    : t('dogDetail.digestiveJournal.insightStableBody', {
+                        name: dog.name,
+                        pct: digestiveMetrics.idealPct,
+                        windowDays: digestiveMetrics.windowDays,
+                        days: digestiveMetrics.calmDays,
+                      })}
               </Text>
             </View>
 
@@ -1181,7 +1205,9 @@ export default function DogDetailScreen({
                   >
                     {digestiveMetrics.needsAttention
                       ? `🟡 ${t('dogDetail.digestiveHub.statusAttention')}`
-                      : `🟢 ${t('dogDetail.digestiveHub.statusStable', { days: digestiveMetrics.calmDays })}`}
+                      : !digestiveMetrics.hasAnyEntries
+                        ? `🟢 ${t('dogDetail.digestiveHub.statusNew')}`
+                        : `🟢 ${t('dogDetail.digestiveHub.statusStable', { days: digestiveMetrics.calmDays })}`}
                   </Text>
                 </View>
               </View>

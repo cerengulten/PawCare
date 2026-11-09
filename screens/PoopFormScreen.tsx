@@ -30,13 +30,13 @@ type Props = {
 
 const CONSISTENCY_META: {
   key: PoopConsistency;
-  icon: string;
+  code: string;
   badgeColor: (theme: ThemeTokens) => string;
 }[] = [
-  { key: 'solid', icon: '🥖', badgeColor: (th) => th.done },
-  { key: 'soft', icon: '🍦', badgeColor: (th) => th.pending },
-  { key: 'liquid', icon: '💧', badgeColor: (th) => th.allergenText },
-  { key: 'mucus', icon: '🫧', badgeColor: (th) => th.pending },
+  { key: 'solid', code: 'T3–4', badgeColor: (th) => th.done },
+  { key: 'soft', code: 'T5–6', badgeColor: (th) => th.pending },
+  { key: 'liquid', code: 'T7', badgeColor: (th) => th.allergenText },
+  { key: 'mucus', code: 'M', badgeColor: (th) => th.pending },
 ];
 
 const COLOR_SWATCHES: {
@@ -140,8 +140,24 @@ export default function PoopFormScreen({
                   onPress={() => setConsistency(item.key)}
                   activeOpacity={0.8}
                 >
-                  <View style={styles.bristolIconWrap}>
-                    <Text style={styles.bristolIcon}>{item.icon}</Text>
+                  <View style={[styles.bristolIconWrap, { borderColor: statusDotColor }]}>
+                    <Text style={[styles.bristolCodeText, { color: statusDotColor }]}>{item.code}</Text>
+                    {item.key === 'solid' ? (
+                      <View style={[styles.shapeBar, { backgroundColor: statusDotColor }]} />
+                    ) : item.key === 'soft' ? (
+                      <View style={styles.shapeDotsRow}>
+                        <View style={[styles.shapeSoftDot, { backgroundColor: statusDotColor }]} />
+                        <View style={[styles.shapeSoftDot, { backgroundColor: statusDotColor }]} />
+                        <View style={[styles.shapeSoftDot, { backgroundColor: statusDotColor }]} />
+                      </View>
+                    ) : item.key === 'liquid' ? (
+                      <View style={styles.shapeWavesCol}>
+                        <View style={[styles.shapeWaveLine, { backgroundColor: statusDotColor }]} />
+                        <View style={[styles.shapeWaveLineShort, { backgroundColor: statusDotColor }]} />
+                      </View>
+                    ) : (
+                      <View style={[styles.shapeMucusRing, { borderColor: statusDotColor }]} />
+                    )}
                   </View>
                   <View style={styles.bristolTextCol}>
                     <View style={styles.bristolTitleRow}>
@@ -325,17 +341,55 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       borderColor: theme.primary,
     },
     bristolIconWrap: {
-      width: 42,
-      height: 42,
+      width: 46,
+      height: 46,
       borderRadius: 14,
       backgroundColor: theme.surfaceAlt,
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: theme.border,
+      gap: 4,
     },
-    bristolIcon: {
-      fontSize: 20,
+    bristolCodeText: {
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 0.3,
+    },
+    shapeBar: {
+      width: 22,
+      height: 6,
+      borderRadius: 3,
+    },
+    shapeDotsRow: {
+      flexDirection: 'row',
+      gap: 3,
+      alignItems: 'center',
+    },
+    shapeSoftDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    shapeWavesCol: {
+      gap: 2,
+      alignItems: 'center',
+    },
+    shapeWaveLine: {
+      width: 22,
+      height: 2.5,
+      borderRadius: 2,
+    },
+    shapeWaveLineShort: {
+      width: 14,
+      height: 2.5,
+      borderRadius: 2,
+    },
+    shapeMucusRing: {
+      width: 14,
+      height: 8,
+      borderRadius: 4,
+      borderWidth: 2,
     },
     bristolTextCol: {
       flex: 1,
