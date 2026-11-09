@@ -28,8 +28,28 @@ type Props = {
   onCancel: () => void;
 };
 
-const CONSISTENCY_OPTIONS: PoopConsistency[] = ['solid', 'soft', 'liquid', 'mucus'];
-const COLOR_OPTIONS: PoopColor[] = ['brown', 'yellow', 'green', 'black', 'red'];
+const CONSISTENCY_META: {
+  key: PoopConsistency;
+  icon: string;
+  badgeColor: (theme: ThemeTokens) => string;
+}[] = [
+  { key: 'solid', icon: '🥖', badgeColor: (th) => th.done },
+  { key: 'soft', icon: '🍦', badgeColor: (th) => th.pending },
+  { key: 'liquid', icon: '💧', badgeColor: (th) => th.allergenText },
+  { key: 'mucus', icon: '🫧', badgeColor: (th) => th.pending },
+];
+
+const COLOR_SWATCHES: {
+  key: PoopColor;
+  hex: string;
+  isAlert?: boolean;
+}[] = [
+  { key: 'brown', hex: '#6D4C41' },
+  { key: 'yellow', hex: '#D4A037' },
+  { key: 'green', hex: '#558B2F' },
+  { key: 'black', hex: '#262626', isAlert: true },
+  { key: 'red', hex: '#C62828', isAlert: true },
+];
 
 export default function PoopFormScreen({
   log,
@@ -39,9 +59,9 @@ export default function PoopFormScreen({
   onDone,
   onCancel,
 }: Props) {
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
   const { t } = useT();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
   const details = log?.details as { consistency: PoopConsistency; color: PoopColor; frequency: number } | undefined;
   const [consistency, setConsistency] = useState<PoopConsistency>(details?.consistency ?? 'solid');
   const [color, setColor] = useState<PoopColor>(details?.color ?? 'brown');
@@ -49,6 +69,8 @@ export default function PoopFormScreen({
   const [notes, setNotes] = useState(log?.notes ?? '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const showBloodAlert = color === 'black' || color === 'red';
 
   async function handleSave() {
     const frequency = parseInt(frequencyText, 10);
@@ -65,13 +87,13 @@ export default function PoopFormScreen({
       notes: notes.trim() || null,
     };
 
-    const { error } = log
+    const { error: saveErr } = log
       ? await updateLog(log.id, payload)
       : await addLog(payload);
 
     setLoading(false);
-    if (error) {
-      setError(error.message);
+    if (saveErr) {
+      setError(saveErr.message);
       return;
     }
     onDone();
@@ -80,10 +102,10 @@ export default function PoopFormScreen({
   async function handleDelete() {
     if (!log) return;
     setLoading(true);
-    const { error } = await deleteLog(log.id);
+    const { error: delErr } = await deleteLog(log.id);
     setLoading(false);
-    if (error) {
-      setError(error.message);
+    if (delErr) {
+      setError(delErr.message);
       return;
     }
     onDone();
@@ -91,186 +113,433 @@ export default function PoopFormScreen({
 
   return (
     <SwipeBackWrapper onBack={onCancel}>
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>{log ? t('poop.editTitle') : t('poop.addTitle')}</Text>
-
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        <Text style={styles.fieldLabel}>{t('poop.consistency')}</Text>
-        <View style={styles.chipGrid}>
-          {CONSISTENCY_OPTIONS.map(opt => {
-            const selected = consistency === opt;
-            return (
-              <TouchableOpacity
-                key={opt}
-                style={[styles.chipBtn, selected && styles.chipBtnSelected]}
-                onPress={() => setConsistency(opt)}
-              >
-                <Text style={styles.chipBtnLabel}>{t('poop.consistencyOpt.' + opt)}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        <Text style={styles.fieldLabel}>{t('poop.color')}</Text>
-        <View style={styles.chipGrid}>
-          {COLOR_OPTIONS.map(opt => {
-            const selected = color === opt;
-            return (
-              <TouchableOpacity
-                key={opt}
-                style={[styles.chipBtn, selected && styles.chipBtnSelected]}
-                onPress={() => setColor(opt)}
-              >
-                <Text style={styles.chipBtnLabel}>{t('poop.colorOpt.' + opt)}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        <Text style={styles.fieldLabel}>{t('tracker.frequency')}</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="1"
-          placeholderTextColor={theme.textMuted}
-          value={frequencyText}
-          onChangeText={setFrequencyText}
-          keyboardType="number-pad"
-        />
-
-        <TextInput
-          style={[styles.input, styles.notesInput]}
-          placeholder={t('tracker.notesOptional')}
-          placeholderTextColor={theme.textMuted}
-          value={notes}
-          onChangeText={setNotes}
-          multiline
-        />
-
-        <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading}>
-          {loading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.buttonText}>{t('common.save')}</Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
-          <Text style={styles.switchLink}>{t('common.cancel')}</Text>
-        </TouchableOpacity>
-
-        {log ? (
-          <TouchableOpacity onPress={handleDelete} style={styles.switchRow} disabled={loading}>
-            <Text style={styles.deleteLink}>{t('tracker.deleteEntry')}</Text>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <TouchableOpacity onPress={onCancel} style={styles.backRow} activeOpacity={0.7}>
+            <Text style={styles.backText}>‹ {t('common.back')}</Text>
           </TouchableOpacity>
-        ) : null}
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+          <Text style={styles.title}>{log ? t('poop.editTitle') : t('poop.addTitle')}</Text>
+          <Text style={styles.subtitle}>{t('poop.subtitle')}</Text>
+
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+
+          {/* 1. Bristol Scale Visual Consistency Cards */}
+          <Text style={styles.fieldLabel}>{t('poop.consistency')}</Text>
+          <View style={styles.bristolStack}>
+            {CONSISTENCY_META.map((item) => {
+              const selected = consistency === item.key;
+              const statusDotColor = item.badgeColor(theme);
+              return (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[styles.bristolCard, selected && styles.bristolCardSelected]}
+                  onPress={() => setConsistency(item.key)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.bristolIconWrap}>
+                    <Text style={styles.bristolIcon}>{item.icon}</Text>
+                  </View>
+                  <View style={styles.bristolTextCol}>
+                    <View style={styles.bristolTitleRow}>
+                      <Text style={[styles.bristolTitle, selected && styles.bristolTitleSelected]}>
+                        {t('poop.bristolTitle.' + item.key)}
+                      </Text>
+                      <View style={[styles.bristolDot, { backgroundColor: statusDotColor }]} />
+                    </View>
+                    <Text style={styles.bristolSub}>{t('poop.bristolSub.' + item.key)}</Text>
+                  </View>
+                  <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>
+                    {selected ? <View style={styles.radioInner} /> : null}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* 2. Real Color Swatches */}
+          <Text style={styles.fieldLabel}>{t('poop.color')}</Text>
+          <View style={styles.swatchRow}>
+            {COLOR_SWATCHES.map((sw) => {
+              const selected = color === sw.key;
+              return (
+                <TouchableOpacity
+                  key={sw.key}
+                  style={[
+                    styles.swatchCard,
+                    selected && styles.swatchCardSelected,
+                    sw.isAlert && selected && styles.swatchCardAlertSelected,
+                  ]}
+                  onPress={() => setColor(sw.key)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.swatchCircle, { backgroundColor: sw.hex }]}>
+                    {selected ? <Text style={styles.swatchCheck}>✓</Text> : null}
+                  </View>
+                  <Text style={[styles.swatchLabel, selected && styles.swatchLabelSelected]} numberOfLines={1}>
+                    {t('poop.colorOpt.' + sw.key)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.swatchSub,
+                      sw.isAlert && { color: theme.allergenText, fontWeight: '700' },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {sw.isAlert ? '⚠️ ' : ''}{t('poop.colorSub.' + sw.key)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {showBloodAlert ? (
+            <View style={styles.alertBanner}>
+              <Text style={styles.alertBannerTitle}>🚨 {t('poop.bloodWarningTitle')}</Text>
+              <Text style={styles.alertBannerBody}>{t('poop.bloodWarningBody')}</Text>
+            </View>
+          ) : null}
+
+          {/* 3. Frequency & Notes */}
+          <Text style={styles.fieldLabel}>{t('tracker.frequency')}</Text>
+          <View style={styles.freqRow}>
+            {['1', '2', '3', '4'].map((num) => {
+              const active = frequencyText === num;
+              return (
+                <TouchableOpacity
+                  key={num}
+                  style={[styles.freqPill, active && styles.freqPillActive]}
+                  onPress={() => setFrequencyText(num)}
+                >
+                  <Text style={[styles.freqPillText, active && styles.freqPillTextActive]}>{num}x</Text>
+                </TouchableOpacity>
+              );
+            })}
+            <TextInput
+              style={styles.freqInput}
+              placeholder="1"
+              placeholderTextColor={theme.textMuted}
+              value={frequencyText}
+              onChangeText={setFrequencyText}
+              keyboardType="number-pad"
+            />
+          </View>
+
+          <Text style={styles.fieldLabel}>{t('tracker.notesOptional')}</Text>
+          <TextInput
+            style={[styles.input, styles.notesInput]}
+            placeholder={t('tracker.notesOptional')}
+            placeholderTextColor={theme.textMuted}
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+          />
+
+          {log ? (
+            <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn} disabled={loading}>
+              <Text style={styles.deleteLink}>🗑️ {t('tracker.deleteEntry')}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </ScrollView>
+
+        {/* Sticky Bottom CTA */}
+        <View style={styles.stickyFooter}>
+          <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading} activeOpacity={0.85}>
+            {loading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.buttonText}>{t('poop.saveCta')}</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </SwipeBackWrapper>
   );
 }
 
-function makeStyles(theme: ThemeTokens) {
+function makeStyles(theme: ThemeTokens, isDarkMode = false) {
   return StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: theme.background,
     },
     scrollContent: {
-      padding: 24,
-      alignItems: 'center',
+      padding: 20,
+      paddingBottom: 32,
+    },
+    backRow: {
+      marginBottom: 10,
+      alignSelf: 'flex-start',
+    },
+    backText: {
+      color: theme.primary,
+      fontSize: 16,
+      fontWeight: '600',
     },
     title: {
-      fontSize: 26,
-      fontWeight: '700',
+      fontSize: 24,
+      fontWeight: '800',
       color: theme.textDark,
-      marginBottom: 20,
+      letterSpacing: -0.3,
+    },
+    subtitle: {
+      fontSize: 13,
+      color: theme.textMuted,
+      marginTop: 4,
+      marginBottom: 18,
     },
     error: {
       color: theme.allergenText,
       fontSize: 13,
       marginBottom: 12,
-      textAlign: 'center',
+      fontWeight: '600',
     },
     fieldLabel: {
-      width: '100%',
-      fontSize: 12,
-      fontWeight: '600',
+      fontSize: 11,
+      fontWeight: '800',
       color: theme.textMuted,
       textTransform: 'uppercase',
-      letterSpacing: 0.5,
-      marginBottom: 8,
+      letterSpacing: 0.6,
+      marginBottom: 10,
+      marginTop: 6,
     },
-    chipGrid: {
-      width: '100%',
+    bristolStack: {
+      gap: 10,
+      marginBottom: 16,
+    },
+    bristolCard: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
-      marginBottom: 12,
-    },
-    chipBtn: {
-      paddingVertical: 10,
-      paddingHorizontal: 14,
-      borderRadius: 12,
+      alignItems: 'center',
       backgroundColor: theme.surface,
+      borderRadius: 18,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      padding: 13,
+      gap: 12,
+    },
+    bristolCardSelected: {
+      backgroundColor: isDarkMode ? '#2E1E19' : '#FFF7F4',
+      borderColor: theme.primary,
+    },
+    bristolIconWrap: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      backgroundColor: theme.surfaceAlt,
+      alignItems: 'center',
+      justifyContent: 'center',
       borderWidth: 1,
       borderColor: theme.border,
-      marginRight: 8,
-      marginBottom: 8,
     },
-    chipBtnSelected: {
-      backgroundColor: theme.moodSelBg,
-      borderColor: theme.moodSelBorder,
+    bristolIcon: {
+      fontSize: 20,
     },
-    chipBtnLabel: {
-      fontSize: 13,
-      fontWeight: '600',
+    bristolTextCol: {
+      flex: 1,
+    },
+    bristolTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 2,
+    },
+    bristolTitle: {
+      fontSize: 14,
+      fontWeight: '700',
       color: theme.textDark,
+    },
+    bristolTitleSelected: {
+      color: theme.primary,
+    },
+    bristolDot: {
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+    },
+    bristolSub: {
+      fontSize: 12,
+      color: theme.textMuted,
+      lineHeight: 16,
+    },
+    radioOuter: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    radioOuterSelected: {
+      borderColor: theme.primary,
+    },
+    radioInner: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: theme.primary,
+    },
+    swatchRow: {
+      flexDirection: 'row',
+      gap: 8,
+      marginBottom: 16,
+    },
+    swatchCard: {
+      flex: 1,
+      backgroundColor: theme.surface,
+      borderRadius: 16,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      paddingVertical: 10,
+      paddingHorizontal: 4,
+      alignItems: 'center',
+    },
+    swatchCardSelected: {
+      backgroundColor: isDarkMode ? '#2E1E19' : '#FFF7F4',
+      borderColor: theme.primary,
+    },
+    swatchCardAlertSelected: {
+      borderColor: theme.allergenText,
+      backgroundColor: theme.allergenBg,
+    },
+    swatchCircle: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      marginBottom: 6,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1.5,
+      borderColor: 'rgba(255,255,255,0.35)',
+    },
+    swatchCheck: {
+      color: '#FFFFFF',
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    swatchLabel: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: theme.textDark,
+    },
+    swatchLabelSelected: {
+      color: theme.primary,
+    },
+    swatchSub: {
+      fontSize: 9,
+      color: theme.textMuted,
+      marginTop: 2,
+      textAlign: 'center',
+    },
+    alertBanner: {
+      backgroundColor: theme.allergenBg,
+      borderColor: theme.allergenText,
+      borderWidth: 1,
+      borderRadius: 16,
+      padding: 12,
+      marginBottom: 16,
+    },
+    alertBannerTitle: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: theme.allergenText,
+      marginBottom: 4,
+    },
+    alertBannerBody: {
+      fontSize: 12,
+      color: theme.textDark,
+      lineHeight: 17,
+    },
+    freqRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 16,
+    },
+    freqPill: {
+      paddingVertical: 10,
+      paddingHorizontal: 15,
+      borderRadius: 14,
+      backgroundColor: theme.surface,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+    },
+    freqPillActive: {
+      backgroundColor: isDarkMode ? '#2E1E19' : '#FFF7F4',
+      borderColor: theme.primary,
+    },
+    freqPillText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: theme.textDark,
+    },
+    freqPillTextActive: {
+      color: theme.primary,
+    },
+    freqInput: {
+      flex: 1,
+      backgroundColor: theme.surface,
+      borderRadius: 14,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      fontSize: 14,
+      fontWeight: '700',
+      color: theme.textDark,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      textAlign: 'center',
     },
     input: {
       width: '100%',
       backgroundColor: theme.surface,
-      borderRadius: theme.radiiCard,
-      padding: 16,
-      fontSize: 15,
+      borderRadius: 16,
+      padding: 14,
+      fontSize: 14,
       color: theme.textDark,
       marginBottom: 12,
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: theme.border,
     },
     notesInput: {
-      minHeight: 80,
+      minHeight: 76,
       textAlignVertical: 'top',
     },
-    button: {
-      width: '100%',
-      backgroundColor: theme.primary,
-      borderRadius: theme.radiiCard,
-      padding: 16,
-      alignItems: 'center',
+    deleteBtn: {
+      alignSelf: 'center',
       marginTop: 8,
-    },
-    buttonText: {
-      color: 'white',
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    switchRow: {
-      flexDirection: 'row',
-      marginTop: 20,
-    },
-    switchLink: {
-      color: theme.primary,
-      fontSize: 14,
-      fontWeight: '600',
+      paddingVertical: 8,
     },
     deleteLink: {
       color: theme.allergenText,
       fontSize: 14,
-      fontWeight: '600',
+      fontWeight: '700',
+    },
+    stickyFooter: {
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      backgroundColor: theme.surface,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+    },
+    button: {
+      width: '100%',
+      backgroundColor: theme.primary,
+      borderRadius: 16,
+      paddingVertical: 15,
+      alignItems: 'center',
+      shadowColor: theme.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    buttonText: {
+      color: 'white',
+      fontSize: 16,
+      fontWeight: '700',
     },
   });
 }

@@ -1,23 +1,75 @@
+import { NativeModules, Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from '../supabase';
 import { AUTH_BRIDGE_URL } from '../authBridge';
 
+let configuredNativeGoogle = false;
+
+function tryConfigureNativeGoogle() {
+  if (configuredNativeGoogle) return true;
+  if (Platform.OS === 'web' || !NativeModules?.RNGoogleSignin) {
+    return false;
+  }
+  try {
+    // Dynamic require so OTA updates on existing APK binaries without
+    // RNGoogleSignin compiled in do not crash at module load time.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { GoogleSignin } = require('@react-native-google-signin/google-signin');
+    const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+    const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+    GoogleSignin.configure({
+      ...(webClientId ? { webClientId } : {}),
+      ...(iosClientId ? { iosClientId } : {}),
+      offlineAccess: false,
+    });
+    configuredNativeGoogle = true;
+    return true;
+  } catch (err) {
+    console.warn('[google-signin] Native module not available, using OAuth fallback:', err);
+    return false;
+  }
+}
+
 export function useGoogleSignIn() {
   async function signInWithGoogle() {
+    // 1. Prefer Native Android / iOS Google Sign-In (signInWithIdToken) when available
+    if (tryConfigureNativeGoogle()) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { GoogleSignin, statusCodes } = require('@react-native-google-signin/google-signin');
+        if (Platform.OS === 'android') {
+          await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+        }
+        const response = await GoogleSignin.signIn();
+        // Support both v11/v12 (response.idToken) and v13+ (response.data?.idToken)
+        if (response?.type === 'cancelled') {
+          return { error: null };
+        }
+        const idToken: string | undefined = response?.data?.idToken ?? response?.idToken;
+        if (idToken) {
+          const { error: idTokenError } = await supabase.auth.signInWithIdToken({
+            provider: 'google',
+            token: idToken,
+          });
+          return { error: idTokenError };
+        }
+      } catch (nativeErr: any) {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { statusCodes } = require('@react-native-google-signin/google-signin');
+        if (
+          nativeErr?.code === statusCodes?.SIGN_IN_CANCELLED ||
+          nativeErr?.code === statusCodes?.IN_PROGRESS
+        ) {
+          return { error: null };
+        }
+        console.warn('[google-signin] Native sign-in error, falling back to browser OAuth:', nativeErr);
+      }
+    }
+
+    // 2. Fallback: Browser OAuth flow via AUTH_BRIDGE_URL
     const redirectUri = makeRedirectUri();
     console.log('[google-signin] redirectUri:', redirectUri);
-    // Route through the GitHub Pages auth-bridge page instead of passing
-    // redirectUri straight to Supabase: confirmed via a real sign-in attempt
-    // that GoTrue accepts a custom-scheme redirect_to (exp://<lan-ip>:<port>)
-    // at the start of the flow, but its final redirect silently falls back to
-    // the default Site URL for non-http(s) schemes — even when allowlisted.
-    // (A first attempt hosted this bridge as a Supabase Edge Function, but
-    // Supabase forces text/plain + a script-blocking CSP on Edge Function/
-    // Storage HTML responses on this plan tier, so it's on GitHub Pages
-    // instead — see docs/auth-bridge/index.html.) The bridge is a plain https
-    // page GoTrue redirects to correctly, which then JS-redirects into
-    // redirectUri itself.
     const bridgeUrl = `${AUTH_BRIDGE_URL}?target=${encodeURIComponent(redirectUri)}`;
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -30,7 +82,6 @@ export function useGoogleSignIn() {
     const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
     if (result.type !== 'success') {
       if (result.type === 'cancel' || result.type === 'dismiss') {
-        // User voluntarily dismissed or cancelled the modal; do not show error
         return { error: null };
       }
       return {

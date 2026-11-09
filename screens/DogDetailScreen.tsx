@@ -2,7 +2,7 @@ import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from 're
 import { useVetAppointments } from '../lib/hooks/useVetAppointments';
 import { View, Text, TouchableOpacity, Image, ScrollView, Alert, BackHandler, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { Dog, Habit, HabitType, DogMood, VaccineRecord, Allergen, HealthLog } from '../types';
+import { Dog, Habit, HabitType, DogMood, VaccineRecord, Allergen, HealthLog, PoopLogDetails } from '../types';
 import { useHabits, getHabitTarget } from '../lib/hooks/useHabits';
 import { useVaccines } from '../lib/hooks/useVaccines';
 import { useDogMood } from '../lib/hooks/useDogMood';
@@ -31,6 +31,7 @@ import PoopFormScreen from './PoopFormScreen';
 import VomitFormScreen from './VomitFormScreen';
 import MealHistoryScreen from './MealHistoryScreen';
 import CycleHistoryScreen from './CycleHistoryScreen';
+import ReportPickerScreen from './ReportPickerScreen';
 import HeatCycleSection from '../components/HeatCycleSection';
 import TabTour from '../components/TabTour';
 import CycleStartSheet from '../components/CycleStartSheet';
@@ -38,6 +39,7 @@ import { useCycleTracking } from '../lib/hooks/useCycleTracking';
 import { mapDogSpeciesToCycleSpecies } from '../lib/cycleLogic';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
+import { localeTag } from '../lib/i18n';
 import { ThemeTokens } from '../lib/themes';
 import { computeAge } from '../lib/petAge';
 import { checkAndCreateHealthAlert } from '../lib/notificationService';
@@ -57,7 +59,24 @@ type Props = {
   };
 };
 
-type Mode = 'detail' | 'habit-quick-add' | 'habit-form' | 'vaccine-list' | 'vaccine-form' | 'history' | 'mood-history' | 'allergen-form' | 'health-list' | 'poop-form' | 'vomit-list' | 'vomit-form' | 'meal-history' | 'cycle-history';
+type Mode =
+  | 'detail'
+  | 'habit-quick-add'
+  | 'habit-form'
+  | 'vaccine-list'
+  | 'vaccine-form'
+  | 'history'
+  | 'mood-history'
+  | 'allergen-form'
+  | 'digestive-journal'
+  | 'poop-form'
+  | 'vomit-form'
+  | 'meal-history'
+  | 'cycle-history'
+  | 'report-picker';
+
+type SubTab = 'daily' | 'tummy' | 'immunity';
+type JournalFilter = 'all' | 'stool' | 'vomit';
 
 const MOOD_OPTIONS: { value: DogMood['mood']; emoji: string }[] = [
   { value: 'sleepy', emoji: '😴' },
@@ -67,7 +86,15 @@ const MOOD_OPTIONS: { value: DogMood['mood']; emoji: string }[] = [
   { value: 'sick', emoji: '🤒' },
 ];
 
-export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, initialAction, onClearInitialAction, tourRefs }: Props) {
+export default function DogDetailScreen({
+  dog,
+  updateDog: _updateDog,
+  onEdit,
+  onDelete,
+  initialAction,
+  onClearInitialAction,
+  tourRefs,
+}: Props) {
   const { theme, isDarkMode } = useTheme();
   const { t } = useT();
   const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
@@ -121,7 +148,11 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
       ? t('dogDetail.dueAt', { time: h.reminder_times[0] })
       : t('dogDetail.notLoggedYet');
   };
+
   const [mode, setMode] = useState<Mode>('detail');
+  const [activeSubTab, setActiveSubTab] = useState<SubTab>('daily');
+  const [journalFilter, setJournalFilter] = useState<JournalFilter>('all');
+  const [returnModeAfterForm, setReturnModeAfterForm] = useState<'detail' | 'digestive-journal'>('detail');
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [presetType, setPresetType] = useState<HabitType | undefined>(undefined);
   const [editingVaccine, setEditingVaccine] = useState<VaccineRecord | null>(null);
@@ -149,33 +180,21 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
           setCycleStartSheetVisible(false);
           return true;
         }
-        if (mode === 'habit-quick-add') {
-          setMode('detail');
-          return true;
-        }
-        if (mode === 'habit-form') {
-          setMode('detail');
-          setEditingHabit(null);
-          setPresetType(undefined);
-          return true;
-        }
-        if (mode === 'vaccine-form') {
-          setMode('detail');
-          setEditingVaccine(null);
-          return true;
-        }
         if (mode === 'poop-form') {
-          setMode('detail');
+          setMode(returnModeAfterForm);
           setEditingLog(null);
           return true;
         }
         if (mode === 'vomit-form') {
-          setMode('detail');
+          setMode(returnModeAfterForm);
           setEditingVomitLog(null);
           return true;
         }
         if (mode !== 'detail') {
           setMode('detail');
+          setEditingHabit(null);
+          setPresetType(undefined);
+          setEditingVaccine(null);
           setHistoryTarget(null);
           setEditingAllergen(null);
           return true;
@@ -183,11 +202,9 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
         return false;
       });
       return () => sub.remove();
-    }, [waterSheetHabitId, mealDetailHabitId, cycleStartSheetVisible, mode])
+    }, [waterSheetHabitId, mealDetailHabitId, cycleStartSheetVisible, mode, returnModeAfterForm])
   );
 
-  // Tour targets on the detail view. The lower sections are usually below the fold, so
-  // each tour step scrolls its target into view (via the recorded onLayout Y) first.
   const scrollRef = useRef<ScrollView>(null);
   const habitsSectionRef = useRef<View>(null);
   const addHabitRef = useRef<View>(null);
@@ -205,7 +222,6 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
     weeklyCounts,
     isWeeklyGoalReached,
     logHabitToday,
-    undoHabitToday,
     resetHabitToday,
     undoOccurrence,
     logWaterAmount,
@@ -220,7 +236,7 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
   const { logs: vomitLogs, addLog: addVomitLog, updateLog: updateVomitLog, deleteLog: deleteVomitLog } = useVomitLogs(dog.id);
   const { mealDetails, getMealDetail, addMealDetail, deleteMealDetail } = useMealDetails(dog.id);
   const { mood, setTodayMood } = useDogMood(dog.id);
-  const { streak } = usePetStreak(dog.id, habits.map(h => h.id));
+  usePetStreak(dog.id, habits.map((h) => h.id));
   const cycleTracking = useCycleTracking(dog.id, dog.breed);
 
   const { appointments: dogAppointments } = useVetAppointments(dog.id);
@@ -233,16 +249,17 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
   );
 
   const cycleSpecies = mapDogSpeciesToCycleSpecies(dog.species);
-  // Only show heat cycle tracking for intact female dogs and cats
   const showHeatCycle = dog.sex === 'female' && !dog.is_sterilized && (cycleSpecies === 'dog' || cycleSpecies === 'cat');
 
   useEffect(() => {
     if (initialAction === 'parasite') {
+      setActiveSubTab('immunity');
       setTreatmentSegment('parasites');
       setEditingVaccine(null);
       setMode('vaccine-form');
       onClearInitialAction?.();
     } else if (initialAction === 'vaccine') {
+      setActiveSubTab('immunity');
       setTreatmentSegment('vaccines');
       setEditingVaccine(null);
       setMode('vaccine-form');
@@ -254,14 +271,166 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
   const todayPoopLogs = useMemo(() => logs.filter((l) => l.logged_at?.slice(0, 10) === todayStr), [logs, todayStr]);
   const todayVomitLogs = useMemo(() => vomitLogs.filter((l) => l.logged_at?.slice(0, 10) === todayStr), [vomitLogs, todayStr]);
 
+  // 7-Day Digestive Rhythm computation (last 7 calendar days ending today)
+  const sevenDayRhythm = useMemo(() => {
+    const days: {
+      dateStr: string;
+      dayLabel: string;
+      status: 'ideal' | 'soft' | 'alert' | 'none';
+      isToday: boolean;
+    }[] = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const dStr = toLocalDateString(d);
+      const dayPoops = logs.filter((l) => l.logged_at?.slice(0, 10) === dStr);
+      const dayVomits = vomitLogs.filter((l) => l.logged_at?.slice(0, 10) === dStr);
+
+      let status: 'ideal' | 'soft' | 'alert' | 'none' = 'none';
+      const hasSeverePoop = dayPoops.some((p) => {
+        const det = (p.details || {}) as Partial<PoopLogDetails>;
+        return det.consistency === 'liquid' || det.color === 'black' || det.color === 'red';
+      });
+      const hasSoftPoop = dayPoops.some((p) => {
+        const det = (p.details || {}) as Partial<PoopLogDetails>;
+        return det.consistency === 'soft' || det.consistency === 'mucus';
+      });
+
+      if (dayVomits.length > 0 || hasSeverePoop) {
+        status = 'alert';
+      } else if (hasSoftPoop) {
+        status = 'soft';
+      } else if (dayPoops.length > 0) {
+        status = 'ideal';
+      }
+
+      const dayLabel =
+        i === 0
+          ? t('dogDetail.today')
+          : d.toLocaleDateString(localeTag(), { weekday: 'short' }).slice(0, 3);
+
+      days.push({
+        dateStr: dStr,
+        dayLabel,
+        status,
+        isToday: i === 0,
+      });
+    }
+    return days;
+  }, [logs, vomitLogs, t]);
+
+  // 30-Day Digestive Analytics for Hub & Journal
+  const digestiveMetrics = useMemo(() => {
+    const now = Date.now();
+    const ms30d = 30 * 24 * 60 * 60 * 1000;
+    const ms7d = 7 * 24 * 60 * 60 * 1000;
+
+    const poops30d = logs.filter((l) => now - new Date(l.logged_at).getTime() <= ms30d);
+    const vomits7d = vomitLogs.filter((l) => now - new Date(l.logged_at).getTime() <= ms7d);
+
+    const activePoopDays = new Set(poops30d.map((l) => l.logged_at?.slice(0, 10))).size;
+    const avgDailyStool = activePoopDays > 0 ? (poops30d.length / activePoopDays).toFixed(1) : '0.0';
+
+    const idealCount = poops30d.filter((l) => {
+      const det = (l.details || {}) as Partial<PoopLogDetails>;
+      return (det.consistency ?? 'solid') === 'solid';
+    }).length;
+    const idealPct = poops30d.length > 0 ? Math.round((idealCount / poops30d.length) * 100) : 100;
+
+    let calmDays = 30;
+    if (vomitLogs.length > 0) {
+      const latestVomitMs = Math.max(...vomitLogs.map((v) => new Date(v.logged_at).getTime()));
+      const diffDays = Math.max(0, Math.floor((now - latestVomitMs) / (24 * 60 * 60 * 1000)));
+      calmDays = Math.min(30, diffDays);
+    }
+
+    const latestPoop = logs[0] ?? null;
+    const latestPoopConsistency = ((latestPoop?.details || {}) as Partial<PoopLogDetails>).consistency ?? 'solid';
+
+    const needsAttention =
+      vomits7d.length > 0 ||
+      todayPoopLogs.some((p) => {
+        const det = (p.details || {}) as Partial<PoopLogDetails>;
+        return det.consistency === 'liquid' || det.color === 'black' || det.color === 'red';
+      });
+
+    return {
+      avgDailyStool,
+      idealPct,
+      calmDays,
+      vomits7dCount: vomits7d.length,
+      latestPoop,
+      latestPoopConsistency,
+      needsAttention,
+    };
+  }, [logs, vomitLogs, todayPoopLogs]);
+
+  // Combined date-grouped logs for Digestive Journal
+  const groupedDigestiveLogs = useMemo(() => {
+    const items: { kind: 'stool' | 'vomit'; log: HealthLog; ts: number; dateStr: string }[] = [];
+    if (journalFilter === 'all' || journalFilter === 'stool') {
+      for (const l of logs) {
+        items.push({
+          kind: 'stool',
+          log: l,
+          ts: new Date(l.logged_at).getTime(),
+          dateStr: l.logged_at?.slice(0, 10) ?? '',
+        });
+      }
+    }
+    if (journalFilter === 'all' || journalFilter === 'vomit') {
+      for (const v of vomitLogs) {
+        items.push({
+          kind: 'vomit',
+          log: v,
+          ts: new Date(v.logged_at).getTime(),
+          dateStr: v.logged_at?.slice(0, 10) ?? '',
+        });
+      }
+    }
+    items.sort((a, b) => b.ts - a.ts);
+
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayStr = toLocalDateString(yesterdayDate);
+
+    const groups: { dateKey: string; label: string; entries: typeof items }[] = [];
+    for (const item of items) {
+      let group = groups.find((g) => g.dateKey === item.dateStr);
+      if (!group) {
+        let label = item.dateStr;
+        if (item.dateStr === todayStr) {
+          label = t('mealHistory.today');
+        } else if (item.dateStr === yesterdayStr) {
+          label = t('mealHistory.yesterday');
+        } else if (item.dateStr) {
+          const parsed = new Date(item.log.logged_at);
+          label = parsed.toLocaleDateString(localeTag(), {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+          });
+        }
+        group = { dateKey: item.dateStr, label, entries: [] };
+        groups.push(group);
+      }
+      group.entries.push(item);
+    }
+    return groups;
+  }, [logs, vomitLogs, journalFilter, todayStr, t]);
+
   const mealDetailCompletionId = mealDetailHabitId ? completionIds.get(mealDetailHabitId) ?? null : null;
   const mealDetailInitial = mealDetailCompletionId ? getMealDetail(mealDetailCompletionId) ?? null : null;
 
   if (mode === 'habit-quick-add') {
     return (
       <HabitQuickAddScreen
-        existingTypes={habits.map(h => h.habit_type)}
-        onSelect={(type) => { setPresetType(type); setMode('habit-form'); }}
+        existingTypes={habits.map((h) => h.habit_type)}
+        onSelect={(type) => {
+          setPresetType(type);
+          setMode('habit-form');
+        }}
         onCancel={() => setMode('detail')}
       />
     );
@@ -274,20 +443,28 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
         presetType={presetType}
         existingHabits={habits}
         weightKg={dog.weight_kg}
-        feedingWetDryRatio={habits.find(h => h.habit_type === 'feeding')?.wet_dry_ratio ?? null}
+        feedingWetDryRatio={habits.find((h) => h.habit_type === 'feeding')?.wet_dry_ratio ?? null}
         addHabit={addHabit}
         updateHabit={updateHabit}
         deleteHabit={deleteHabit}
-        onDone={() => { setMode('detail'); setEditingHabit(null); setPresetType(undefined); }}
-        onCancel={() => { setMode('detail'); setEditingHabit(null); setPresetType(undefined); }}
+        onDone={() => {
+          setMode('detail');
+          setEditingHabit(null);
+          setPresetType(undefined);
+        }}
+        onCancel={() => {
+          setMode('detail');
+          setEditingHabit(null);
+          setPresetType(undefined);
+        }}
       />
     );
   }
 
   if (mode === 'vaccine-list') {
     const allVaccines = [...overdue, ...upcoming];
-    const vaccineList = allVaccines.filter(v => detectTreatmentType(v.vaccine_name, v.notes) === 'vaccine');
-    const parasiteList = allVaccines.filter(v => detectTreatmentType(v.vaccine_name, v.notes) !== 'vaccine');
+    const vaccineList = allVaccines.filter((v) => detectTreatmentType(v.vaccine_name, v.notes) === 'vaccine');
+    const parasiteList = allVaccines.filter((v) => detectTreatmentType(v.vaccine_name, v.notes) !== 'vaccine');
     const shownList = treatmentSegment === 'vaccines' ? vaccineList : parasiteList;
 
     async function handleAdministerToday(v: VaccineRecord, nextDueDate: string) {
@@ -319,7 +496,6 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
             </View>
           </View>
 
-          {/* Segmented Switcher: Parasite Shield vs Vaccines */}
           <View style={styles.segmentSwitcher}>
             <TouchableOpacity
               style={[styles.segmentTab, treatmentSegment === 'parasites' && styles.segmentTabActive]}
@@ -349,13 +525,13 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
               </Text>
               <Text style={styles.emptyTreatmentTitle}>
                 {treatmentSegment === 'parasites'
-                  ? (t('treatments.noParasiteTracked') || 'No parasite shield active')
-                  : (t('dogDetail.noVaccinesTracked') || 'No clinical vaccines tracked')}
+                  ? t('treatments.noParasiteTracked') || 'No parasite shield active'
+                  : t('dogDetail.noVaccinesTracked') || 'No clinical vaccines tracked'}
               </Text>
               <Text style={styles.emptyTreatmentSubtitle}>
                 {treatmentSegment === 'parasites'
-                  ? (t('treatments.parasiteEmptyHint') || 'Protect against fleas, ticks, heartworms & intestinal parasites with automated dose reminders.')
-                  : (t('treatments.vaccineEmptyHint') || 'Keep rabies and core vaccine records ready for vet visits and travel.')}
+                  ? t('treatments.parasiteEmptyHint')
+                  : t('treatments.vaccineEmptyHint')}
               </Text>
             </View>
           ) : (
@@ -365,7 +541,10 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
                   key={v.id}
                   vaccine={v}
                   isOverdue={overdue.includes(v)}
-                  onPress={() => { setEditingVaccine(v); setMode('vaccine-form'); }}
+                  onPress={() => {
+                    setEditingVaccine(v);
+                    setMode('vaccine-form');
+                  }}
                   onAdministerToday={(item, nextDate) => handleAdministerToday(item, nextDate)}
                 />
               ))}
@@ -374,13 +553,14 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
 
           <TouchableOpacity
             style={styles.addTreatmentBtn}
-            onPress={() => { setEditingVaccine(null); setMode('vaccine-form'); }}
+            onPress={() => {
+              setEditingVaccine(null);
+              setMode('vaccine-form');
+            }}
             activeOpacity={0.85}
           >
             <Text style={styles.addTreatmentBtnText}>
-              ＋ {treatmentSegment === 'parasites'
-                ? (t('treatments.addParasite') || 'Add Parasite Treatment')
-                : (t('treatments.addVaccine') || 'Add Vaccine')}
+              ＋ {treatmentSegment === 'parasites' ? t('treatments.addParasite') : t('treatments.addVaccine')}
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -396,8 +576,14 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
         addVaccine={addVaccine}
         updateVaccine={updateVaccine}
         deleteVaccine={deleteVaccine}
-        onDone={() => { setMode('detail'); setEditingVaccine(null); }}
-        onCancel={() => { setMode('detail'); setEditingVaccine(null); }}
+        onDone={() => {
+          setMode('detail');
+          setEditingVaccine(null);
+        }}
+        onCancel={() => {
+          setMode('detail');
+          setEditingVaccine(null);
+        }}
       />
     );
   }
@@ -407,18 +593,16 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
       <HabitHistoryScreen
         habit={historyTarget}
         dog={dog}
-        onBack={() => { setMode('detail'); setHistoryTarget(null); }}
+        onBack={() => {
+          setMode('detail');
+          setHistoryTarget(null);
+        }}
       />
     );
   }
 
   if (mode === 'mood-history') {
-    return (
-      <MoodHistoryScreen
-        dog={dog}
-        onBack={() => setMode('detail')}
-      />
-    );
+    return <MoodHistoryScreen dog={dog} onBack={() => setMode('detail')} />;
   }
 
   if (mode === 'allergen-form') {
@@ -428,45 +612,163 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
         addAllergen={addAllergen}
         updateAllergen={updateAllergen}
         deleteAllergen={deleteAllergen}
-        onDone={() => { setMode('detail'); setEditingAllergen(null); }}
-        onCancel={() => { setMode('detail'); setEditingAllergen(null); }}
+        onDone={() => {
+          setMode('detail');
+          setEditingAllergen(null);
+        }}
+        onCancel={() => {
+          setMode('detail');
+          setEditingAllergen(null);
+        }}
       />
     );
   }
 
-  if (mode === 'health-list') {
+  if (mode === 'digestive-journal') {
     return (
       <SwipeBackWrapper onBack={() => setMode('detail')}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <TouchableOpacity onPress={() => setMode('detail')} style={styles.backRow}>
-          <Text style={styles.backText}>‹ {t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>{t('dogDetail.poopTracker')}</Text>
-        <Text style={styles.subtitle}>{dog.name}</Text>
+        <View style={styles.container}>
+          <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+            <TouchableOpacity onPress={() => setMode('detail')} style={styles.backRow}>
+              <Text style={styles.backText}>‹ {t('common.back')}</Text>
+            </TouchableOpacity>
 
-        {logs.length === 0 ? (
-          <Text style={styles.emptyText}>{t('dogDetail.noPoopYet')}</Text>
-        ) : (
-          <View style={styles.card}>
-            {logs.map((l, idx) => (
-              <View key={l.id}>
-                <PoopLogCard
-                  log={l}
-                  onPress={() => { setEditingLog(l); setMode('poop-form'); }}
-                />
-                {idx < logs.length - 1 ? <View style={styles.divider} /> : null}
+            <Text style={styles.title}>{t('dogDetail.digestiveJournal.title')}</Text>
+            <Text style={styles.subtitle}>
+              {t('dogDetail.digestiveJournal.subtitle', { name: dog.name })}
+            </Text>
+
+            {/* 30-Day Gut Health KPI Ribbon */}
+            <View style={styles.journalKpiRibbon}>
+              <View style={styles.journalKpiCard}>
+                <Text style={styles.journalKpiVal}>{digestiveMetrics.avgDailyStool}x</Text>
+                <Text style={styles.journalKpiLabel}>{t('dogDetail.digestiveJournal.kpiAvgDaily')}</Text>
               </View>
-            ))}
-          </View>
-        )}
+              <View style={[styles.journalKpiCard, styles.journalKpiCardCenter]}>
+                <Text style={[styles.journalKpiVal, { color: theme.done }]}>{digestiveMetrics.idealPct}%</Text>
+                <Text style={styles.journalKpiLabel}>{t('dogDetail.digestiveJournal.kpiIdealPct')}</Text>
+              </View>
+              <View style={styles.journalKpiCard}>
+                <Text style={styles.journalKpiVal}>
+                  {t('dogDetail.digestiveJournal.kpiDaysUnit', { count: digestiveMetrics.calmDays })}
+                </Text>
+                <Text style={styles.journalKpiLabel}>{t('dogDetail.digestiveJournal.kpiCalmDays')}</Text>
+              </View>
+            </View>
 
-        <TouchableOpacity
-          style={styles.vaccineLink}
-          onPress={() => { setEditingLog(null); setMode('poop-form'); }}
-        >
-          <Text style={styles.vaccineLinkText}>{t('common.add')}</Text>
-        </TouchableOpacity>
-      </ScrollView>
+            {/* Bisco AI Care Insight Card */}
+            <View style={styles.journalInsightCard}>
+              <Text style={styles.journalInsightTitle}>
+                ✨{' '}
+                {digestiveMetrics.needsAttention
+                  ? t('dogDetail.digestiveJournal.insightWatchTitle')
+                  : t('dogDetail.digestiveJournal.insightStableTitle')}
+              </Text>
+              <Text style={styles.journalInsightBody}>
+                {digestiveMetrics.needsAttention
+                  ? t('dogDetail.digestiveJournal.insightWatchBody')
+                  : t('dogDetail.digestiveJournal.insightStableBody', {
+                      name: dog.name,
+                      pct: digestiveMetrics.idealPct,
+                      days: digestiveMetrics.calmDays,
+                    })}
+              </Text>
+            </View>
+
+            {/* Filter Pills */}
+            <View style={styles.journalFilterRow}>
+              {(
+                [
+                  { key: 'all', label: `${t('dogDetail.digestiveJournal.filterAll')} (${logs.length + vomitLogs.length})` },
+                  { key: 'stool', label: `💩 ${t('dogDetail.digestiveJournal.filterStool')} (${logs.length})` },
+                  { key: 'vomit', label: `🧪 ${t('dogDetail.digestiveJournal.filterVomit')} (${vomitLogs.length})` },
+                ] as { key: JournalFilter; label: string }[]
+              ).map((f) => {
+                const active = journalFilter === f.key;
+                return (
+                  <TouchableOpacity
+                    key={f.key}
+                    style={[styles.journalFilterPill, active && styles.journalFilterPillActive]}
+                    onPress={() => setJournalFilter(f.key)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.journalFilterPillText, active && styles.journalFilterPillTextActive]}>
+                      {f.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Date-Grouped Chronological Stream */}
+            {groupedDigestiveLogs.length === 0 ? (
+              <View style={styles.emptyTreatmentCard}>
+                <Text style={styles.emptyTreatmentEmoji}>🩺</Text>
+                <Text style={styles.emptyTreatmentSubtitle}>
+                  {t('dogDetail.digestiveJournal.emptyFilter')}
+                </Text>
+              </View>
+            ) : (
+              groupedDigestiveLogs.map((group) => (
+                <View key={group.dateKey} style={styles.journalDateSection}>
+                  <Text style={styles.journalDateHeader}>{group.label}</Text>
+                  <View style={styles.card}>
+                    {group.entries.map((entry, idx) => (
+                      <View key={entry.log.id}>
+                        {entry.kind === 'stool' ? (
+                          <PoopLogCard
+                            log={entry.log}
+                            onPress={() => {
+                              setReturnModeAfterForm('digestive-journal');
+                              setEditingLog(entry.log);
+                              setMode('poop-form');
+                            }}
+                          />
+                        ) : (
+                          <VomitLogCard
+                            log={entry.log}
+                            onPress={() => {
+                              setReturnModeAfterForm('digestive-journal');
+                              setEditingVomitLog(entry.log);
+                              setMode('vomit-form');
+                            }}
+                          />
+                        )}
+                        {idx < group.entries.length - 1 ? <View style={styles.divider} /> : null}
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ))
+            )}
+          </ScrollView>
+
+          {/* Bottom Dual Quick-Add Bar */}
+          <View style={styles.journalBottomBar}>
+            <TouchableOpacity
+              style={styles.journalPrimaryBtn}
+              onPress={() => {
+                setReturnModeAfterForm('digestive-journal');
+                setEditingLog(null);
+                setMode('poop-form');
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.journalPrimaryBtnText}>💩 {t('dogDetail.digestiveHub.logStoolBtn')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.journalSecondaryBtn}
+              onPress={() => {
+                setReturnModeAfterForm('digestive-journal');
+                setEditingVomitLog(null);
+                setMode('vomit-form');
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.journalSecondaryBtnText}>🧪 {t('dogDetail.digestiveHub.logIncidentBtn')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </SwipeBackWrapper>
     );
   }
@@ -478,46 +780,15 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
         addLog={addLog}
         updateLog={updateLog}
         deleteLog={deleteLog}
-        onDone={() => { setMode('detail'); setEditingLog(null); }}
-        onCancel={() => { setMode('detail'); setEditingLog(null); }}
+        onDone={() => {
+          setMode(returnModeAfterForm);
+          setEditingLog(null);
+        }}
+        onCancel={() => {
+          setMode(returnModeAfterForm);
+          setEditingLog(null);
+        }}
       />
-    );
-  }
-
-  if (mode === 'vomit-list') {
-    return (
-      <SwipeBackWrapper onBack={() => setMode('detail')}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <TouchableOpacity onPress={() => setMode('detail')} style={styles.backRow}>
-          <Text style={styles.backText}>‹ {t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>{t('dogDetail.vomitTracker')}</Text>
-        <Text style={styles.subtitle}>{dog.name}</Text>
-
-        {vomitLogs.length === 0 ? (
-          <Text style={styles.emptyText}>{t('dogDetail.noVomitYet')}</Text>
-        ) : (
-          <View style={styles.card}>
-            {vomitLogs.map((l, idx) => (
-              <View key={l.id}>
-                <VomitLogCard
-                  log={l}
-                  onPress={() => { setEditingVomitLog(l); setMode('vomit-form'); }}
-                />
-                {idx < vomitLogs.length - 1 ? <View style={styles.divider} /> : null}
-              </View>
-            ))}
-          </View>
-        )}
-
-        <TouchableOpacity
-          style={styles.vaccineLink}
-          onPress={() => { setEditingVomitLog(null); setMode('vomit-form'); }}
-        >
-          <Text style={styles.vaccineLinkText}>{t('common.add')}</Text>
-        </TouchableOpacity>
-      </ScrollView>
-      </SwipeBackWrapper>
     );
   }
 
@@ -528,8 +799,14 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
         addLog={addVomitLog}
         updateLog={updateVomitLog}
         deleteLog={deleteVomitLog}
-        onDone={() => { setMode('detail'); setEditingVomitLog(null); }}
-        onCancel={() => { setMode('detail'); setEditingVomitLog(null); }}
+        onDone={() => {
+          setMode(returnModeAfterForm);
+          setEditingVomitLog(null);
+        }}
+        onCancel={() => {
+          setMode(returnModeAfterForm);
+          setEditingVomitLog(null);
+        }}
       />
     );
   }
@@ -557,538 +834,836 @@ export default function DogDetailScreen({ dog, updateDog, onEdit, onDelete, init
     );
   }
 
+  if (mode === 'report-picker') {
+    return <ReportPickerScreen dog={dog} onBack={() => setMode('detail')} />;
+  }
+
   const sexLabel = dog.sex === 'male' ? t('dogDetail.male') : dog.sex === 'female' ? t('dogDetail.female') : null;
-  const sterilizedLabel = dog.sex === 'male'
-    ? (dog.is_sterilized ? t('dogDetail.neutered') : t('dogDetail.notNeutered'))
-    : (dog.is_sterilized ? t('dogDetail.sterilized') : t('dogDetail.notSterilized'));
+  const sterilizedLabel =
+    dog.sex === 'male'
+      ? dog.is_sterilized
+        ? t('dogDetail.neutered')
+        : t('dogDetail.notNeutered')
+      : dog.is_sterilized
+        ? t('dogDetail.sterilized')
+        : t('dogDetail.notSterilized');
   const age = computeAge(dog.birth_date);
   const metaLine = [dog.species, dog.breed, sexLabel, sterilizedLabel, age].filter(Boolean).join(' · ');
   const allVaccineRecords = [...overdue, ...upcoming];
-  const vaccineList = allVaccineRecords.filter(v => detectTreatmentType(v.vaccine_name, v.notes) === 'vaccine');
-  const parasiteList = allVaccineRecords.filter(v => detectTreatmentType(v.vaccine_name, v.notes) !== 'vaccine');
-  const vaccineOverdueCount = vaccineList.filter(v => overdue.includes(v)).length;
-  const parasiteOverdueCount = parasiteList.filter(v => overdue.includes(v)).length;
+  const vaccineList = allVaccineRecords.filter((v) => detectTreatmentType(v.vaccine_name, v.notes) === 'vaccine');
+  const parasiteList = allVaccineRecords.filter((v) => detectTreatmentType(v.vaccine_name, v.notes) !== 'vaccine');
+  const vaccineOverdueCount = vaccineList.filter((v) => overdue.includes(v)).length;
+  const parasiteOverdueCount = parasiteList.filter((v) => overdue.includes(v)).length;
   const nextVaccine = vaccineList[0] || null;
   const nextParasite = parasiteList[0] || null;
 
+  const latestStoolLabel = !digestiveMetrics.latestPoop
+    ? t('dogDetail.digestiveHub.stoolNoneToday')
+    : digestiveMetrics.latestPoopConsistency === 'solid'
+      ? t('dogDetail.digestiveHub.stoolLatestIdeal')
+      : digestiveMetrics.latestPoopConsistency === 'soft'
+        ? t('dogDetail.digestiveHub.stoolLatestSoft')
+        : digestiveMetrics.latestPoopConsistency === 'liquid'
+          ? t('dogDetail.digestiveHub.stoolLatestLiquid')
+          : t('dogDetail.digestiveHub.stoolLatestMucus');
+
   return (
     <>
-    <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={styles.content}>
-      {/* 1. Unified Pet Health Passport Card */}
-      <View style={styles.passportCard}>
-        <View style={styles.passportHeader}>
-          {dog.photo_url ? (
-            <Image source={{ uri: dog.photo_url }} style={styles.photo} />
-          ) : (
-            <View style={styles.photoPlaceholder}>
-              <Text style={styles.emoji}>🐾</Text>
-            </View>
-          )}
-          <View style={styles.heroInfo}>
-            <View style={styles.heroTitleRow}>
-              <Text style={styles.name} numberOfLines={1}>{dog.name}</Text>
-              <View style={styles.stampBadge}>
-                <View style={styles.stampDot} />
-                <Text style={styles.stampText}>
-                  {mood?.mood === 'sick' ? 'Needs Care' : mood?.mood === 'off' ? 'A Bit Off' : 'Thriving'}
-                </Text>
+      <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={styles.content}>
+        {/* 1. Unified Pet Health Passport Card */}
+        <View style={styles.passportCard}>
+          <View style={styles.passportHeader}>
+            {dog.photo_url ? (
+              <Image source={{ uri: dog.photo_url }} style={styles.photo} />
+            ) : (
+              <View style={styles.photoPlaceholder}>
+                <Text style={styles.emoji}>🐾</Text>
               </View>
-            </View>
-            {metaLine ? <Text style={styles.meta} numberOfLines={1}>{metaLine}</Text> : null}
-          </View>
-        </View>
-
-        <View style={styles.statStrip}>
-          <View style={styles.statCell}>
-            <Text style={styles.statValue}>{dog.weight_kg != null ? `${dog.weight_kg} kg` : '—'}</Text>
-            <Text style={styles.statLabel}>{t('dogDetail.weight')}</Text>
-          </View>
-          <View style={[styles.statCell, styles.statCellBorder]}>
-            <Text style={styles.statValue}>{completedToday.size}/{habits.length}</Text>
-            <Text style={styles.statLabel}>{t('dogDetail.today')}</Text>
-          </View>
-          <View style={styles.statCell}>
-            <Text style={styles.statValue}>{habits.length}</Text>
-            <Text style={styles.statLabel}>{t('dogDetail.habits')}</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.headerButtons}>
-        <TouchableOpacity style={styles.editButton} onPress={onEdit} activeOpacity={0.8}>
-          <Text style={styles.editButtonText}>✏️ {t('dogDetail.editPet')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => {
-            Alert.alert(
-              t('dogDetail.deletePetTitle'),
-              t('dogDetail.deletePetMessage', { name: dog.name }),
-              [
-                { text: t('common.cancel'), style: 'cancel' },
-                { text: t('common.delete'), style: 'destructive', onPress: onDelete },
-              ]
-            );
-          }}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.deleteButtonText}>{t('dogDetail.deletePet')}</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* 2. Today's Well-being & Mood Card */}
-      <View style={styles.moodCard}>
-        <View style={styles.moodLabelRow}>
-          <View style={styles.moodTitleGroup}>
-            <Text style={styles.moodCardHeader}>TODAY'S WELL-BEING</Text>
-            <Text style={styles.moodLabel}>{t('mood.question', { name: dog.name })}</Text>
-          </View>
-          <TouchableOpacity
-            onPress={() => setMode('mood-history')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={styles.moodHistoryBtn}
-          >
-            <Text style={styles.moodHistoryIcon}>🕒 History</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.moodGrid}>
-          {MOOD_OPTIONS.map(opt => {
-            const selected = mood?.mood === opt.value;
-            return (
-              <TouchableOpacity
-                key={opt.value}
-                style={[styles.moodBtn, selected && styles.moodBtnSelected]}
-                onPress={async () => {
-                  await setTodayMood(opt.value);
-                  checkAndCreateHealthAlert(dog.id, dog.owner_id);
-                }}
-                activeOpacity={0.75}
-              >
-                <Text style={styles.moodEmoji}>{opt.emoji}</Text>
-                <Text style={[styles.moodBtnLabel, selected && styles.moodBtnLabelSelected]}>
-                  {t('mood.' + opt.value)}
+            )}
+            <View style={styles.heroInfo}>
+              <View style={styles.heroTitleRow}>
+                <Text style={styles.name} numberOfLines={1}>
+                  {dog.name}
                 </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
+                <View style={styles.stampBadge}>
+                  <View style={styles.stampDot} />
+                  <Text style={styles.stampText}>
+                    {mood?.mood === 'sick' ? 'Needs Care' : mood?.mood === 'off' ? 'A Bit Off' : 'Thriving'}
+                  </Text>
+                </View>
+              </View>
+              {metaLine ? (
+                <Text style={styles.meta} numberOfLines={1}>
+                  {metaLine}
+                </Text>
+              ) : null}
+            </View>
+          </View>
 
-      <View
-        ref={habitsSectionRef}
-        collapsable={false}
-        onLayout={(e) => { tourY.current.habits = e.nativeEvent.layout.y; }}
-        style={styles.section}
-      >
-        <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>{t('dogDetail.todaysHabits')}</Text>
-          <View ref={addHabitRef} collapsable={false}>
-            <TouchableOpacity
-              onPress={() => { setEditingHabit(null); setMode('habit-quick-add'); }}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text style={styles.addIcon}>+</Text>
-            </TouchableOpacity>
+          <View style={styles.statStrip}>
+            <View style={styles.statCell}>
+              <Text style={styles.statValue}>{dog.weight_kg != null ? `${dog.weight_kg} kg` : '—'}</Text>
+              <Text style={styles.statLabel}>{t('dogDetail.weight')}</Text>
+            </View>
+            <View style={[styles.statCell, styles.statCellBorder]}>
+              <Text style={styles.statValue}>
+                {completedToday.size}/{habits.length}
+              </Text>
+              <Text style={styles.statLabel}>{t('dogDetail.today')}</Text>
+            </View>
+            <View style={styles.statCell}>
+              <Text style={styles.statValue}>{habits.length}</Text>
+              <Text style={styles.statLabel}>{t('dogDetail.habits')}</Text>
+            </View>
           </View>
         </View>
-        {habits.length === 0 ? (
-          <Text style={styles.emptyText}>{t('dogDetail.noHabitsAddOne')}</Text>
-        ) : (
-          <View style={styles.card}>
-            {habits.map((h, idx) => {
-              const isWeekly = h.schedule_type === 'weekly_target';
-              const target = isWeekly ? (h.weekly_target_count ?? 1) : getHabitTarget(h);
-              const done = isWeekly ? isWeeklyGoalReached(h) : completedToday.has(h.id);
-              const count = isWeekly
-                ? (weeklyCounts.get(h.id) ?? 0)
-                : (completedCounts.get(h.id) ?? (done && target <= 1 ? 1 : 0));
-              const inProgress = !done && count > 0;
-              const isWater = h.habit_type === 'water';
 
-              return (
-                <View key={h.id}>
-                  <HabitRow
-                    habit={h}
-                    count={count}
-                    target={target}
-                    done={done}
-                    inProgress={inProgress}
-                    subtitle={subtitleFor(h, count, target, done)}
-                    actionDisabled={isWater}
-                    onPressAction={() => {
-                      if (isWeekly) {
-                        if (!done) {
-                          logHabitToday(h.id);
-                        } else {
-                          resetHabitToday(h.id);
-                        }
-                        return;
-                      }
-                      if (!done) { logHabitToday(h.id); return; }
-                      isWater ? resetWaterToday(h.id) : resetHabitToday(h.id);
-                    }}
-                    onResetToday={() => {
-                      isWater ? resetWaterToday(h.id) : resetHabitToday(h.id);
-                    }}
-                    onLongPressAction={() => {
-                      if (count <= 0) return;
-                      Alert.alert(
-                        h.title,
-                        t('habitRow.manageProgress', { count, target }) || `${t('home.today') || 'Today'}: ${count}/${target}`,
-                        [
-                          { text: t('common.cancel'), style: 'cancel' },
-                          target > 1 && count > 1
-                            ? {
-                                text: t('habitRow.undoOne') || 'Undo one (-1)',
-                                onPress: () => undoOccurrence(h.id),
-                              }
-                            : null,
-                          {
-                            text: t('habitRow.resetToZero') || 'Reset to 0',
-                            style: 'destructive',
-                            onPress: () => (isWater ? resetWaterToday(h.id) : resetHabitToday(h.id)),
-                          },
-                        ].filter(Boolean) as any
-                      );
-                    }}
-                    onEdit={() => { setEditingHabit(h); setPresetType(undefined); setMode('habit-form'); }}
-                    onDelete={() => deleteHabit(h.id)}
-                    onViewHistory={() => { setHistoryTarget(h); setMode('history'); }}
-                  />
-                  {isWater && !done ? (
-                    <WaterIncrementRow
-                      onAdd={(amount) => logWaterAmount(h.id, amount)}
-                      onReset={() => resetWaterToday(h.id)}
-                      onCustom={() => setWaterSheetHabitId(h.id)}
-                    />
-                  ) : null}
-                  {h.habit_type === 'feeding' && (done || count > 0) && completionIds.get(h.id) ? (
-                    <MealDetailLink
-                      detail={getMealDetail(completionIds.get(h.id)!)}
-                      onPress={() => setMealDetailHabitId(h.id)}
-                    />
-                  ) : null}
-                  {idx < habits.length - 1 ? <View style={styles.divider} /> : null}
-                </View>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity style={styles.editButton} onPress={onEdit} activeOpacity={0.8}>
+            <Text style={styles.editButtonText}>✏️ {t('dogDetail.editPet')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => {
+              Alert.alert(
+                t('dogDetail.deletePetTitle'),
+                t('dogDetail.deletePetMessage', { name: dog.name }),
+                [
+                  { text: t('common.cancel'), style: 'cancel' },
+                  { text: t('common.delete'), style: 'destructive', onPress: onDelete },
+                ]
               );
-            })}
-          </View>
-        )}
-      </View>
-
-      {mealDetails.length > 0 ? (
-        <TouchableOpacity
-          style={styles.vaccineLink}
-          onPress={() => setMode('meal-history')}
-        >
-          <Text style={styles.vaccineLinkText}>{t('dogDetail.mealHistory')}</Text>
-        </TouchableOpacity>
-      ) : null}
-
-      <View style={styles.section}>
-        <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>{t('dogDetail.foodSensitivities')}</Text>
-          <TouchableOpacity
-            style={styles.addChip}
-            onPress={() => { setEditingAllergen(null); setMode('allergen-form'); }}
+            }}
+            activeOpacity={0.8}
           >
-            <Text style={styles.addChipText}>{t('dogDetail.addShort')}</Text>
+            <Text style={styles.deleteButtonText}>{t('dogDetail.deletePet')}</Text>
           </TouchableOpacity>
         </View>
-        {allergens.length > 0 ? (
-          <View style={styles.allergenRow}>
-            {allergens.map(a => (
-              <TouchableOpacity
-                key={a.id}
-                style={styles.allergenChip}
-                onPress={() => { setEditingAllergen(a); setMode('allergen-form'); }}
-              >
-                <Text style={styles.allergenChipText}>🚫 {a.allergen}</Text>
+
+        {/* 2. 3-Tab Segmented Pill Switcher (Section 11 Architecture) */}
+        <View style={styles.subTabBar}>
+          <TouchableOpacity
+            style={[styles.subTabPill, activeSubTab === 'daily' && styles.subTabPillActive]}
+            onPress={() => setActiveSubTab('daily')}
+            activeOpacity={0.85}
+          >
+            <Text
+              style={[styles.subTabText, activeSubTab === 'daily' && styles.subTabTextActive]}
+              numberOfLines={1}
+            >
+              🌿 {t('dogDetail.tabs.dailyCare')}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.subTabPill, activeSubTab === 'tummy' && styles.subTabPillActive]}
+            onPress={() => setActiveSubTab('tummy')}
+            activeOpacity={0.85}
+          >
+            <Text
+              style={[styles.subTabText, activeSubTab === 'tummy' && styles.subTabTextActive]}
+              numberOfLines={1}
+            >
+              🩺 {t('dogDetail.tabs.tummyHealth')}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.subTabPill, activeSubTab === 'immunity' && styles.subTabPillActive]}
+            onPress={() => setActiveSubTab('immunity')}
+            activeOpacity={0.85}
+          >
+            <Text
+              style={[styles.subTabText, activeSubTab === 'immunity' && styles.subTabTextActive]}
+              numberOfLines={1}
+            >
+              🛡️ {t('dogDetail.tabs.immunityRecords')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ============================================================ */}
+        {/* SUB-TAB 1: DAILY CARE (Mood, Habits, Water, Meals)           */}
+        {/* ============================================================ */}
+        {activeSubTab === 'daily' ? (
+          <>
+            <View style={styles.moodCard}>
+              <View style={styles.moodLabelRow}>
+                <View style={styles.moodTitleGroup}>
+                  <Text style={styles.moodCardHeader}>TODAY'S WELL-BEING</Text>
+                  <Text style={styles.moodLabel}>{t('mood.question', { name: dog.name })}</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setMode('mood-history')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={styles.moodHistoryBtn}
+                >
+                  <Text style={styles.moodHistoryIcon}>🕒 {t('habitRow.history')}</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.moodGrid}>
+                {MOOD_OPTIONS.map((opt) => {
+                  const selected = mood?.mood === opt.value;
+                  return (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={[styles.moodBtn, selected && styles.moodBtnSelected]}
+                      onPress={async () => {
+                        await setTodayMood(opt.value);
+                        checkAndCreateHealthAlert(dog.id, dog.owner_id);
+                      }}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={styles.moodEmoji}>{opt.emoji}</Text>
+                      <Text style={[styles.moodBtnLabel, selected && styles.moodBtnLabelSelected]}>
+                        {t('mood.' + opt.value)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View
+              ref={habitsSectionRef}
+              collapsable={false}
+              onLayout={(e) => {
+                tourY.current.habits = e.nativeEvent.layout.y;
+              }}
+              style={styles.section}
+            >
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.sectionTitle}>{t('dogDetail.todaysHabits')}</Text>
+                <View ref={addHabitRef} collapsable={false}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setEditingHabit(null);
+                      setMode('habit-quick-add');
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={styles.addIcon}>+</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              {habits.length === 0 ? (
+                <Text style={styles.emptyText}>{t('dogDetail.noHabitsAddOne')}</Text>
+              ) : (
+                <View style={styles.card}>
+                  {habits.map((h, idx) => {
+                    const isWeekly = h.schedule_type === 'weekly_target';
+                    const target = isWeekly ? (h.weekly_target_count ?? 1) : getHabitTarget(h);
+                    const done = isWeekly ? isWeeklyGoalReached(h) : completedToday.has(h.id);
+                    const count = isWeekly
+                      ? (weeklyCounts.get(h.id) ?? 0)
+                      : (completedCounts.get(h.id) ?? (done && target <= 1 ? 1 : 0));
+                    const inProgress = !done && count > 0;
+                    const isWater = h.habit_type === 'water';
+
+                    return (
+                      <View key={h.id}>
+                        <HabitRow
+                          habit={h}
+                          count={count}
+                          target={target}
+                          done={done}
+                          inProgress={inProgress}
+                          subtitle={subtitleFor(h, count, target, done)}
+                          actionDisabled={isWater}
+                          onPressAction={() => {
+                            if (isWeekly) {
+                              if (!done) {
+                                logHabitToday(h.id);
+                              } else {
+                                resetHabitToday(h.id);
+                              }
+                              return;
+                            }
+                            if (!done) {
+                              logHabitToday(h.id);
+                              return;
+                            }
+                            isWater ? resetWaterToday(h.id) : resetHabitToday(h.id);
+                          }}
+                          onResetToday={() => {
+                            isWater ? resetWaterToday(h.id) : resetHabitToday(h.id);
+                          }}
+                          onLongPressAction={() => {
+                            if (count <= 0) return;
+                            Alert.alert(
+                              h.title,
+                              t('habitRow.manageProgress', { count, target }) ||
+                                `${t('home.today') || 'Today'}: ${count}/${target}`,
+                              [
+                                { text: t('common.cancel'), style: 'cancel' },
+                                target > 1 && count > 1
+                                  ? {
+                                      text: t('habitRow.undoOne') || 'Undo one (-1)',
+                                      onPress: () => undoOccurrence(h.id),
+                                    }
+                                  : null,
+                                {
+                                  text: t('habitRow.resetToZero') || 'Reset to 0',
+                                  style: 'destructive',
+                                  onPress: () => (isWater ? resetWaterToday(h.id) : resetHabitToday(h.id)),
+                                },
+                              ].filter(Boolean) as any
+                            );
+                          }}
+                          onEdit={() => {
+                            setEditingHabit(h);
+                            setPresetType(undefined);
+                            setMode('habit-form');
+                          }}
+                          onDelete={() => deleteHabit(h.id)}
+                          onViewHistory={() => {
+                            setHistoryTarget(h);
+                            setMode('history');
+                          }}
+                        />
+                        {isWater && !done ? (
+                          <WaterIncrementRow
+                            onAdd={(amount) => logWaterAmount(h.id, amount)}
+                            onReset={() => resetWaterToday(h.id)}
+                            onCustom={() => setWaterSheetHabitId(h.id)}
+                          />
+                        ) : null}
+                        {h.habit_type === 'feeding' && (done || count > 0) && completionIds.get(h.id) ? (
+                          <MealDetailLink
+                            detail={getMealDetail(completionIds.get(h.id)!)}
+                            onPress={() => setMealDetailHabitId(h.id)}
+                          />
+                        ) : null}
+                        {idx < habits.length - 1 ? <View style={styles.divider} /> : null}
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+
+            {mealDetails.length > 0 ? (
+              <TouchableOpacity style={styles.vaccineLink} onPress={() => setMode('meal-history')}>
+                <Text style={styles.vaccineLinkText}>{t('dogDetail.mealHistory')}</Text>
               </TouchableOpacity>
-            ))}
-          </View>
-        ) : (
-          <Text style={styles.emptyText}>{t('dogDetail.noSensitivities')}</Text>
-        )}
-      </View>
+            ) : null}
+          </>
+        ) : null}
 
-      {showHeatCycle && cycleSpecies ? (
-        <View
-          ref={cycleSectionRef}
-          collapsable={false}
-          onLayout={(e) => { tourY.current.cycle = e.nativeEvent.layout.y; }}
-        >
-          <HeatCycleSection
-            dog={dog}
-            tracking={cycleTracking}
-            onStartCycle={() => setCycleStartSheetVisible(true)}
-            onViewHistory={() => setMode('cycle-history')}
-          />
-        </View>
-      ) : null}
-
-      <View
-        ref={poopSectionRef}
-        collapsable={false}
-        onLayout={(e) => { tourY.current.poop = e.nativeEvent.layout.y; }}
-        style={styles.section}
-      >
-        <View style={styles.sectionTitleRow}>
-          <TouchableOpacity
-            onPress={() => setMode('health-list')}
-            activeOpacity={0.7}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
-          >
-            <Text style={styles.sectionTitle}>{t('dogDetail.poopTracker')}</Text>
-            <Text style={{ fontSize: 16, color: theme.primary, fontWeight: '700' }}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.addChip}
-            onPress={() => { setEditingLog(null); setMode('poop-form'); }}
-          >
-            <Text style={styles.addChipText}>{t('dogDetail.addShort')}</Text>
-          </TouchableOpacity>
-        </View>
-        {todayPoopLogs.length > 0 ? (
-          <View style={styles.card}>
-            {todayPoopLogs.map((l, idx) => (
-              <View key={l.id}>
-                <PoopLogCard
-                  log={l}
-                  onPress={() => { setEditingLog(l); setMode('poop-form'); }}
-                />
-                {idx < todayPoopLogs.length - 1 ? <View style={styles.divider} /> : null}
-              </View>
-            ))}
-          </View>
-        ) : (
-          <TouchableOpacity onPress={() => setMode('health-list')} activeOpacity={0.7}>
-            <Text style={styles.emptyText}>{t('dogDetail.noPoopToday')}</Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity onPress={() => setMode('health-list')} style={styles.seeAllRow} activeOpacity={0.7}>
-          <Text style={styles.backText}>{t('dogDetail.viewAllHistory')} ({logs.length}) →</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.section}>
-        <View style={styles.sectionTitleRow}>
-          <TouchableOpacity
-            onPress={() => setMode('vomit-list')}
-            activeOpacity={0.7}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
-          >
-            <Text style={styles.sectionTitle}>{t('dogDetail.vomitTracker')}</Text>
-            <Text style={{ fontSize: 16, color: theme.primary, fontWeight: '700' }}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.addChip}
-            onPress={() => { setEditingVomitLog(null); setMode('vomit-form'); }}
-          >
-            <Text style={styles.addChipText}>{t('dogDetail.addShort')}</Text>
-          </TouchableOpacity>
-        </View>
-        {todayVomitLogs.length > 0 ? (
-          <View style={styles.card}>
-            {todayVomitLogs.map((l, idx) => (
-              <View key={l.id}>
-                <VomitLogCard
-                  log={l}
-                  onPress={() => { setEditingVomitLog(l); setMode('vomit-form'); }}
-                />
-                {idx < todayVomitLogs.length - 1 ? <View style={styles.divider} /> : null}
-              </View>
-            ))}
-          </View>
-        ) : (
-          <TouchableOpacity onPress={() => setMode('vomit-list')} activeOpacity={0.7}>
-            <Text style={styles.emptyText}>{t('dogDetail.noVomitToday')}</Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity onPress={() => setMode('vomit-list')} style={styles.seeAllRow} activeOpacity={0.7}>
-          <Text style={styles.backText}>{t('dogDetail.viewAllHistory')} ({vomitLogs.length}) →</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* 4. Immunity & Protection Widget Card (Redesigned per UX Spec) */}
-      <View style={styles.protectionWidget}>
-        <View style={styles.protectionHeaderRow}>
-          <View style={styles.protectionTitleCol}>
-            <Text style={styles.protectionBadge}>IMMUNITY & PROTECTION</Text>
-            <Text style={styles.protectionTitle}>🛡️ {t('treatments.immunityTitle') || 'Immunity & Protection'}</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.protectionAddBtn}
-            onPress={() => { setEditingVaccine(null); setMode('vaccine-form'); }}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.protectionAddBtnText}>＋ {t('common.add') || 'Add'}</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.protectionGrid}>
-          {/* Left card: Vaccines */}
-          <TouchableOpacity
-            style={styles.protectionSubCard}
-            onPress={() => { setTreatmentSegment('vaccines'); setMode('vaccine-list'); }}
-            activeOpacity={0.8}
-          >
-            <View style={styles.subCardTopRow}>
-              <Text style={styles.subCardEmoji}>💉</Text>
-              <Text style={[styles.subCardStatus, vaccineOverdueCount > 0 ? styles.statusBad : styles.statusGood]}>
-                {vaccineOverdueCount > 0 ? `${vaccineOverdueCount} Overdue` : vaccineList.length > 0 ? 'Up to date' : 'Not set'}
-              </Text>
-            </View>
-            <Text style={styles.subCardTitle}>{t('treatments.types.vaccine') || 'Vaccines'}</Text>
-            <Text style={styles.subCardMeta} numberOfLines={1}>
-              {nextVaccine ? `Next: ${nextVaccine.vaccine_name}` : 'No upcoming shots'}
-            </Text>
-          </TouchableOpacity>
-
-          {/* Right card: Parasite Shield */}
-          <TouchableOpacity
-            style={styles.protectionSubCard}
-            onPress={() => { setTreatmentSegment('parasites'); setMode('vaccine-list'); }}
-            activeOpacity={0.8}
-          >
-            <View style={styles.subCardTopRow}>
-              <Text style={styles.subCardEmoji}>🛡️</Text>
-              <Text style={[styles.subCardStatus, parasiteOverdueCount > 0 ? styles.statusBad : styles.statusGood]}>
-                {parasiteOverdueCount > 0 ? `${parasiteOverdueCount} Overdue` : parasiteList.length > 0 ? 'Protected' : 'Not set'}
-              </Text>
-            </View>
-            <Text style={styles.subCardTitle}>{t('treatments.tabs.parasiteShield') || 'Parasite Shield'}</Text>
-            <Text style={styles.subCardMeta} numberOfLines={1}>
-              {nextParasite ? `Next: ${nextParasite.vaccine_name}` : 'Tap to protect'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity
-          style={styles.protectionManageBtn}
-          onPress={() => setMode('vaccine-list')}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.protectionManageBtnText}>
-            {t('treatments.managePlan') || 'Manage Preventive Care Plan →'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* 5. Past Vet Visits & Clinical Notes Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>🏥 {t('dogDetail.pastVetVisits')}</Text>
-        </View>
-        {pastVetVisits.length > 0 ? (
-          <View style={styles.card}>
-            {pastVetVisits.map((visit, idx) => (
-              <View key={visit.id} style={{ paddingVertical: 10, paddingHorizontal: 4 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: theme.textDark }}>
-                    {visit.title}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: theme.textMuted, fontWeight: '600' }}>
-                    {visit.appointmentDate}
+        {/* ============================================================ */}
+        {/* SUB-TAB 2: TUMMY & HEALTH (Unified Digestive Hub, Allergens) */}
+        {/* ============================================================ */}
+        {activeSubTab === 'tummy' ? (
+          <>
+            <View
+              ref={poopSectionRef}
+              collapsable={false}
+              onLayout={(e) => {
+                tourY.current.poop = e.nativeEvent.layout.y;
+              }}
+              style={styles.digestiveHubCard}
+            >
+              {/* Header & Gut Balance Status Badge */}
+              <View style={styles.digestiveHubHeader}>
+                <Text style={styles.digestiveHubBadge}>{t('dogDetail.digestiveHub.badge')}</Text>
+                <Text style={styles.digestiveHubTitle}>🩺 {t('dogDetail.digestiveHub.title')}</Text>
+                <View
+                  style={[
+                    styles.gutStatusBanner,
+                    digestiveMetrics.needsAttention ? styles.gutStatusWarning : styles.gutStatusGood,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.gutStatusText,
+                      { color: digestiveMetrics.needsAttention ? theme.pendingAmberText : theme.done },
+                    ]}
+                  >
+                    {digestiveMetrics.needsAttention
+                      ? `🟡 ${t('dogDetail.digestiveHub.statusAttention')}`
+                      : `🟢 ${t('dogDetail.digestiveHub.statusStable', { days: digestiveMetrics.calmDays })}`}
                   </Text>
                 </View>
-                {visit.clinicName ? (
-                  <Text style={{ fontSize: 13, color: theme.primary, fontWeight: '600', marginBottom: 4 }}>
-                    📍 {visit.clinicName}
+              </View>
+
+              {/* 7-Day Consistency Rhythm Strip */}
+              <View style={styles.rhythmBox}>
+                <View style={styles.rhythmHeaderRow}>
+                  <Text style={styles.rhythmLabel}>{t('dogDetail.digestiveHub.rhythmLabel')}</Text>
+                  <View style={styles.rhythmLegendRow}>
+                    <View style={[styles.legendDot, { backgroundColor: theme.done }]} />
+                    <Text style={styles.legendText}>{t('dogDetail.digestiveHub.legendIdeal')}</Text>
+                    <View style={[styles.legendDot, { backgroundColor: theme.pending }]} />
+                    <Text style={styles.legendText}>{t('dogDetail.digestiveHub.legendSoft')}</Text>
+                    <View style={[styles.legendDot, { backgroundColor: theme.allergenText }]} />
+                    <Text style={styles.legendText}>{t('dogDetail.digestiveHub.legendAlert')}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.rhythmDaysRow}>
+                  {sevenDayRhythm.map((day) => {
+                    const dotBg =
+                      day.status === 'ideal'
+                        ? theme.done
+                        : day.status === 'soft'
+                          ? theme.pending
+                          : day.status === 'alert'
+                            ? theme.allergenText
+                            : theme.border;
+                    return (
+                      <TouchableOpacity
+                        key={day.dateStr}
+                        style={[styles.rhythmDayCol, day.isToday && styles.rhythmDayColToday]}
+                        onPress={() => {
+                          setJournalFilter('all');
+                          setMode('digestive-journal');
+                        }}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={[styles.rhythmDayText, day.isToday && styles.rhythmDayTextToday]}>
+                          {day.dayLabel}
+                        </Text>
+                        <View
+                          style={[
+                            styles.rhythmStatusCircle,
+                            { backgroundColor: dotBg },
+                            day.status === 'none' && styles.rhythmStatusCircleEmpty,
+                          ]}
+                        >
+                          {day.status === 'ideal' ? (
+                            <Text style={styles.rhythmCircleCheck}>✓</Text>
+                          ) : day.status === 'alert' ? (
+                            <Text style={styles.rhythmCircleCheck}>!</Text>
+                          ) : null}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Side-by-Side Quick Log Cards */}
+              <View style={styles.quickCardsRow}>
+                {/* Left Card: Stool Quality */}
+                <View style={styles.quickActionCard}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setJournalFilter('stool');
+                      setMode('digestive-journal');
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.quickCardCap}>💩 {t('dogDetail.digestiveHub.stoolCardTitle')}</Text>
+                    <Text style={styles.quickCardMain} numberOfLines={1}>
+                      {latestStoolLabel}
+                    </Text>
+                    <Text style={styles.quickCardSub} numberOfLines={1}>
+                      {todayPoopLogs.length > 0
+                        ? `${todayPoopLogs.length}x ${t('dogDetail.today').toLowerCase()}`
+                        : t('dogDetail.noPoopToday')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.quickCardPrimaryBtn}
+                    onPress={() => {
+                      setReturnModeAfterForm('detail');
+                      setEditingLog(null);
+                      setMode('poop-form');
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.quickCardPrimaryBtnText}>{t('dogDetail.digestiveHub.logStoolBtn')}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Right Card: Tummy & Emesis */}
+                <View style={styles.quickActionCard}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setJournalFilter('vomit');
+                      setMode('digestive-journal');
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.quickCardCap}>🧪 {t('dogDetail.digestiveHub.tummyCardTitle')}</Text>
+                    <Text style={styles.quickCardMain} numberOfLines={1}>
+                      {digestiveMetrics.vomits7dCount === 0
+                        ? t('dogDetail.digestiveHub.tummyCalmWeek')
+                        : t('dogDetail.digestiveHub.tummyEpisodesWeek', {
+                            count: digestiveMetrics.vomits7dCount,
+                          })}
+                    </Text>
+                    <Text style={styles.quickCardSub} numberOfLines={1}>
+                      {digestiveMetrics.vomits7dCount === 0
+                        ? t('dogDetail.digestiveHub.tummyCalmSub')
+                        : t('dogDetail.digestiveHub.tummyRecentSub')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.quickCardSecondaryBtn}
+                    onPress={() => {
+                      setReturnModeAfterForm('detail');
+                      setEditingVomitLog(null);
+                      setMode('vomit-form');
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.quickCardSecondaryBtnText}>
+                      {t('dogDetail.digestiveHub.logIncidentBtn')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Today's Digestive Logs Inline Preview */}
+              {todayPoopLogs.length > 0 || todayVomitLogs.length > 0 ? (
+                <View style={styles.todayDigestiveBox}>
+                  <Text style={styles.todayDigestiveLabel}>
+                    {t('dogDetail.digestiveHub.todayLogsHeader')}
                   </Text>
-                ) : null}
-                {visit.notes ? (
-                  <View style={{ backgroundColor: theme.background, borderRadius: 10, padding: 10, marginTop: 4, borderWidth: 1, borderColor: theme.border }}>
-                    <Text style={{ fontSize: 13, color: theme.textDark, lineHeight: 18 }}>
-                      {visit.notes}
+                  {todayPoopLogs.map((l) => (
+                    <PoopLogCard
+                      key={l.id}
+                      log={l}
+                      onPress={() => {
+                        setReturnModeAfterForm('detail');
+                        setEditingLog(l);
+                        setMode('poop-form');
+                      }}
+                    />
+                  ))}
+                  {todayVomitLogs.map((v) => (
+                    <VomitLogCard
+                      key={v.id}
+                      log={v}
+                      onPress={() => {
+                        setReturnModeAfterForm('detail');
+                        setEditingVomitLog(v);
+                        setMode('vomit-form');
+                      }}
+                    />
+                  ))}
+                </View>
+              ) : null}
+
+              {/* Open Unified Digestive Journal CTA */}
+              <TouchableOpacity
+                style={styles.openJournalBtn}
+                onPress={() => {
+                  setJournalFilter('all');
+                  setMode('digestive-journal');
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.openJournalBtnText}>
+                  {t('dogDetail.digestiveHub.openJournalBtn')} ({logs.length + vomitLogs.length})
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Food Sensitivities / Allergens Card */}
+            <View style={styles.section}>
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.sectionTitle}>{t('dogDetail.foodSensitivities')}</Text>
+                <TouchableOpacity
+                  style={styles.addChip}
+                  onPress={() => {
+                    setEditingAllergen(null);
+                    setMode('allergen-form');
+                  }}
+                >
+                  <Text style={styles.addChipText}>{t('dogDetail.addShort')}</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.card}>
+                {allergens.length > 0 ? (
+                  <View style={styles.allergenRow}>
+                    {allergens.map((a) => (
+                      <TouchableOpacity
+                        key={a.id}
+                        style={styles.allergenChip}
+                        onPress={() => {
+                          setEditingAllergen(a);
+                          setMode('allergen-form');
+                        }}
+                      >
+                        <Text style={styles.allergenChipText}>🚫 {a.allergen}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.emptyText}>{t('dogDetail.noSensitivities')}</Text>
+                )}
+              </View>
+            </View>
+
+            {/* Weight & Body Condition Card */}
+            <View style={styles.protectionWidget}>
+              <View style={styles.protectionHeaderRow}>
+                <View style={styles.protectionTitleCol}>
+                  <Text style={styles.protectionBadge}>{t('dogDetail.weightCard.badge')}</Text>
+                  <Text style={styles.protectionTitle}>⚖️ {t('dogDetail.weightCard.title')}</Text>
+                </View>
+                <TouchableOpacity style={styles.protectionAddBtn} onPress={onEdit} activeOpacity={0.8}>
+                  <Text style={styles.protectionAddBtnText}>{t('dogDetail.weightCard.updateBtn')}</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.weightBigValue}>
+                {dog.weight_kg != null ? `${dog.weight_kg} kg` : t('dogDetail.weightCard.notSet')}
+              </Text>
+              <Text style={styles.emptyText}>{t('dogDetail.weightCard.clinicalHint')}</Text>
+            </View>
+          </>
+        ) : null}
+
+        {/* ============================================================ */}
+        {/* SUB-TAB 3: IMMUNITY & RECORDS (Vaccines, Cycle, Vet, PDF)    */}
+        {/* ============================================================ */}
+        {activeSubTab === 'immunity' ? (
+          <>
+            <View style={[styles.protectionWidget, { marginTop: 0 }]}>
+              <View style={styles.protectionHeaderRow}>
+                <View style={styles.protectionTitleCol}>
+                  <Text style={styles.protectionBadge}>IMMUNITY & PROTECTION</Text>
+                  <Text style={styles.protectionTitle}>
+                    🛡️ {t('treatments.immunityTitle') || 'Immunity & Protection'}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.protectionAddBtn}
+                  onPress={() => {
+                    setEditingVaccine(null);
+                    setMode('vaccine-form');
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.protectionAddBtnText}>＋ {t('common.add') || 'Add'}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.protectionGrid}>
+                <TouchableOpacity
+                  style={styles.protectionSubCard}
+                  onPress={() => {
+                    setTreatmentSegment('vaccines');
+                    setMode('vaccine-list');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.subCardTopRow}>
+                    <Text style={styles.subCardEmoji}>💉</Text>
+                    <Text style={[styles.subCardStatus, vaccineOverdueCount > 0 ? styles.statusBad : styles.statusGood]}>
+                      {vaccineOverdueCount > 0
+                        ? `${vaccineOverdueCount} Overdue`
+                        : vaccineList.length > 0
+                          ? 'Up to date'
+                          : 'Not set'}
                     </Text>
                   </View>
-                ) : null}
-                {idx < pastVetVisits.length - 1 ? <View style={[styles.divider, { marginTop: 10 }]} /> : null}
+                  <Text style={styles.subCardTitle}>{t('treatments.types.vaccine') || 'Vaccines'}</Text>
+                  <Text style={styles.subCardMeta} numberOfLines={1}>
+                    {nextVaccine ? `Next: ${nextVaccine.vaccine_name}` : 'No upcoming shots'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.protectionSubCard}
+                  onPress={() => {
+                    setTreatmentSegment('parasites');
+                    setMode('vaccine-list');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.subCardTopRow}>
+                    <Text style={styles.subCardEmoji}>🛡️</Text>
+                    <Text
+                      style={[styles.subCardStatus, parasiteOverdueCount > 0 ? styles.statusBad : styles.statusGood]}
+                    >
+                      {parasiteOverdueCount > 0
+                        ? `${parasiteOverdueCount} Overdue`
+                        : parasiteList.length > 0
+                          ? 'Protected'
+                          : 'Not set'}
+                    </Text>
+                  </View>
+                  <Text style={styles.subCardTitle}>{t('treatments.tabs.parasiteShield') || 'Parasite Shield'}</Text>
+                  <Text style={styles.subCardMeta} numberOfLines={1}>
+                    {nextParasite ? `Next: ${nextParasite.vaccine_name}` : 'Tap to protect'}
+                  </Text>
+                </TouchableOpacity>
               </View>
-            ))}
-          </View>
-        ) : (
-          <Text style={styles.emptyText}>{t('dogDetail.noPastVetVisits')}</Text>
-        )}
-      </View>
-    </ScrollView>
-    {tourRefs ? (
-      <TabTour
-        tab="pets"
-        enabled
-        steps={[
-          {
-            targetRef: tourRefs.switcherRef,
-            position: 'bottom',
-            title: t('tour.pets.s1Title'),
-            body: t('tour.pets.s1Body'),
-            ensureVisible: () => scrollRef.current?.scrollTo({ y: 0, animated: false }),
-          },
-          {
-            targetRef: habitsSectionRef,
-            position: 'bottom',
-            title: t('tour.pets.s2Title'),
-            body: t('tour.pets.s2Body'),
-            ensureVisible: () => scrollToTour(tourY.current.habits),
-          },
-          {
-            targetRef: addHabitRef,
-            position: 'bottom',
-            title: t('tour.pets.s3Title'),
-            body: t('tour.pets.s3Body'),
-            ensureVisible: () => scrollToTour(tourY.current.habits),
-          },
-          ...(showHeatCycle && cycleSpecies
-            ? [{
-                targetRef: cycleSectionRef,
-                position: 'bottom' as const,
-                title: t('tour.pets.s4Title'),
-                body: t('tour.pets.s4Body'),
-                ensureVisible: () => scrollToTour(tourY.current.cycle),
-              }]
-            : []),
-          {
-            targetRef: poopSectionRef,
-            position: 'bottom',
-            title: t('tour.pets.s5Title'),
-            body: t('tour.pets.s5Body'),
-            ensureVisible: () => scrollToTour(tourY.current.poop),
-          },
-        ]}
-      />
-    ) : null}
-    <MealDetailSheet
-      visible={mealDetailHabitId !== null}
-      initial={mealDetailInitial}
-      onClose={() => setMealDetailHabitId(null)}
-      onSave={async (details) => {
-        if (!mealDetailCompletionId) return { error: new Error(t('dogDetail.noCompletionFound')) };
-        const { error } = await addMealDetail(mealDetailCompletionId, dog.id, details);
-        if (!error) setMealDetailHabitId(null);
-        return { error };
-      }}
-    />
-    <WaterLogSheet
-      visible={waterSheetHabitId !== null}
-      onClose={() => setWaterSheetHabitId(null)}
-      onSave={async (amountMl, notes) => {
-        if (!waterSheetHabitId) return;
-        await logWaterAmount(waterSheetHabitId, amountMl, notes);
-        setWaterSheetHabitId(null);
-      }}
-    />
-    {cycleSpecies ? (
-      <CycleStartSheet
-        visible={cycleStartSheetVisible}
-        species={cycleSpecies}
-        onClose={() => setCycleStartSheetVisible(false)}
-        onSave={async (startDate, notes) => {
-          await cycleTracking.startCycle(cycleSpecies, startDate, notes ?? undefined);
-          setCycleStartSheetVisible(false);
+
+              <TouchableOpacity
+                style={styles.protectionManageBtn}
+                onPress={() => setMode('vaccine-list')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.protectionManageBtnText}>
+                  {t('treatments.managePlan') || 'Manage Preventive Care Plan →'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {showHeatCycle && cycleSpecies ? (
+              <View
+                ref={cycleSectionRef}
+                collapsable={false}
+                onLayout={(e) => {
+                  tourY.current.cycle = e.nativeEvent.layout.y;
+                }}
+              >
+                <HeatCycleSection
+                  dog={dog}
+                  tracking={cycleTracking}
+                  onStartCycle={() => setCycleStartSheetVisible(true)}
+                  onViewHistory={() => setMode('cycle-history')}
+                />
+              </View>
+            ) : null}
+
+            {/* Past Vet Visits & Clinical Notes Section */}
+            <View style={styles.section}>
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.sectionTitle}>🏥 {t('dogDetail.pastVetVisits')}</Text>
+              </View>
+              {pastVetVisits.length > 0 ? (
+                <View style={styles.card}>
+                  {pastVetVisits.map((visit, idx) => (
+                    <View key={visit.id} style={{ paddingVertical: 10, paddingHorizontal: 4 }}>
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: 4,
+                        }}
+                      >
+                        <Text style={{ fontSize: 15, fontWeight: '700', color: theme.textDark }}>{visit.title}</Text>
+                        <Text style={{ fontSize: 12, color: theme.textMuted, fontWeight: '600' }}>
+                          {visit.appointmentDate}
+                        </Text>
+                      </View>
+                      {visit.clinicName ? (
+                        <Text style={{ fontSize: 13, color: theme.primary, fontWeight: '600', marginBottom: 4 }}>
+                          📍 {visit.clinicName}
+                        </Text>
+                      ) : null}
+                      {visit.notes ? (
+                        <View
+                          style={{
+                            backgroundColor: theme.background,
+                            borderRadius: 10,
+                            padding: 10,
+                            marginTop: 4,
+                            borderWidth: 1,
+                            borderColor: theme.border,
+                          }}
+                        >
+                          <Text style={{ fontSize: 13, color: theme.textDark, lineHeight: 18 }}>{visit.notes}</Text>
+                        </View>
+                      ) : null}
+                      {idx < pastVetVisits.length - 1 ? <View style={[styles.divider, { marginTop: 10 }]} /> : null}
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.card}>
+                  <Text style={styles.emptyText}>{t('dogDetail.noPastVetVisits')}</Text>
+                </View>
+              )}
+            </View>
+
+            {/* 1-Tap Clinical PDF Vet Dossier Export Card */}
+            <View style={styles.protectionWidget}>
+              <Text style={styles.protectionBadge}>{t('dogDetail.dossierCard.badge')}</Text>
+              <Text style={[styles.protectionTitle, { marginBottom: 6 }]}>
+                📄 {t('dogDetail.dossierCard.title')}
+              </Text>
+              <Text style={[styles.emptyText, { marginBottom: 14, lineHeight: 18 }]}>
+                {t('dogDetail.dossierCard.subtitle')}
+              </Text>
+              <TouchableOpacity
+                style={styles.protectionManageBtn}
+                onPress={() => setMode('report-picker')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.protectionManageBtnText}>{t('dogDetail.dossierCard.exportBtn')}</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : null}
+      </ScrollView>
+
+      {tourRefs ? (
+        <TabTour
+          tab="pets"
+          enabled
+          steps={[
+            {
+              targetRef: tourRefs.switcherRef,
+              position: 'bottom',
+              title: t('tour.pets.s1Title'),
+              body: t('tour.pets.s1Body'),
+              ensureVisible: () => {
+                setActiveSubTab('daily');
+                scrollRef.current?.scrollTo({ y: 0, animated: false });
+              },
+            },
+            {
+              targetRef: habitsSectionRef,
+              position: 'bottom',
+              title: t('tour.pets.s2Title'),
+              body: t('tour.pets.s2Body'),
+              ensureVisible: () => {
+                setActiveSubTab('daily');
+                scrollToTour(tourY.current.habits);
+              },
+            },
+            {
+              targetRef: addHabitRef,
+              position: 'bottom',
+              title: t('tour.pets.s3Title'),
+              body: t('tour.pets.s3Body'),
+              ensureVisible: () => {
+                setActiveSubTab('daily');
+                scrollToTour(tourY.current.habits);
+              },
+            },
+          ]}
+        />
+      ) : null}
+
+      <MealDetailSheet
+        visible={mealDetailHabitId !== null}
+        initial={mealDetailInitial}
+        onClose={() => setMealDetailHabitId(null)}
+        onSave={async (details) => {
+          if (!mealDetailCompletionId) return { error: new Error(t('dogDetail.noCompletionFound')) };
+          const { error } = await addMealDetail(mealDetailCompletionId, dog.id, details);
+          if (!error) setMealDetailHabitId(null);
+          return { error };
         }}
       />
-    ) : null}
+      <WaterLogSheet
+        visible={waterSheetHabitId !== null}
+        onClose={() => setWaterSheetHabitId(null)}
+        onSave={async (amountMl, notes) => {
+          if (!waterSheetHabitId) return;
+          await logWaterAmount(waterSheetHabitId, amountMl, notes);
+          setWaterSheetHabitId(null);
+        }}
+      />
+      {cycleSpecies ? (
+        <CycleStartSheet
+          visible={cycleStartSheetVisible}
+          species={cycleSpecies}
+          onClose={() => setCycleStartSheetVisible(false)}
+          onSave={async (startDate, notes) => {
+            await cycleTracking.startCycle(cycleSpecies, startDate, notes ?? undefined);
+            setCycleStartSheetVisible(false);
+          }}
+        />
+      ) : null}
     </>
   );
 }
@@ -1114,7 +1689,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
     },
     title: {
       fontSize: 22,
-      fontWeight: '700',
+      fontWeight: '800',
       color: theme.textDark,
     },
     subtitle: {
@@ -1138,27 +1713,13 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       color: theme.textMuted,
       marginBottom: 1,
     },
-    downloadBtn: {
-      width: 34,
-      height: 34,
-      borderRadius: 10,
-      backgroundColor: theme.moodSelBg,
-      borderWidth: 0.5,
-      borderColor: theme.moodSelBorder,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    downloadIcon: {
-      fontSize: 15,
-    },
-    // Centerpiece: The Warm Companion Passport Card
     passportCard: {
       backgroundColor: theme.surface,
       borderRadius: 24,
       borderWidth: 1.5,
       borderColor: theme.border,
       padding: 16,
-      marginBottom: 16,
+      marginBottom: 12,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: isDarkMode ? 0.25 : 0.05,
@@ -1267,7 +1828,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
     headerButtons: {
       flexDirection: 'row',
       gap: 10,
-      marginBottom: 16,
+      marginBottom: 14,
     },
     editButton: {
       flex: 1,
@@ -1297,7 +1858,386 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       fontSize: 13,
       fontWeight: '700',
     },
-    // Today's Well-being Card
+    // 3-Tab Segmented Pill Switcher
+    subTabBar: {
+      flexDirection: 'row',
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 18,
+      padding: 4,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: theme.border,
+      gap: 4,
+    },
+    subTabPill: {
+      flex: 1,
+      paddingVertical: 10,
+      paddingHorizontal: 6,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    subTabPillActive: {
+      backgroundColor: theme.surface,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDarkMode ? 0.25 : 0.08,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    subTabText: {
+      fontSize: 11.5,
+      fontWeight: '600',
+      color: theme.textMuted,
+    },
+    subTabTextActive: {
+      color: theme.primary,
+      fontWeight: '800',
+    },
+    // Unified Digestive & Tummy Wellness Hub Card
+    digestiveHubCard: {
+      backgroundColor: theme.surface,
+      borderRadius: 24,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      padding: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: isDarkMode ? 0.22 : 0.05,
+      shadowRadius: 10,
+      elevation: 2,
+    },
+    digestiveHubHeader: {
+      marginBottom: 14,
+    },
+    digestiveHubBadge: {
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 0.8,
+      color: theme.primary,
+      marginBottom: 2,
+    },
+    digestiveHubTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: theme.textDark,
+      marginBottom: 8,
+    },
+    gutStatusBanner: {
+      alignSelf: 'flex-start',
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 12,
+      borderWidth: 1,
+    },
+    gutStatusGood: {
+      backgroundColor: isDarkMode ? '#1F3327' : '#EAF3ED',
+      borderColor: isDarkMode ? '#2F523D' : '#C6DFCE',
+    },
+    gutStatusWarning: {
+      backgroundColor: theme.pendingAmberBg,
+      borderColor: theme.pending,
+    },
+    gutStatusText: {
+      fontSize: 11.5,
+      fontWeight: '700',
+    },
+    rhythmBox: {
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 18,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+      marginBottom: 14,
+    },
+    rhythmHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 10,
+    },
+    rhythmLabel: {
+      fontSize: 10,
+      fontWeight: '800',
+      color: theme.textMuted,
+      letterSpacing: 0.6,
+    },
+    rhythmLegendRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    legendDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      marginLeft: 4,
+    },
+    legendText: {
+      fontSize: 10,
+      color: theme.textMuted,
+      fontWeight: '600',
+    },
+    rhythmDaysRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 4,
+    },
+    rhythmDayCol: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 6,
+      borderRadius: 12,
+    },
+    rhythmDayColToday: {
+      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    rhythmDayText: {
+      fontSize: 10,
+      fontWeight: '600',
+      color: theme.textMuted,
+      marginBottom: 6,
+    },
+    rhythmDayTextToday: {
+      color: theme.primary,
+      fontWeight: '800',
+    },
+    rhythmStatusCircle: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    rhythmStatusCircleEmpty: {
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      borderStyle: 'dashed',
+      borderColor: theme.textMuted,
+    },
+    rhythmCircleCheck: {
+      color: '#FFFFFF',
+      fontSize: 11,
+      fontWeight: '800',
+    },
+    quickCardsRow: {
+      flexDirection: 'row',
+      gap: 10,
+      marginBottom: 14,
+    },
+    quickActionCard: {
+      flex: 1,
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 18,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+      justifyContent: 'space-between',
+    },
+    quickCardCap: {
+      fontSize: 10,
+      fontWeight: '800',
+      color: theme.textMuted,
+      letterSpacing: 0.5,
+      marginBottom: 4,
+    },
+    quickCardMain: {
+      fontSize: 14,
+      fontWeight: '800',
+      color: theme.textDark,
+    },
+    quickCardSub: {
+      fontSize: 11.5,
+      color: theme.textMuted,
+      marginTop: 2,
+      marginBottom: 10,
+    },
+    quickCardPrimaryBtn: {
+      backgroundColor: theme.primary,
+      borderRadius: 12,
+      paddingVertical: 9,
+      alignItems: 'center',
+    },
+    quickCardPrimaryBtnText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    quickCardSecondaryBtn: {
+      backgroundColor: theme.surface,
+      borderRadius: 12,
+      paddingVertical: 9,
+      alignItems: 'center',
+      borderWidth: 1.5,
+      borderColor: theme.primary,
+    },
+    quickCardSecondaryBtnText: {
+      color: theme.primary,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    todayDigestiveBox: {
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 16,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+      marginBottom: 14,
+    },
+    todayDigestiveLabel: {
+      fontSize: 10,
+      fontWeight: '800',
+      color: theme.textMuted,
+      letterSpacing: 0.6,
+      marginBottom: 6,
+    },
+    openJournalBtn: {
+      backgroundColor: isDarkMode ? '#2E1E19' : '#FFF7F4',
+      borderRadius: 14,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.primary,
+    },
+    openJournalBtnText: {
+      color: theme.primary,
+      fontSize: 12.5,
+      fontWeight: '700',
+    },
+    weightBigValue: {
+      fontSize: 22,
+      fontWeight: '800',
+      color: theme.textDark,
+      marginBottom: 4,
+    },
+    // Digestive Journal & Trends Sheet styles
+    journalKpiRibbon: {
+      flexDirection: 'row',
+      backgroundColor: theme.surface,
+      borderRadius: 20,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      paddingVertical: 14,
+      marginBottom: 14,
+    },
+    journalKpiCard: {
+      flex: 1,
+      alignItems: 'center',
+      paddingHorizontal: 6,
+    },
+    journalKpiCardCenter: {
+      borderLeftWidth: 1,
+      borderRightWidth: 1,
+      borderColor: theme.border,
+    },
+    journalKpiVal: {
+      fontSize: 17,
+      fontWeight: '800',
+      color: theme.textDark,
+    },
+    journalKpiLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.textMuted,
+      marginTop: 3,
+      textAlign: 'center',
+    },
+    journalInsightCard: {
+      backgroundColor: isDarkMode ? '#2E1E19' : '#FFF7F4',
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: theme.primary,
+      padding: 14,
+      marginBottom: 16,
+    },
+    journalInsightTitle: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: theme.primary,
+      marginBottom: 4,
+    },
+    journalInsightBody: {
+      fontSize: 12.5,
+      color: theme.textDark,
+      lineHeight: 18,
+    },
+    journalFilterRow: {
+      flexDirection: 'row',
+      gap: 8,
+      marginBottom: 16,
+    },
+    journalFilterPill: {
+      flex: 1,
+      paddingVertical: 9,
+      paddingHorizontal: 8,
+      borderRadius: 14,
+      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: 'center',
+    },
+    journalFilterPillActive: {
+      backgroundColor: theme.primary,
+      borderColor: theme.primary,
+    },
+    journalFilterPillText: {
+      fontSize: 11.5,
+      fontWeight: '700',
+      color: theme.textMuted,
+    },
+    journalFilterPillTextActive: {
+      color: '#FFFFFF',
+    },
+    journalDateSection: {
+      marginBottom: 16,
+    },
+    journalDateHeader: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: theme.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+      marginBottom: 8,
+    },
+    journalBottomBar: {
+      flexDirection: 'row',
+      gap: 10,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: theme.surface,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+    },
+    journalPrimaryBtn: {
+      flex: 1,
+      backgroundColor: theme.primary,
+      borderRadius: 14,
+      paddingVertical: 13,
+      alignItems: 'center',
+    },
+    journalPrimaryBtnText: {
+      color: '#FFFFFF',
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    journalSecondaryBtn: {
+      flex: 1,
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 14,
+      paddingVertical: 13,
+      alignItems: 'center',
+      borderWidth: 1.5,
+      borderColor: theme.primary,
+    },
+    journalSecondaryBtnText: {
+      color: theme.primary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    // Mood Card
     moodCard: {
       backgroundColor: theme.surface,
       borderRadius: 22,
@@ -1441,9 +2381,6 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       fontSize: 13,
       color: theme.textMuted,
     },
-    seeAllRow: {
-      marginTop: 8,
-    },
     divider: {
       height: 0.5,
       backgroundColor: theme.divider,
@@ -1463,7 +2400,6 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       fontSize: 14,
       fontWeight: '600',
     },
-    // Segmented Preventive Care Hub Styles
     segmentSwitcher: {
       flexDirection: 'row',
       backgroundColor: theme.surfaceAlt,
@@ -1543,7 +2479,6 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       fontSize: 15,
       fontWeight: '700',
     },
-    // Immunity & Protection Status Widget Card
     protectionWidget: {
       backgroundColor: theme.surface,
       borderRadius: 22,
@@ -1608,32 +2543,29 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 8,
+      marginBottom: 6,
     },
     subCardEmoji: {
-      fontSize: 18,
+      fontSize: 20,
     },
     subCardStatus: {
-      fontSize: 11,
-      fontWeight: '700',
-      paddingHorizontal: 6,
+      fontSize: 10,
+      fontWeight: '800',
+      paddingHorizontal: 7,
       paddingVertical: 2,
       borderRadius: 8,
+      overflow: 'hidden',
     },
     statusGood: {
-      backgroundColor: theme.moodSelBg,
-      color: theme.primary,
+      backgroundColor: isDarkMode ? '#1F3327' : '#EAF3ED',
+      color: theme.done,
     },
     statusBad: {
       backgroundColor: theme.allergenBg,
       color: theme.allergenText,
     },
-    statusSoon: {
-      backgroundColor: theme.pendingAmberBg,
-      color: theme.pendingAmberText,
-    },
     subCardTitle: {
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: '700',
       color: theme.textDark,
       marginBottom: 2,
@@ -1643,17 +2575,17 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       color: theme.textMuted,
     },
     protectionManageBtn: {
+      backgroundColor: isDarkMode ? '#2E1E19' : '#FFF7F4',
+      borderRadius: 14,
+      paddingVertical: 11,
       alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 10,
-      borderTopWidth: 1,
-      borderTopColor: theme.border,
-      marginTop: 2,
+      borderWidth: 1,
+      borderColor: theme.primary,
     },
     protectionManageBtnText: {
+      color: theme.primary,
       fontSize: 13,
       fontWeight: '700',
-      color: theme.primary,
     },
   });
 }

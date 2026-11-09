@@ -38,10 +38,13 @@ export default function VomitLogCard({ log, onPress }: Props) {
   const { dot, chipBg, chipText } = severityStyle(theme, severity);
 
   return (
-    <TouchableOpacity style={styles.row} onPress={onPress}>
-      <View style={[styles.dot, { backgroundColor: dot }]} />
+    <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.75}>
+      <View style={styles.iconCircle}>
+        <Text style={styles.iconEmoji}>🧪</Text>
+        <View style={[styles.statusBadgeDot, { backgroundColor: dot }]} />
+      </View>
       <View style={styles.info}>
-        <Text style={styles.title}>🤮 {formatLoggedAt(log.logged_at)}</Text>
+        <Text style={styles.title}>{formatLoggedAt(log.logged_at)}</Text>
         <Text style={styles.meta} numberOfLines={1}>
           {t('vomit.causeOpt.' + possibleCause)} · {frequency}x{log.notes ? ` · ${log.notes}` : ''}
         </Text>
@@ -58,14 +61,33 @@ function makeStyles(theme: ThemeTokens) {
     row: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      paddingVertical: 5,
+      gap: 10,
+      paddingVertical: 8,
     },
-    dot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
+    iconCircle: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      backgroundColor: theme.surfaceAlt,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
       flexShrink: 0,
+    },
+    iconEmoji: {
+      fontSize: 16,
+    },
+    statusBadgeDot: {
+      position: 'absolute',
+      bottom: -2,
+      right: -2,
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      borderWidth: 1.5,
+      borderColor: theme.surface,
     },
     info: {
       flex: 1,
@@ -73,22 +95,22 @@ function makeStyles(theme: ThemeTokens) {
     },
     title: {
       fontSize: 14,
-      fontWeight: '500',
+      fontWeight: '700',
       color: theme.textDark,
     },
     meta: {
       fontSize: 12,
       color: theme.textMuted,
-      marginTop: 1,
+      marginTop: 2,
     },
     chip: {
-      borderRadius: 20,
-      paddingHorizontal: 8,
-      paddingVertical: 2,
+      borderRadius: 12,
+      paddingHorizontal: 9,
+      paddingVertical: 4,
     },
     chipText: {
-      fontSize: 12,
-      fontWeight: '500',
+      fontSize: 11,
+      fontWeight: '700',
     },
   });
 }
