@@ -13,6 +13,7 @@ import { computeAge } from '../lib/petAge';
 import { useHabits, getHabitTarget } from '../lib/hooks/useHabits';
 import { useAllVaccines } from '../lib/hooks/useAllVaccines';
 import { useDogMood } from '../lib/hooks/useDogMood';
+import { getMoodStatus } from '../lib/moodStatus';
 import PetSummaryCard from '../components/PetSummaryCard';
 import NearbyVetsSection from '../components/NearbyVetsSection';
 import PreventiveCareCard from '../components/PreventiveCareCard';
@@ -68,6 +69,7 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
   } = useHabits(activeDog?.id ?? '');
   const { upcoming: upcomingVaccines, overdue: overdueVaccines } = useAllVaccines();
   const { mood } = useDogMood(activeDog?.id ?? '');
+  const moodStatus = getMoodStatus(mood?.mood, theme, t);
   const age = computeAge(activeDog?.birth_date ?? null);
 
   const nextPreventiveTreatment = useMemo(() => {
@@ -247,12 +249,22 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
               <View style={styles.passportInfo}>
                 <View style={styles.passportTitleRow}>
                   <Text style={styles.passportName} numberOfLines={1}>{activeDog.name}</Text>
-                  <View style={styles.stampBadge}>
-                    <View style={styles.stampDot} />
-                    <Text style={styles.stampText}>
-                      {mood?.mood === 'sick' ? (t('mood.sick') || 'Needs Care') : mood?.mood === 'off' ? (t('mood.off') || 'A Bit Off') : (t('mood.great') || 'Thriving')}
+                  <TouchableOpacity
+                    style={[
+                      styles.stampBadge,
+                      {
+                        backgroundColor: moodStatus.badgeBg,
+                        borderColor: moodStatus.borderColor,
+                      },
+                    ]}
+                    onPress={() => navigation.navigate('Pets', { dogId: activeDog.id })}
+                    activeOpacity={0.75}
+                  >
+                    <View style={[styles.stampDot, { backgroundColor: moodStatus.dotColor }]} />
+                    <Text style={[styles.stampText, { color: moodStatus.textColor }]}>
+                      {moodStatus.label}
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                 </View>
                 <Text style={styles.passportMeta} numberOfLines={1}>
                   {[activeDog.breed, age].filter(Boolean).join(' · ') || 'Beloved Companion'}

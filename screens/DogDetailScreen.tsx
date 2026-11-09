@@ -46,6 +46,7 @@ import { checkAndCreateHealthAlert } from '../lib/notificationService';
 import { detectTreatmentType } from '../lib/treatmentLogic';
 import { formatDate } from '../lib/vaccineDisplay';
 import { toLocalDateString } from '../lib/dateUtils';
+import { getMoodStatus } from '../lib/moodStatus';
 
 type Props = {
   dog: Dog;
@@ -210,7 +211,7 @@ export default function DogDetailScreen({
   const addHabitRef = useRef<View>(null);
   const cycleSectionRef = useRef<View>(null);
   const poopSectionRef = useRef<View>(null);
-  const tourY = useRef<{ habits?: number; cycle?: number; poop?: number }>({});
+  const tourY = useRef<{ mood?: number; habits?: number; cycle?: number; poop?: number }>({});
   const scrollToTour = (y?: number) =>
     scrollRef.current?.scrollTo({ y: Math.max(0, (y ?? 0) - 90), animated: true });
 
@@ -236,6 +237,7 @@ export default function DogDetailScreen({
   const { logs: vomitLogs, addLog: addVomitLog, updateLog: updateVomitLog, deleteLog: deleteVomitLog } = useVomitLogs(dog.id);
   const { mealDetails, getMealDetail, addMealDetail, deleteMealDetail } = useMealDetails(dog.id);
   const { mood, setTodayMood } = useDogMood(dog.id);
+  const moodStatus = getMoodStatus(mood?.mood, theme, t);
   usePetStreak(dog.id, habits.map((h) => h.id));
   const cycleTracking = useCycleTracking(dog.id, dog.breed);
 
@@ -909,12 +911,27 @@ export default function DogDetailScreen({
                 <Text style={styles.name} numberOfLines={1}>
                   {dog.name}
                 </Text>
-                <View style={styles.stampBadge}>
-                  <View style={styles.stampDot} />
-                  <Text style={styles.stampText}>
-                    {mood?.mood === 'sick' ? 'Needs Care' : mood?.mood === 'off' ? 'A Bit Off' : 'Thriving'}
+                <TouchableOpacity
+                  style={[
+                    styles.stampBadge,
+                    {
+                      backgroundColor: moodStatus.badgeBg,
+                      borderColor: moodStatus.borderColor,
+                    },
+                  ]}
+                  onPress={() => {
+                    setActiveSubTab('daily');
+                    setTimeout(() => {
+                      scrollToTour(tourY.current.mood ?? 180);
+                    }, 60);
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.stampDot, { backgroundColor: moodStatus.dotColor }]} />
+                  <Text style={[styles.stampText, { color: moodStatus.textColor }]}>
+                    {moodStatus.label}
                   </Text>
-                </View>
+                </TouchableOpacity>
               </View>
               {metaLine ? (
                 <Text style={styles.meta} numberOfLines={1}>
@@ -1011,7 +1028,12 @@ export default function DogDetailScreen({
         {/* ============================================================ */}
         {activeSubTab === 'daily' ? (
           <>
-            <View style={styles.moodCard}>
+            <View
+              style={styles.moodCard}
+              onLayout={(e) => {
+                tourY.current.mood = e.nativeEvent.layout.y;
+              }}
+            >
               <View style={styles.moodLabelRow}>
                 <View style={styles.moodTitleGroup}>
                   <Text style={styles.moodCardHeader}>TODAY'S WELL-BEING</Text>
