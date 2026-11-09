@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { Dog, VetResult } from '../types';
 import { useNearbyVets } from '../lib/hooks/useNearbyVets';
@@ -27,10 +28,11 @@ type Props = {
 };
 
 export default function VetFinderScreen({ onBack, activeDog, onOpenDossier }: Props) {
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
   const { t } = useT();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
-  const { vets, userLocation, loading, error, permissionDenied, searchNearMe, searchByAddress } = useNearbyVets();
+  const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
+  const { vets, userLocation, loading, error, permissionDenied, searchNearMe, searchByAddress } =
+    useNearbyVets();
   const [addressInput, setAddressInput] = useState('');
 
   const webViewRef = useRef<WebView>(null);
@@ -41,12 +43,21 @@ export default function VetFinderScreen({ onBack, activeDog, onOpenDossier }: Pr
     searchNearMe();
   }, []);
 
+  const mapHtml = useMemo(() => {
+    if (!userLocation) return '';
+    return buildVetMapHtml(userLocation, vets);
+  }, [userLocation, vets]);
+
   const handleSelectVet = (v: VetResult) => {
     setSelectedVet(v);
     setSheetVisible(true);
+    const safeId = JSON.stringify(v.id);
     webViewRef.current?.injectJavaScript(`
       if (typeof map !== 'undefined') {
         map.setView([${v.lat}, ${v.lon}], 15, { animate: true });
+      }
+      if (typeof highlightVetMarker === 'function') {
+        highlightVetMarker(${safeId});
       }
       true;
     `);
@@ -70,8 +81,9 @@ export default function VetFinderScreen({ onBack, activeDog, onOpenDossier }: Pr
   return (
     <SwipeBackWrapper onBack={onBack}>
       <View style={styles.container}>
-        <TouchableOpacity onPress={onBack} style={styles.backRow}>
-          <Text style={styles.backText}>‹ {t('common.back')}</Text>
+        <TouchableOpacity onPress={onBack} style={styles.backRow} activeOpacity={0.7}>
+          <Feather name="chevron-left" size={20} color={theme.primary} />
+          <Text style={styles.backText}>{t('common.back')}</Text>
         </TouchableOpacity>
 
         <Text style={styles.title}>{t('vetFinder.title')}</Text>
@@ -83,9 +95,7 @@ export default function VetFinderScreen({ onBack, activeDog, onOpenDossier }: Pr
           </View>
         ) : permissionDenied ? (
           <View style={styles.content}>
-            <Text style={styles.emptyText}>
-              {t('vetFinder.permissionDenied')}
-            </Text>
+            <Text style={styles.emptyText}>{t('vetFinder.permissionDenied')}</Text>
             <View style={styles.addressRow}>
               <TextInput
                 style={styles.addressInput}
@@ -118,11 +128,7 @@ export default function VetFinderScreen({ onBack, activeDog, onOpenDossier }: Pr
                 <WebView
                   ref={webViewRef}
                   originWhitelist={['*']}
-                  source={{
-                    html: buildVetMapHtml(userLocation, vets, {
-                      highlightVetId: selectedVet?.id,
-                    }),
-                  }}
+                  source={{ html: mapHtml }}
                   style={styles.map}
                   onMessage={handleMapMessage}
                 />
@@ -133,67 +139,118 @@ export default function VetFinderScreen({ onBack, activeDog, onOpenDossier }: Pr
               {vets.length === 0 ? (
                 <Text style={styles.emptyText}>{t('vetFinder.noVetsNearby')}</Text>
               ) : (
-                vets.map((v, idx) => (
-                  <View key={v.id}>
+                vets.map((v) => {
+                  const hoursInfo = formatOpeningHours(v.openingHours);
+                  const isSelected = selectedVet?.id === v.id;
+                  return (
                     <TouchableOpacity
-                      style={styles.vetRow}
+                      key={v.id}
+                      style={[styles.vetCard, isSelected && styles.vetCardSelected]}
                       onPress={() => handleSelectVet(v)}
-                      activeOpacity={0.7}
+                      activeOpacity={0.82}
                     >
-                      <View style={styles.vetInfo}>
-                        <View style={styles.nameRow}>
-                          <Text style={styles.vetName} numberOfLines={1}>
-                            {v.name}
-                          </Text>
-                          {v.isEmergency ? (
-                            <View style={styles.emergencyBadge}>
-                              <Text style={styles.emergencyBadgeText}>🚨 24/7</Text>
+                      <View style={styles.vetTopRow}>
+                        <View style={styles.clinicBadge}>
+                          <Ionicons name="medkit-outline" size={18} color={theme.primary} />
+                        </View>
+
+                        <View style={styles.vetInfo}>
+                          <View style={styles.nameRow}>
+                            <Text style={styles.vetName} numberOfLines={1}>
+                              {v.name}
+                            </Text>
+                            <View style={styles.distancePill}>
+                              <Text style={styles.distancePillText}>
+                                {v.distanceKm.toFixed(1)} km
+                              </Text>
+                            </View>
+                          </View>
+
+                          {/* Status & Emergency Badges */}
+                          {hoursInfo.isOpenNow != null || v.isEmergency ? (
+                            <View style={styles.statusBadgesRow}>
+                              {hoursInfo.isOpenNow === true ? (
+                                <View style={styles.openBadge}>
+                                  <View style={styles.openDot} />
+                                  <Text style={styles.openBadgeText}>
+                                    {t('vetFinder.openNowBadge')}
+                                  </Text>
+                                </View>
+                              ) : hoursInfo.isOpenNow === false ? (
+                                <View style={styles.closedBadge}>
+                                  <View style={styles.closedDot} />
+                                  <Text style={styles.closedBadgeText}>
+                                    {t('vetFinder.closedBadge')}
+                                  </Text>
+                                </View>
+                              ) : null}
+
+                              {v.isEmergency ? (
+                                <View style={styles.emergencyBadge}>
+                                  <Ionicons name="shield-checkmark" size={12} color="#DC2626" />
+                                  <Text style={styles.emergencyBadgeText}>
+                                    {t('vetFinder.emergencyBadge')}
+                                  </Text>
+                                </View>
+                              ) : null}
                             </View>
                           ) : null}
-                        </View>
-                        {v.address ? (
-                          <Text style={styles.vetSubtitle} numberOfLines={1}>
-                            {v.address}
-                          </Text>
-                        ) : null}
-                        <View style={styles.metaRow}>
-                          <Text style={styles.vetDistance}>
-                            📍 {t('vetFinder.kmAway', { km: v.distanceKm.toFixed(1) })}
-                          </Text>
-                          {v.openingHours ? (
-                            <Text style={styles.hoursSnippet} numberOfLines={1}>
-                              · 🕒 {formatOpeningHours(v.openingHours).summary}
-                            </Text>
+
+                          {v.address ? (
+                            <View style={styles.metaInlineRow}>
+                              <Feather name="map-pin" size={13} color={theme.textMuted} />
+                              <Text style={styles.vetSubtitle} numberOfLines={1}>
+                                {v.address}
+                              </Text>
+                            </View>
+                          ) : null}
+
+                          {hoursInfo.summary ? (
+                            <View style={styles.metaInlineRow}>
+                              <Feather name="clock" size={13} color={theme.textMuted} />
+                              <Text style={styles.hoursSnippet} numberOfLines={1}>
+                                {hoursInfo.summary}
+                              </Text>
+                            </View>
                           ) : null}
                         </View>
                       </View>
 
-                      <View style={styles.actionRow}>
+                      {/* Tactile Action Pills Row */}
+                      <View style={styles.cardActionsRow}>
                         {v.phone ? (
                           <TouchableOpacity
-                            style={styles.actionButton}
+                            style={styles.callPillBtn}
                             onPress={(e) => {
                               e.stopPropagation();
                               Linking.openURL(`tel:${v.phone}`);
                             }}
+                            activeOpacity={0.85}
                           >
-                            <Text style={styles.actionButtonText}>📞</Text>
+                            <Feather name="phone" size={15} color="#FFFFFF" />
+                            <Text style={styles.callPillText} numberOfLines={1}>
+                              {t('vetFinder.callClinic')}
+                            </Text>
                           </TouchableOpacity>
                         ) : null}
+
                         <TouchableOpacity
-                          style={styles.actionButton}
+                          style={styles.directionsPillBtn}
                           onPress={(e) => {
                             e.stopPropagation();
                             openVetDirections(v);
                           }}
+                          activeOpacity={0.85}
                         >
-                          <Text style={styles.actionButtonText}>🧭</Text>
+                          <Feather name="navigation" size={15} color={theme.primary} />
+                          <Text style={styles.directionsPillText} numberOfLines={1}>
+                            {t('vetFinder.directions')}
+                          </Text>
                         </TouchableOpacity>
                       </View>
                     </TouchableOpacity>
-                    {idx < vets.length - 1 ? <View style={styles.divider} /> : null}
-                  </View>
-                ))
+                  );
+                })
               )}
             </ScrollView>
           </>
@@ -212,7 +269,7 @@ export default function VetFinderScreen({ onBack, activeDog, onOpenDossier }: Pr
   );
 }
 
-function makeStyles(theme: ThemeTokens) {
+function makeStyles(theme: ThemeTokens, isDarkMode = false) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -222,8 +279,12 @@ function makeStyles(theme: ThemeTokens) {
       paddingHorizontal: 16,
     },
     backRow: {
-      padding: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 16,
       paddingTop: 56,
+      paddingBottom: 12,
     },
     backText: {
       color: theme.primary,
@@ -232,10 +293,11 @@ function makeStyles(theme: ThemeTokens) {
     },
     title: {
       fontSize: 22,
-      fontWeight: '700',
+      fontWeight: '800',
       color: theme.textDark,
       paddingHorizontal: 16,
       marginBottom: 12,
+      letterSpacing: -0.3,
     },
     center: {
       flex: 1,
@@ -274,7 +336,7 @@ function makeStyles(theme: ThemeTokens) {
       flex: 1,
       backgroundColor: theme.surface,
       borderRadius: theme.radiiCard,
-      borderWidth: 0.5,
+      borderWidth: 1,
       borderColor: theme.border,
       paddingHorizontal: 12,
       paddingVertical: 10,
@@ -293,11 +355,11 @@ function makeStyles(theme: ThemeTokens) {
       fontWeight: '600',
     },
     mapContainer: {
-      height: 280,
+      height: 250,
       marginHorizontal: 16,
-      borderRadius: theme.radiiCard,
+      borderRadius: 20,
       overflow: 'hidden',
-      borderWidth: 0.5,
+      borderWidth: 1.5,
       borderColor: theme.border,
     },
     map: {
@@ -309,84 +371,193 @@ function makeStyles(theme: ThemeTokens) {
     },
     listContent: {
       paddingHorizontal: 16,
-      paddingBottom: 24,
+      paddingBottom: 28,
+      gap: 12,
     },
-    vetRow: {
+    vetCard: {
+      backgroundColor: theme.surface,
+      borderRadius: 20,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      padding: 14,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDarkMode ? 0.2 : 0.04,
+      shadowRadius: 6,
+      elevation: 2,
+    },
+    vetCardSelected: {
+      borderColor: theme.primary,
+      backgroundColor: isDarkMode ? '#281E1A' : '#FFFDFB',
+    },
+    vetTopRow: {
       flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 12,
+    },
+    clinicBadge: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      backgroundColor: isDarkMode ? '#2E1E19' : '#FFF3EC',
+      borderWidth: 1,
+      borderColor: isDarkMode ? '#4D3228' : '#F6D9C9',
       alignItems: 'center',
-      paddingVertical: 12,
+      justifyContent: 'center',
+      flexShrink: 0,
     },
     vetInfo: {
       flex: 1,
       minWidth: 0,
-      marginRight: 8,
     },
     nameRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
-      marginBottom: 2,
+      justifyContent: 'space-between',
+      gap: 8,
     },
     vetName: {
-      flexShrink: 1,
-      fontSize: 15,
-      fontWeight: '600',
+      flex: 1,
+      fontSize: 15.5,
+      fontWeight: '700',
       color: theme.textDark,
     },
+    distancePill: {
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 10,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    distancePillText: {
+      fontSize: 11.5,
+      fontWeight: '700',
+      color: theme.primary,
+    },
+    statusBadgesRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: 6,
+      marginTop: 5,
+    },
+    openBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: isDarkMode ? '#1F3327' : '#EAF3ED',
+      borderRadius: 8,
+      paddingHorizontal: 7,
+      paddingVertical: 2.5,
+      borderWidth: 1,
+      borderColor: isDarkMode ? '#2F523D' : '#C6DFCE',
+    },
+    openDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: theme.done,
+    },
+    openBadgeText: {
+      fontSize: 10.5,
+      fontWeight: '700',
+      color: theme.done,
+    },
+    closedBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: theme.allergenBg,
+      borderRadius: 8,
+      paddingHorizontal: 7,
+      paddingVertical: 2.5,
+    },
+    closedDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: theme.allergenText,
+    },
+    closedBadgeText: {
+      fontSize: 10.5,
+      fontWeight: '700',
+      color: theme.allergenText,
+    },
     emergencyBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
       backgroundColor: '#FEE2E2',
-      borderRadius: 6,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
+      borderRadius: 8,
+      paddingHorizontal: 7,
+      paddingVertical: 2.5,
       borderWidth: 0.5,
       borderColor: '#FCA5A5',
     },
     emergencyBadgeText: {
-      fontSize: 10,
+      fontSize: 10.5,
       fontWeight: '700',
       color: '#DC2626',
     },
-    vetSubtitle: {
-      fontSize: 12,
-      color: theme.textMuted,
-      marginTop: 2,
-    },
-    metaRow: {
+    metaInlineRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: 3,
-      flexWrap: 'wrap',
+      gap: 5,
+      marginTop: 5,
     },
-    vetDistance: {
-      fontSize: 12,
-      color: theme.primary,
-      fontWeight: '600',
+    vetSubtitle: {
+      flex: 1,
+      fontSize: 12.5,
+      color: theme.textMuted,
     },
     hoursSnippet: {
+      flex: 1,
       fontSize: 12,
       color: theme.textMuted,
-      marginLeft: 4,
-      flexShrink: 1,
     },
-    actionRow: {
+    cardActionsRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: 10,
+      marginTop: 12,
+      paddingTop: 10,
+      borderTopWidth: 1,
+      borderTopColor: theme.divider,
     },
-    actionButton: {
-      width: 40,
-      height: 40,
-      borderRadius: 11,
-      backgroundColor: theme.moodSelBg,
+    callPillBtn: {
+      flex: 1,
+      flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
+      gap: 7,
+      backgroundColor: theme.primary,
+      borderRadius: 12,
+      paddingVertical: 9,
+      paddingHorizontal: 12,
     },
-    actionButtonText: {
-      fontSize: 18,
+    callPillText: {
+      color: '#FFFFFF',
+      fontSize: 13,
+      fontWeight: '700',
     },
-    divider: {
-      height: 0.5,
-      backgroundColor: theme.divider,
+    directionsPillBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 7,
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 12,
+      paddingVertical: 9,
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    directionsPillText: {
+      color: theme.primary,
+      fontSize: 13,
+      fontWeight: '700',
     },
   });
 }

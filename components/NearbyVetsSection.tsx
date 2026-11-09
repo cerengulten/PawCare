@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { InteractionManager, View, Text, TouchableOpacity, Linking, StyleSheet } from 'react-native';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { Dog, DogMood, VetResult } from '../types';
 import { useMoodHistory } from '../lib/hooks/useMoodHistory';
@@ -10,6 +11,7 @@ import { useT } from '../lib/LanguageContext';
 import { i18n } from '../lib/i18n';
 import { ThemeTokens } from '../lib/themes';
 import { localDateDaysAgo } from '../lib/dateUtils';
+import { openVetDirections } from './VetDetailSheet';
 
 const ALERT_MOODS: DogMood['mood'][] = ['off', 'sick'];
 const ALERT_LOOKBACK_DAYS = 7;
@@ -19,29 +21,20 @@ function dateStringDaysAgo(days: number): string {
   return localDateDaysAgo(days);
 }
 
-function openDirections(vet: VetResult) {
-  Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${vet.lat},${vet.lon}`);
-}
-
 type Props = {
   dog: Dog | null;
   onOpenVetFinder: () => void;
 };
 
 export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
   const { t } = useT();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
   const { historyByDate } = useMoodHistory(dog?.id ?? null, ALERT_LOOKBACK_DAYS);
   const { vets, userLocation, loading, available } = useHomeVetPreview();
   const [mounted, setMounted] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
 
-  // Defers the WebView mount (this section's map tile) by one tick past Home's
-  // initial commit, so it doesn't mount in the same paint as the whole
-  // AppTabs/NavigationContainer tree being created for the first time right
-  // after onboarding — mounting a native WebView synchronously in that same
-  // large first-paint can stall the iOS compositor.
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => setMounted(true));
     return () => task.cancel();
@@ -49,8 +42,8 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
 
   const alert = useMemo(() => {
     const streakDates = Array.from({ length: ALERT_STREAK_DAYS }, (_, i) => dateStringDaysAgo(i));
-    const streakMoods = streakDates.map(d => historyByDate.get(d));
-    const isAlert = streakMoods.every(mood => mood != null && ALERT_MOODS.includes(mood));
+    const streakMoods = streakDates.map((d) => historyByDate.get(d));
+    const isAlert = streakMoods.every((mood) => mood != null && ALERT_MOODS.includes(mood));
     return {
       isAlert,
       streakDays: ALERT_STREAK_DAYS,
@@ -71,8 +64,10 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
     return (
       <>
         <Text style={styles.sectionTitle}>{t('nearbyVets.sectionTitle')}</Text>
-        <TouchableOpacity style={styles.placeholder} onPress={onOpenVetFinder}>
-          <Text style={styles.placeholderArrow}>➜</Text>
+        <TouchableOpacity style={styles.placeholder} onPress={onOpenVetFinder} activeOpacity={0.8}>
+          <View style={styles.placeholderBadge}>
+            <Ionicons name="medkit-outline" size={20} color={theme.primary} />
+          </View>
           <Text style={styles.placeholderText}>{t('nearbyVets.tapToFind')}</Text>
         </TouchableOpacity>
       </>
@@ -86,7 +81,12 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
     return (
       <>
         <View style={styles.alertHeaderRow}>
-          <Text style={styles.alertSectionTitle}>{t('nearbyVets.vetRecommended')}</Text>
+          <View style={styles.alertTitleInline}>
+            <Feather name="alert-triangle" size={14} color={theme.allergenText} />
+            <Text style={styles.alertSectionTitle}>
+              {t('nearbyVets.vetRecommended').replace(/^⚠️\s*/, '')}
+            </Text>
+          </View>
           <TouchableOpacity onPress={onOpenVetFinder} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Text style={styles.seeAllText}>{t('common.seeAll')} →</Text>
           </TouchableOpacity>
@@ -97,7 +97,7 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
             <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
               {mapFailed ? (
                 <View style={styles.mapFallback}>
-                  <Text style={styles.mapFallbackIcon}>🗺️</Text>
+                  <Feather name="map" size={28} color={theme.textMuted} />
                 </View>
               ) : (
                 <WebView
@@ -120,7 +120,7 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
               <Text style={styles.openMapBtnText}>{t('nearbyVets.openMap')}</Text>
             </View>
             <View style={styles.alertBanner}>
-              <Text style={styles.alertBannerIcon}>⚠️</Text>
+              <Feather name="alert-triangle" size={13} color={theme.allergenText} />
               <Text style={styles.alertBannerText} numberOfLines={1}>
                 {t('nearbyVets.alertBanner', {
                   name: dog.name,
@@ -132,11 +132,23 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
           </TouchableOpacity>
 
           <View style={styles.alertVetList}>
-            <VetRow vet={nearest} primary onOpenVetFinder={onOpenVetFinder} styles={styles} />
+            <VetRow
+              vet={nearest}
+              primary
+              onOpenVetFinder={onOpenVetFinder}
+              theme={theme}
+              styles={styles}
+            />
             {secondNearest ? (
               <>
                 <View style={styles.alertDivider} />
-                <VetRow vet={secondNearest} primary={false} onOpenVetFinder={onOpenVetFinder} styles={styles} />
+                <VetRow
+                  vet={secondNearest}
+                  primary={false}
+                  onOpenVetFinder={onOpenVetFinder}
+                  theme={theme}
+                  styles={styles}
+                />
               </>
             ) : null}
           </View>
@@ -153,7 +165,7 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
           <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
             {mapFailed ? (
               <View style={styles.mapFallback}>
-                <Text style={styles.mapFallbackIcon}>🗺️</Text>
+                <Feather name="map" size={28} color={theme.textMuted} />
               </View>
             ) : (
               <WebView
@@ -166,26 +178,55 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
             )}
           </View>
           <View style={styles.nearbyBadge}>
+            <Feather name="map-pin" size={11} color={theme.primary} />
             <Text style={styles.nearbyBadgeText}>
               {t('nearbyVets.vetsNearby', { count: vets.length })}
             </Text>
           </View>
           <View style={styles.openMapBtn}>
-            <Text style={styles.openMapBtnText}>Open map →</Text>
+            <Text style={styles.openMapBtnText}>{t('nearbyVets.openMap')}</Text>
           </View>
         </View>
         {nearest ? (
           <View style={styles.nearestRow}>
             <View style={styles.vetIcon}>
-              <Text style={styles.vetIconText}>🏥</Text>
+              <Ionicons name="medkit-outline" size={18} color={theme.primary} />
             </View>
             <View style={styles.vetInfo}>
-              <Text style={styles.vetName} numberOfLines={1}>{nearest.name}</Text>
-              <Text style={styles.vetMeta}>{t('nearbyVets.kmAway', { km: nearest.distanceKm.toFixed(1) })}</Text>
+              <Text style={styles.vetName} numberOfLines={1}>
+                {nearest.name}
+              </Text>
+              <View style={styles.metaInline}>
+                <Feather name="map-pin" size={12} color={theme.textMuted} />
+                <Text style={styles.vetMeta}>
+                  {t('nearbyVets.kmAway', { km: nearest.distanceKm.toFixed(1) })}
+                </Text>
+              </View>
             </View>
-            <View style={styles.nearestChip}>
-              <Text style={styles.nearestChipText}>{t('nearbyVets.nearest')}</Text>
-            </View>
+            {nearest.phone ? (
+              <TouchableOpacity
+                style={styles.callBtnBrand}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  Linking.openURL(`tel:${nearest.phone}`);
+                }}
+                activeOpacity={0.8}
+              >
+                <Feather name="phone" size={14} color="#FFFFFF" />
+                <Text style={styles.callBtnBrandText}>{t('nearbyVets.call')}</Text>
+              </TouchableOpacity>
+            ) : null}
+            <TouchableOpacity
+              style={styles.directionsPill}
+              onPress={(e) => {
+                e.stopPropagation();
+                openVetDirections(nearest);
+              }}
+              activeOpacity={0.8}
+            >
+              <Feather name="navigation" size={14} color={theme.primary} />
+              <Text style={styles.directionsPillText}>{t('nearbyVets.directions')}</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <Text style={styles.emptyRowText}>{t('nearbyVets.noVetsNearby')}</Text>
@@ -199,39 +240,58 @@ function VetRow({
   vet,
   primary,
   onOpenVetFinder,
+  theme,
   styles,
 }: {
   vet: VetResult;
   primary: boolean;
   onOpenVetFinder: () => void;
+  theme: ThemeTokens;
   styles: ReturnType<typeof makeStyles>;
 }) {
   return (
     <TouchableOpacity style={styles.alertVetRow} onPress={onOpenVetFinder} activeOpacity={0.7}>
       <View style={[styles.vetIcon, styles.vetIconAlert]}>
-        <Text style={styles.vetIconText}>🏥</Text>
+        <Ionicons name="medkit-outline" size={18} color={theme.primary} />
       </View>
       <View style={styles.vetInfo}>
-        <Text style={styles.vetName} numberOfLines={1}>{vet.name}</Text>
-        <Text style={styles.vetMeta}>{i18n.t('nearbyVets.kmAway', { km: vet.distanceKm.toFixed(1) })}</Text>
+        <Text style={styles.vetName} numberOfLines={1}>
+          {vet.name}
+        </Text>
+        <View style={styles.metaInline}>
+          <Feather name="map-pin" size={12} color={theme.textMuted} />
+          <Text style={styles.vetMeta}>
+            {i18n.t('nearbyVets.kmAway', { km: vet.distanceKm.toFixed(1) })}
+          </Text>
+        </View>
       </View>
       {vet.phone ? (
         <TouchableOpacity
-          style={primary ? styles.callBtnPrimary : styles.callBtnSecondary}
-          onPress={() => Linking.openURL(`tel:${vet.phone}`)}
+          style={primary ? styles.callBtnPrimary : styles.callBtnBrand}
+          onPress={(e) => {
+            e.stopPropagation();
+            Linking.openURL(`tel:${vet.phone}`);
+          }}
         >
-          <Text style={primary ? styles.callBtnPrimaryText : styles.callBtnSecondaryText}>{i18n.t('nearbyVets.call')}</Text>
+          <Feather name="phone" size={13} color="#FFFFFF" />
+          <Text style={styles.callBtnPrimaryText}>{i18n.t('nearbyVets.call')}</Text>
         </TouchableOpacity>
-      ) : (
-        <TouchableOpacity style={styles.callBtnSecondary} onPress={() => openDirections(vet)}>
-          <Text style={styles.callBtnSecondaryText}>{i18n.t('nearbyVets.directions')}</Text>
-        </TouchableOpacity>
-      )}
+      ) : null}
+      <TouchableOpacity
+        style={styles.directionsPill}
+        onPress={(e) => {
+          e.stopPropagation();
+          openVetDirections(vet);
+        }}
+      >
+        <Feather name="navigation" size={13} color={theme.primary} />
+        <Text style={styles.directionsPillText}>{i18n.t('nearbyVets.directions')}</Text>
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 }
 
-function makeStyles(theme: ThemeTokens) {
+function makeStyles(theme: ThemeTokens, isDarkMode = false) {
   return StyleSheet.create({
     sectionTitle: {
       fontSize: 12,
@@ -248,30 +308,41 @@ function makeStyles(theme: ThemeTokens) {
       marginBottom: 24,
     },
     placeholder: {
-      backgroundColor: theme.moodSelBg,
+      backgroundColor: theme.surface,
       borderRadius: theme.radiiCard,
-      borderWidth: 0.5,
+      borderWidth: 1,
       borderColor: theme.border,
       height: 110,
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: 24,
+      gap: 6,
     },
-    placeholderArrow: {
-      fontSize: 22,
-      color: theme.primary,
+    placeholderBadge: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      backgroundColor: isDarkMode ? '#2E1E19' : '#FFF3EC',
+      borderWidth: 1,
+      borderColor: isDarkMode ? '#4D3228' : '#F6D9C9',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     placeholderText: {
       fontSize: 13,
-      fontWeight: '500',
+      fontWeight: '600',
       color: theme.primary,
-      marginTop: 6,
     },
     alertHeaderRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       marginBottom: 8,
+    },
+    alertTitleInline: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
     },
     alertSectionTitle: {
       fontSize: 12,
@@ -287,7 +358,7 @@ function makeStyles(theme: ThemeTokens) {
     },
     normalCard: {
       borderRadius: theme.radiiCard,
-      borderWidth: 0.5,
+      borderWidth: 1,
       borderColor: theme.border,
       overflow: 'hidden',
       marginBottom: 24,
@@ -295,7 +366,7 @@ function makeStyles(theme: ThemeTokens) {
     },
     alertCard: {
       borderRadius: theme.radiiCard,
-      borderWidth: 0.5,
+      borderWidth: 1,
       borderColor: theme.alertBorder,
       overflow: 'hidden',
       marginBottom: 24,
@@ -314,10 +385,6 @@ function makeStyles(theme: ThemeTokens) {
       justifyContent: 'center',
       backgroundColor: theme.divider,
     },
-    mapFallbackIcon: {
-      fontSize: 28,
-      opacity: 0.5,
-    },
     mapTintOverlay: {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: 'rgba(140,26,26,0.06)',
@@ -326,37 +393,40 @@ function makeStyles(theme: ThemeTokens) {
       position: 'absolute',
       bottom: 8,
       left: 10,
-      backgroundColor: 'rgba(255,255,255,0.92)',
-      borderRadius: 7,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: 'rgba(255,255,255,0.94)',
+      borderRadius: 8,
       paddingHorizontal: 9,
       paddingVertical: 4,
     },
     nearbyBadgeText: {
       fontSize: 11,
-      fontWeight: '600',
-      color: theme.textDark,
+      fontWeight: '700',
+      color: '#1F1A17',
     },
     openMapBtn: {
       position: 'absolute',
       top: 8,
       right: 10,
       backgroundColor: theme.primary,
-      borderRadius: 7,
-      paddingHorizontal: 9,
-      paddingVertical: 4,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
     },
     openMapBtnAlert: {
       position: 'absolute',
       top: 8,
       right: 10,
       backgroundColor: theme.allergenText,
-      borderRadius: 7,
-      paddingHorizontal: 9,
-      paddingVertical: 4,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
     },
     openMapBtnText: {
       fontSize: 11,
-      fontWeight: '600',
+      fontWeight: '700',
       color: '#FFFFFF',
     },
     alertBanner: {
@@ -365,15 +435,12 @@ function makeStyles(theme: ThemeTokens) {
       left: 10,
       right: 10,
       backgroundColor: theme.allergenBg,
-      borderRadius: 7,
+      borderRadius: 8,
       paddingHorizontal: 9,
       paddingVertical: 5,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-    },
-    alertBannerIcon: {
-      fontSize: 12,
     },
     alertBannerText: {
       flex: 1,
@@ -404,18 +471,19 @@ function makeStyles(theme: ThemeTokens) {
       backgroundColor: theme.alertBorder,
     },
     vetIcon: {
-      width: 34,
-      height: 34,
-      borderRadius: 10,
-      backgroundColor: theme.divider,
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      backgroundColor: isDarkMode ? '#2E1E19' : '#FFF3EC',
+      borderWidth: 1,
+      borderColor: isDarkMode ? '#4D3228' : '#F6D9C9',
       alignItems: 'center',
       justifyContent: 'center',
+      flexShrink: 0,
     },
     vetIconAlert: {
       backgroundColor: theme.allergenBg,
-    },
-    vetIconText: {
-      fontSize: 16,
+      borderColor: theme.alertBorder,
     },
     vetInfo: {
       flex: 1,
@@ -423,24 +491,18 @@ function makeStyles(theme: ThemeTokens) {
     },
     vetName: {
       fontSize: 14,
-      fontWeight: '500',
+      fontWeight: '700',
       color: theme.textDark,
+    },
+    metaInline: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginTop: 2,
     },
     vetMeta: {
       fontSize: 12,
       color: theme.textMuted,
-      marginTop: 2,
-    },
-    nearestChip: {
-      backgroundColor: theme.moodSelBg,
-      borderRadius: 20,
-      paddingHorizontal: 9,
-      paddingVertical: 4,
-    },
-    nearestChipText: {
-      fontSize: 11,
-      fontWeight: '600',
-      color: theme.primary,
     },
     emptyRowText: {
       fontSize: 13,
@@ -448,29 +510,49 @@ function makeStyles(theme: ThemeTokens) {
       padding: 14,
       backgroundColor: theme.surface,
     },
-    callBtnPrimary: {
-      backgroundColor: theme.allergenText,
-      borderRadius: 9,
+    callBtnBrand: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: theme.primary,
+      borderRadius: 10,
       paddingHorizontal: 11,
-      paddingVertical: 6,
+      paddingVertical: 7,
     },
-    callBtnPrimaryText: {
-      fontSize: 11,
-      fontWeight: '600',
+    callBtnBrandText: {
+      fontSize: 11.5,
+      fontWeight: '700',
       color: '#FFFFFF',
     },
-    callBtnSecondary: {
-      backgroundColor: theme.surface,
-      borderWidth: 0.5,
-      borderColor: theme.alertBorder,
-      borderRadius: 9,
+    callBtnPrimary: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: theme.allergenText,
+      borderRadius: 10,
       paddingHorizontal: 11,
-      paddingVertical: 6,
+      paddingVertical: 7,
     },
-    callBtnSecondaryText: {
-      fontSize: 11,
-      fontWeight: '600',
-      color: theme.allergenText,
+    callBtnPrimaryText: {
+      fontSize: 11.5,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    directionsPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: theme.surfaceAlt,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 10,
+      paddingHorizontal: 11,
+      paddingVertical: 7,
+    },
+    directionsPillText: {
+      fontSize: 11.5,
+      fontWeight: '700',
+      color: theme.primary,
     },
   });
 }
