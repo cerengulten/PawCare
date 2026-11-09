@@ -116,10 +116,30 @@ export default function VetFinderScreen({ onBack, activeDog, onOpenDossier }: Pr
           </View>
         ) : error ? (
           <View style={styles.center}>
+            <Feather name="wifi-off" size={32} color={theme.textMuted} />
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={searchNearMe}>
-              <Text style={styles.retryButtonText}>{t('vetFinder.tryAgain')}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={searchNearMe} activeOpacity={0.85}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Feather name="refresh-cw" size={14} color="#FFFFFF" />
+                <Text style={styles.retryButtonText}>{t('vetFinder.tryAgain')}</Text>
+              </View>
             </TouchableOpacity>
+            <View style={[styles.addressRow, { width: '100%', marginTop: 16 }]}>
+              <TextInput
+                style={styles.addressInput}
+                placeholder={t('vetFinder.cityOrAddress')}
+                placeholderTextColor={theme.textMuted}
+                value={addressInput}
+                onChangeText={setAddressInput}
+                onSubmitEditing={() => searchByAddress(addressInput)}
+              />
+              <TouchableOpacity
+                style={styles.searchButton}
+                onPress={() => searchByAddress(addressInput)}
+              >
+                <Text style={styles.searchButtonText}>{t('vetFinder.search')}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ) : (
           <>
@@ -137,7 +157,31 @@ export default function VetFinderScreen({ onBack, activeDog, onOpenDossier }: Pr
 
             <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
               {vets.length === 0 ? (
-                <Text style={styles.emptyText}>{t('vetFinder.noVetsNearby')}</Text>
+                <View style={{ alignItems: 'center', gap: 12, paddingVertical: 20 }}>
+                  <Text style={styles.emptyText}>{t('vetFinder.noVetsNearby')}</Text>
+                  <TouchableOpacity style={styles.retryButton} onPress={searchNearMe} activeOpacity={0.85}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Feather name="refresh-cw" size={14} color="#FFFFFF" />
+                      <Text style={styles.retryButtonText}>{t('vetFinder.tryAgain')}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  <View style={[styles.addressRow, { width: '100%' }]}>
+                    <TextInput
+                      style={styles.addressInput}
+                      placeholder={t('vetFinder.cityOrAddress')}
+                      placeholderTextColor={theme.textMuted}
+                      value={addressInput}
+                      onChangeText={setAddressInput}
+                      onSubmitEditing={() => searchByAddress(addressInput)}
+                    />
+                    <TouchableOpacity
+                      style={styles.searchButton}
+                      onPress={() => searchByAddress(addressInput)}
+                    >
+                      <Text style={styles.searchButtonText}>{t('vetFinder.search')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               ) : (
                 vets.map((v) => {
                   const hoursInfo = formatOpeningHours(v.openingHours);

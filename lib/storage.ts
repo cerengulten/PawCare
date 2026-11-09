@@ -4,15 +4,15 @@ import { supabase } from './supabase';
 
 /**
  * Standard configuration for avatar/pet photo pickers across the app.
- * Using square 1:1 cropping and quality: 0.5 compresses images directly via the native OS,
- * reducing a typical 3MB-8MB mobile camera photo down to ~40KB-90KB without any noticeable
+ * Using square 1:1 cropping and quality: 0.8 + client-side resizing to max 800x800
+ * reduces a typical 3MB-8MB mobile camera photo down to ~40KB-90KB without any noticeable
  * loss in visual quality for avatar displays. This saves ~95-98% of Supabase database storage.
  */
 export const AVATAR_PICKER_OPTIONS: ImagePickerOptions = {
   mediaTypes: ['images'],
   allowsEditing: true,
   aspect: [1, 1],
-  quality: 0.5,
+  quality: 0.8,
 };
 
 function base64ToUint8Array(base64: string): Uint8Array {
@@ -24,6 +24,39 @@ function base64ToUint8Array(base64: string): Uint8Array {
     bytes[i] = binaryString.charCodeAt(i);
   }
   return bytes;
+}
+
+/**
+ * Downscales and compresses a local image URI to max 800px width at 0.8 JPEG quality
+ * using expo-image-manipulator when available, falling back gracefully to the original URI.
+ */
+async function compressImageBeforeUpload(uri: string): Promise<{ uri: string; ext: string; mimeType: string }> {
+  try {
+    const ImageManipulator = await import('expo-image-manipulator');
+    if (ImageManipulator && typeof ImageManipulator.manipulateAsync === 'function') {
+      const result = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 800 } }],
+        {
+          compress: 0.8,
+          format: ImageManipulator.SaveFormat?.JPEG ?? ('jpeg' as any),
+        }
+      );
+      if (result?.uri) {
+        return {
+          uri: result.uri,
+          ext: 'jpg',
+          mimeType: 'image/jpeg',
+        };
+      }
+    }
+  } catch {
+    // Fallback if native module is unavailable in an older OTA client
+  }
+
+  const ext = uri.split('.').pop()?.toLowerCase() || 'jpg';
+  const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+  return { uri, ext, mimeType };
 }
 
 /**
@@ -75,11 +108,10 @@ export async function uploadImage(
   }
 
   try {
-    const ext = uri.split('.').pop()?.toLowerCase() || 'jpg';
-    const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-    const filePath = `${fileName}.${ext}`;
+    const compressed = await compressImageBeforeUpload(uri);
+    const filePath = `${fileName}.${compressed.ext}`;
 
-    const base64 = await FileSystem.readAsStringAsync(uri, {
+    const base64 = await FileSystem.readAsStringAsync(compressed.uri, {
       encoding: 'base64',
     });
 
@@ -88,7 +120,7 @@ export async function uploadImage(
     const { error: uploadError } = await supabase.storage
       .from(bucket)
       .upload(filePath, fileData, {
-        contentType: mimeType,
+        contentType: compressed.mimeType,
         upsert: true,
       });
 

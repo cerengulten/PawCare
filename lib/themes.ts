@@ -167,27 +167,28 @@ const SEMANTIC_DARK: typeof SEMANTIC = {
 };
 
 export const THEMES: Record<ThemeFamily, ThemeTokens> = {
-  // Warm Pet Journal: warm oat linen, honey terracotta, meadow sage
+  // Warm Pet Journal: calming clinical sage (#3A6B4C) primary, warm oat linen (#FAF7F2),
+  // terracotta (#D96B47) reserved for streaks/flames & alerts, WCAG AA muted text (#5A524A).
   sage_clay: {
     background: '#FAF7F2',
     surface: '#FFFFFF',
     surfaceAlt: '#F4EDE4',
     border: '#EFE9DF',
     divider: '#EFE9DF',
-    primary: '#D96B47',
-    primaryLight: '#FDF1EB',
-    primaryMid: '#E88C68',
-    primaryDark: '#9E4426',
+    primary: '#3A6B4C',
+    primaryLight: '#EAF3ED',
+    primaryMid: '#5B936D',
+    primaryDark: '#264A33',
     textDark: '#221C16',
-    textMuted: '#73685E',
+    textMuted: '#5A524A',
     chipText: '#5A5048',
     streakBg: '#FDF6EE',
     streakBorder: '#EFE9DF',
     alertBg: '#FDF0E8',
-    alertBorder: '#E0C0A0',
-    moodSelBg: '#FDF1EB',
-    moodSelBorder: '#D96B47',
-    done: '#4A7C59',
+    alertBorder: '#D96B47',
+    moodSelBg: '#EAF3ED',
+    moodSelBorder: '#3A6B4C',
+    done: '#3A6B4C',
     pending: '#D96B47',
     ...SEMANTIC,
   },
@@ -369,7 +370,7 @@ export const THEMES: Record<ThemeFamily, ThemeTokens> = {
 };
 
 // High-quality dark companion palettes: warm charcoal (#181614), dark surfaces (#24201D),
-// warm terracotta accents (#D96B47) and high-readability text (#F5F2EB).
+// calming sage/terracotta accents and high-readability text (#F5F2EB).
 export const DARK_THEMES: Record<ThemeFamily, ThemeTokens> = {
   sage_clay: {
     background: '#181614',
@@ -377,21 +378,21 @@ export const DARK_THEMES: Record<ThemeFamily, ThemeTokens> = {
     surfaceAlt: '#2D2824',
     border: '#38322B',
     divider: '#2E2822',
-    primary: '#D96B47',
-    primaryLight: '#3A271E',
-    primaryMid: '#C46746',
-    primaryDark: '#FF9E7D',
+    primary: '#5B936D',
+    primaryLight: '#1E2D24',
+    primaryMid: '#4A7C59',
+    primaryDark: '#86EFAC',
     textDark: '#F5F2EB',
     textMuted: '#A89F91',
     chipText: '#D6CEC5',
     streakBg: '#2D231B',
     streakBorder: '#4A3B2C',
     alertBg: '#36211C',
-    alertBorder: '#55332A',
-    moodSelBg: '#382921',
-    moodSelBorder: '#D96B47',
+    alertBorder: '#D96B47',
+    moodSelBg: '#1E2D24',
+    moodSelBorder: '#5B936D',
     done: '#5B936D',
-    pending: '#D9822B',
+    pending: '#D96B47',
     ...SEMANTIC_DARK,
   },
 
@@ -576,7 +577,7 @@ export const THEME_LABELS: Record<ThemeFamily, string> = {
 };
 
 export const THEME_DESCRIPTIONS: Record<ThemeFamily, string> = {
-  sage_clay: 'warm oat · honey terracotta · meadow sage',
+  sage_clay: 'meadow sage · warm oat · honey terracotta',
   warm_honey: 'golden retriever · apricot · labrador',
   cool_ash: 'grey · silver · Weimaraner',
   deep_cocoa: 'brown · chocolate · dark warm coats',

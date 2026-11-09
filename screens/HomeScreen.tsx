@@ -68,6 +68,7 @@ export default function HomeScreen({
   const [showVetModal, setShowVetModal] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<VetAppointment | null>(null);
   const [tipOffset, setTipOffset] = useState(0);
+  const [tipExpanded, setTipExpanded] = useState(false);
 
   const activeDog = dogs.find((d) => d.id === selectedDogId) ?? dogs[0] ?? null;
   const activeDogName = activeDog?.name ?? t('home.yourPet');
@@ -686,143 +687,151 @@ export default function HomeScreen({
             </TouchableOpacity>
           </View>
 
-          {/* Sub-row A: Next Vet Appointment */}
-          <View style={styles.agendaItemBox}>
-            <View style={styles.agendaItemTop}>
-              <View style={styles.agendaItemIconCircle}>
-                <Ionicons name="medkit-outline" size={16} color={theme.primary} />
-              </View>
-              <View style={styles.agendaItemTextCol}>
-                <Text style={styles.agendaItemTitle} numberOfLines={1}>
-                  {nextAppointment
-                    ? nextAppointment.title
-                    : t('vetAppointments.noUpcomingTitle') || 'Next Vet Visit'}
-                </Text>
-                <Text style={styles.agendaItemMeta} numberOfLines={1}>
-                  {nextAppointment
-                    ? [
-                        nextAppointment.clinicName,
-                        `${nextAppointment.appointmentDate} · ${nextAppointment.appointmentTime}`,
-                        (() => {
-                          const diffMs =
-                            getAppointmentDateTime(
-                              nextAppointment.appointmentDate,
-                              nextAppointment.appointmentTime
-                            ).getTime() - Date.now();
-                          const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                          return diffDays <= 0
-                            ? t('home.today') || 'Today'
-                            : `In ${diffDays}d`;
-                        })(),
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')
-                    : t('vetAppointments.noUpcomingSubtitle') || 'No visit scheduled yet'}
-                </Text>
-              </View>
-              {nextAppointment ? (
-                <View style={styles.agendaActionsInline}>
+          {/* Two-Column Care Schedule Grid: Next Vet Visit + Parasite Shield */}
+          <View style={styles.agendaTwoColGrid}>
+            {/* Column 1: Next Vet Visit */}
+            <View style={styles.agendaColCard}>
+              <View style={styles.agendaColTopRow}>
+                <View style={styles.agendaItemIconCircle}>
+                  <Ionicons name="medkit-outline" size={16} color={theme.primary} />
+                </View>
+                {nextAppointment ? (
                   <TouchableOpacity
                     style={styles.agendaSecondaryBtn}
                     onPress={() => {
                       setEditingAppointment(nextAppointment);
                       setShowVetModal(true);
                     }}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                   >
-                    <Feather name="edit-2" size={13} color={theme.textDark} />
+                    <Feather name="edit-2" size={12} color={theme.textDark} />
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.agendaPrimaryBtn}
-                    onPress={() => handleCompleteWithNotes(nextAppointment.id)}
-                  >
-                    <Feather name="check" size={13} color="#FFFFFF" />
-                    <Text style={styles.agendaPrimaryBtnText}>
-                      {t('common.done') || 'Done'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                ) : null}
+              </View>
+
+              <Text style={styles.agendaItemTitle} numberOfLines={1}>
+                {nextAppointment
+                  ? nextAppointment.title
+                  : t('vetAppointments.noUpcomingTitle') || 'Next Vet Visit'}
+              </Text>
+              <Text style={styles.agendaItemMeta} numberOfLines={2}>
+                {nextAppointment
+                  ? [
+                      nextAppointment.clinicName,
+                      `${nextAppointment.appointmentDate}`,
+                      (() => {
+                        const diffMs =
+                          getAppointmentDateTime(
+                            nextAppointment.appointmentDate,
+                            nextAppointment.appointmentTime
+                          ).getTime() - Date.now();
+                        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                        return diffDays <= 0
+                          ? t('home.today') || 'Today'
+                          : `In ${diffDays}d`;
+                      })(),
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')
+                  : t('vetAppointments.noUpcomingSubtitle') || 'No visit scheduled'}
+              </Text>
+
+              {nextAppointment ? (
+                <TouchableOpacity
+                  style={[styles.agendaPrimaryBtn, { marginTop: 10, justifyContent: 'center' }]}
+                  onPress={() => handleCompleteWithNotes(nextAppointment.id)}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="check" size={13} color="#FFFFFF" />
+                  <Text style={styles.agendaPrimaryBtnText}>
+                    {t('common.done') || 'Done'}
+                  </Text>
+                </TouchableOpacity>
               ) : (
                 <TouchableOpacity
-                  style={styles.agendaOutlineBtn}
+                  style={[styles.agendaOutlineBtn, { marginTop: 10, justifyContent: 'center' }]}
                   onPress={() => {
                     setEditingAppointment(null);
                     setShowVetModal(true);
                   }}
+                  activeOpacity={0.8}
                 >
                   <Feather name="plus" size={13} color={theme.primary} />
-                  <Text style={styles.agendaOutlineBtnText}>
+                  <Text style={styles.agendaOutlineBtnText} numberOfLines={1}>
                     {t('vetAppointments.scheduleBtn') || 'Schedule'}
                   </Text>
                 </TouchableOpacity>
               )}
             </View>
-          </View>
 
-          {/* Sub-row B: Vaccine & Parasite Shield */}
-          <TouchableOpacity
-            style={[styles.agendaItemBox, { marginTop: 10 }]}
-            onPress={() => {
-              if (activeDog) {
-                navigation.navigate('Pets', { dogId: activeDog.id, openAddParasite: true });
-              } else {
-                navigation.navigate('Pets', { openAddParasite: true });
-              }
-            }}
-            activeOpacity={0.8}
-          >
-            <View style={styles.agendaItemTop}>
-              <View
-                style={[
-                  styles.agendaItemIconCircle,
-                  preventiveStatusInfo?.isOverdue && { backgroundColor: theme.allergenBg },
-                ]}
-              >
-                {preventiveStatusInfo?.kind === 'vaccine' ? (
-                  <Ionicons
-                    name="shield-checkmark-outline"
-                    size={16}
-                    color={preventiveStatusInfo?.isOverdue ? theme.allergenText : theme.primary}
-                  />
-                ) : (
-                  <Feather
-                    name="shield"
-                    size={15}
-                    color={preventiveStatusInfo?.isOverdue ? theme.allergenText : theme.primary}
-                  />
-                )}
-              </View>
-              <View style={styles.agendaItemTextCol}>
-                <Text style={styles.agendaItemTitle} numberOfLines={1}>
-                  {nextPreventiveTreatment
-                    ? nextPreventiveTreatment.vaccine_name
-                    : t('treatments.tabs.parasiteShield') || 'Vaccine & Parasite Shield'}
-                </Text>
-                <Text
+            {/* Column 2: Vaccine & Parasite Shield */}
+            <TouchableOpacity
+              style={styles.agendaColCard}
+              onPress={() => {
+                if (activeDog) {
+                  navigation.navigate('Pets', { dogId: activeDog.id, openAddParasite: true });
+                } else {
+                  navigation.navigate('Pets', { openAddParasite: true });
+                }
+              }}
+              activeOpacity={0.8}
+            >
+              <View style={styles.agendaColTopRow}>
+                <View
                   style={[
-                    styles.agendaItemMeta,
-                    preventiveStatusInfo?.isOverdue && {
-                      color: theme.allergenText,
-                      fontWeight: '700',
-                    },
+                    styles.agendaItemIconCircle,
+                    preventiveStatusInfo?.isOverdue && { backgroundColor: theme.allergenBg },
                   ]}
-                  numberOfLines={1}
                 >
-                  {nextPreventiveTreatment && preventiveStatusInfo
-                    ? `${preventiveStatusInfo.label} · ${nextPreventiveTreatment.next_due_date}`
-                    : t('treatments.noParasiteTracked') || 'Tap to log flea, tick, or vaccine protection'}
+                  {preventiveStatusInfo?.kind === 'vaccine' ? (
+                    <Ionicons
+                      name="shield-checkmark-outline"
+                      size={16}
+                      color={preventiveStatusInfo?.isOverdue ? theme.allergenText : theme.primary}
+                    />
+                  ) : (
+                    <Feather
+                      name="shield"
+                      size={15}
+                      color={preventiveStatusInfo?.isOverdue ? theme.allergenText : theme.primary}
+                    />
+                  )}
+                </View>
+              </View>
+
+              <Text style={styles.agendaItemTitle} numberOfLines={1}>
+                {nextPreventiveTreatment
+                  ? nextPreventiveTreatment.vaccine_name
+                  : t('treatments.tabs.parasiteShield') || 'Parasite Shield'}
+              </Text>
+              <Text
+                style={[
+                  styles.agendaItemMeta,
+                  preventiveStatusInfo?.isOverdue && {
+                    color: theme.allergenText,
+                    fontWeight: '700',
+                  },
+                ]}
+                numberOfLines={2}
+              >
+                {nextPreventiveTreatment && preventiveStatusInfo
+                  ? `${preventiveStatusInfo.label} · ${nextPreventiveTreatment.next_due_date}`
+                  : t('treatments.noParasiteTracked') || 'Flea, tick & vaccine log'}
+              </Text>
+
+              <View style={[styles.agendaOutlineBtn, { marginTop: 10, justifyContent: 'center' }]}>
+                <Text style={styles.agendaOutlineBtnText} numberOfLines={1}>
+                  {nextPreventiveTreatment
+                    ? t('common.edit') || 'Manage'
+                    : `+ ${t('common.add') || 'Add'}`}
                 </Text>
               </View>
-              <View style={styles.agendaOutlineBtn}>
-                <Text style={styles.agendaOutlineBtnText}>
-                  {nextPreventiveTreatment ? t('common.edit') || 'Manage' : `+ ${t('common.add') || 'Add'}`}
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* ================================================================== */}
-        {/* SECTION 4: AI COMPANION & DAILY INSIGHT TRAY                       */}
+        {/* SECTION 4: AI COMPANION & COLLAPSIBLE DAILY INSIGHT TRAY           */}
         {/* ================================================================== */}
         <View
           ref={aiRef}
@@ -832,35 +841,7 @@ export default function HomeScreen({
           }}
           style={styles.aiInsightTray}
         >
-          {/* Top Half: Curated Daily Vet Insight */}
-          <View style={styles.tipHeaderRow}>
-            <View style={styles.tipBadge}>
-              <Ionicons
-                name="sparkles-outline"
-                size={13}
-                color={isDarkMode ? '#86EFAC' : '#2D5A3E'}
-              />
-              <Text style={styles.tipBadgeText}>{currentTip.badge}</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                triggerLightHaptic();
-                setTipOffset((prev) => prev + 1);
-              }}
-              style={styles.nextTipBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Feather name="refresh-cw" size={12} color={theme.primary} />
-              <Text style={styles.nextTipText}>{t('home.nextTip') || 'Next tip'}</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.tipTitle}>{currentTip.title}</Text>
-          <Text style={styles.tipBody}>{currentTip.body}</Text>
-
-          {/* Bottom Half: Integrated AI Care Companion */}
-          <View style={styles.aiCompanionDivider} />
-
+          {/* Top Half: Integrated AI Care Companion */}
           <View style={styles.aiCompanionRow}>
             <View style={styles.aiCompanionIconBox}>
               <Ionicons name="sparkles-outline" size={18} color={theme.primary} />
@@ -886,6 +867,54 @@ export default function HomeScreen({
               {t('home.startCareConsultation') || 'Start Care Consultation →'}
             </Text>
           </TouchableOpacity>
+
+          <View style={styles.aiCompanionDivider} />
+
+          {/* Bottom Half: Collapsible Curated Daily Vet Insight */}
+          <TouchableOpacity
+            style={styles.tipHeaderRow}
+            onPress={() => {
+              triggerLightHaptic();
+              setTipExpanded((prev) => !prev);
+            }}
+            activeOpacity={0.75}
+          >
+            <View style={styles.tipBadge}>
+              <Ionicons
+                name="sparkles-outline"
+                size={13}
+                color={isDarkMode ? '#86EFAC' : '#2D5A3E'}
+              />
+              <Text style={styles.tipBadgeText}>{currentTip.badge}</Text>
+            </View>
+            <View style={styles.tipTitleInlineCol}>
+              <Text style={styles.tipTitleInline} numberOfLines={1}>
+                {currentTip.title}
+              </Text>
+            </View>
+            <Feather
+              name={tipExpanded ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={theme.textMuted}
+            />
+          </TouchableOpacity>
+
+          {tipExpanded ? (
+            <View style={styles.tipExpandedBox}>
+              <Text style={styles.tipBody}>{currentTip.body}</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  triggerLightHaptic();
+                  setTipOffset((prev) => prev + 1);
+                }}
+                style={styles.nextTipBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Feather name="refresh-cw" size={12} color={theme.primary} />
+                <Text style={styles.nextTipText}>{t('home.nextTip') || 'Next tip'}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
 
         <TabTour
@@ -1521,6 +1550,26 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       fontWeight: '700',
       color: theme.primary,
     },
+    agendaTwoColGrid: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    agendaColCard: {
+      flex: 1,
+      minWidth: 0,
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 16,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+      justifyContent: 'space-between',
+    },
+    agendaColTopRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
     agendaItemBox: {
       backgroundColor: theme.surfaceAlt,
       borderRadius: 16,
@@ -1549,14 +1598,15 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       minWidth: 0,
     },
     agendaItemTitle: {
-      fontSize: 14,
+      fontSize: 13.5,
       fontWeight: '700',
       color: theme.textDark,
     },
     agendaItemMeta: {
-      fontSize: 12,
+      fontSize: 11.5,
       color: theme.textMuted,
       marginTop: 2,
+      lineHeight: 15,
     },
     agendaActionsInline: {
       flexDirection: 'row',
@@ -1623,7 +1673,23 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 10,
+      gap: 8,
+    },
+    tipTitleInlineCol: {
+      flex: 1,
+      minWidth: 0,
+    },
+    tipTitleInline: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: theme.textDark,
+    },
+    tipExpandedBox: {
+      marginTop: 10,
+      paddingTop: 10,
+      borderTopWidth: 1,
+      borderTopColor: theme.divider,
+      gap: 8,
     },
     tipBadge: {
       flexDirection: 'row',

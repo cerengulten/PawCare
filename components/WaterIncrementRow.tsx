@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
+import { triggerLightHaptic } from '../lib/haptics';
 
 type Props = {
   onAdd: (amountMl: number) => void;
@@ -19,14 +20,33 @@ export default function WaterIncrementRow({ onAdd, onReset, onCustom }: Props) {
   return (
     <View style={styles.row}>
       {INCREMENTS.map(amount => (
-        <TouchableOpacity key={amount} style={styles.pill} onPress={() => onAdd(amount)}>
+        <TouchableOpacity
+          key={amount}
+          style={styles.pill}
+          onPress={() => {
+            triggerLightHaptic();
+            onAdd(amount);
+          }}
+        >
           <Text style={styles.pillText}>+{amount}</Text>
         </TouchableOpacity>
       ))}
-      <TouchableOpacity style={styles.pill} onPress={onCustom}>
+      <TouchableOpacity
+        style={styles.pill}
+        onPress={() => {
+          triggerLightHaptic();
+          onCustom();
+        }}
+      >
         <Text style={styles.pillText}>{t('water.custom')}</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={onReset} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+      <TouchableOpacity
+        onPress={() => {
+          triggerLightHaptic();
+          onReset();
+        }}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
         <Text style={styles.resetText}>{t('water.reset')}</Text>
       </TouchableOpacity>
     </View>

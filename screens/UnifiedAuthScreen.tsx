@@ -11,9 +11,6 @@ import {
   Platform,
   Image,
   Linking,
-  Modal,
-  TouchableWithoutFeedback,
-  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
@@ -216,7 +213,7 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
             </View>
           </View>
           <View style={styles.verificationIconCircle}>
-            <Text style={styles.verificationEmoji}>✉️</Text>
+            <Feather name="mail" size={32} color={theme.primary} />
           </View>
           <Text style={styles.title}>{t('auth.checkEmailTitle') || 'Check Your Inbox'}</Text>
           <Text style={styles.verificationSubtitle}>
@@ -281,242 +278,243 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
       >
         <View style={styles.scrollInner}>
           {/* Language Selector Top Bar */}
-        <View style={styles.topBar}>
-          <View style={styles.langPicker}>
-            <TouchableOpacity
-              onPress={() => setLang('en')}
-              style={[styles.langChip, lang === 'en' && styles.langChipActive]}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.langChipText, lang === 'en' && styles.langChipTextActive]}>EN</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setLang('tr')}
-              style={[styles.langChip, lang === 'tr' && styles.langChipActive]}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.langChipText, lang === 'tr' && styles.langChipTextActive]}>TR</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* A. Brand Hero Header with High-Resolution Logo */}
-        <View style={styles.brandHero}>
-          <View style={styles.logoBadge}>
-            <Image
-              source={require('../assets/bisco_logo_v1.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
-          </View>
-          <Text style={styles.brandTitle}>BISCO</Text>
-          <Text style={styles.brandTagline}>
-            {t('auth.brandTagline') || "Complete health, nutrition & daily care for your companion."}
-          </Text>
-        </View>
-
-        {/* Auth Main Card */}
-        <View style={styles.authCard}>
-          {/* B. Segmented Mode Pill Switcher */}
-          <View style={styles.segmentedContainer}>
-            <TouchableOpacity
-              style={[styles.segmentBtn, mode === 'signin' && styles.segmentBtnActive]}
-              onPress={() => {
-                setMode('signin');
-                setError('');
-                if (onSwitch && initialMode === 'signup') onSwitch();
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.segmentText, mode === 'signin' && styles.segmentTextActive]}>
-                {t('auth.signIn')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.segmentBtn, mode === 'signup' && styles.segmentBtnActive]}
-              onPress={() => {
-                setMode('signup');
-                setError('');
-                if (onSwitch && initialMode === 'signin') onSwitch();
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.segmentText, mode === 'signup' && styles.segmentTextActive]}>
-                {t('auth.createAccount')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* C. Social-First Priority: 1-Tap Apple & Google ABOVE Divider */}
-          <SocialSignInButtons dividerPosition="bottom" />
-
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-          {/* D. Input Fields & Focus States */}
-          <View style={styles.formGroup}>
-            <Text style={styles.inputLabel}>{t('auth.email')}</Text>
-            <View style={[styles.inputContainer, focusedField === 'email' && styles.inputContainerFocused]}>
-              <Feather
-                name="mail"
-                size={18}
-                color={focusedField === 'email' ? theme.primary : theme.textMuted}
-                style={styles.inputLeadingIcon}
-              />
-              <TextInput
-                style={styles.textInput}
-                placeholder="name@example.com"
-                placeholderTextColor={theme.textMuted}
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                autoCorrect={false}
-                spellCheck={false}
-                keyboardType="email-address"
-                textContentType="emailAddress"
-                returnKeyType="next"
-                onSubmitEditing={() => passwordInputRef.current?.focus()}
-                onFocus={() => setFocusedField('email')}
-                onBlur={() => setFocusedField(null)}
-              />
-            </View>
-          </View>
-
-          <View style={styles.formGroup}>
-            <View style={styles.passwordLabelRow}>
-              <Text style={styles.inputLabel}>{t('auth.password')}</Text>
-              {mode === 'signin' ? (
-                <TouchableOpacity
-                  onPress={() => setShowForgotPassword(true)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text style={styles.forgotText}>{t('auth.forgotPassword')}</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-            <View style={[styles.inputContainer, focusedField === 'password' && styles.inputContainerFocused]}>
-              <Feather
-                name="lock"
-                size={18}
-                color={focusedField === 'password' ? theme.primary : theme.textMuted}
-                style={styles.inputLeadingIcon}
-              />
-              <TextInput
-                ref={passwordInputRef}
-                style={styles.textInput}
-                placeholder="••••••••••••"
-                placeholderTextColor={theme.textMuted}
-                value={password}
-                onChangeText={setPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-                spellCheck={false}
-                textContentType="password"
-                secureTextEntry={!showPassword}
-                returnKeyType="done"
-                onSubmitEditing={handleSubmit}
-                onFocus={() => setFocusedField('password')}
-                onBlur={() => setFocusedField(null)}
-              />
+          <View style={styles.topBar}>
+            <View style={styles.langPicker}>
               <TouchableOpacity
-                onPress={() => setShowPassword((v) => !v)}
-                style={styles.eyeBtn}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                onPress={() => setLang('en')}
+                style={[styles.langChip, lang === 'en' && styles.langChipActive]}
+                activeOpacity={0.7}
               >
-                <Feather
-                  name={showPassword ? 'eye' : 'eye-off'}
-                  size={18}
-                  color={theme.textMuted}
-                />
+                <Text style={[styles.langChipText, lang === 'en' && styles.langChipTextActive]}>EN</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setLang('tr')}
+                style={[styles.langChip, lang === 'tr' && styles.langChipActive]}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.langChipText, lang === 'tr' && styles.langChipTextActive]}>TR</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Real-time Password Strength Meter (in Sign-Up mode) */}
-          {mode === 'signup' && password.length > 0 ? (
-            <View style={styles.strengthContainer}>
-              <View style={styles.strengthBarsRow}>
-                <View
-                  style={[
-                    styles.strengthBar,
-                    strengthScore >= 1 &&
-                      (strengthScore === 1 ? styles.barWeak : strengthScore === 2 ? styles.barMedium : styles.barStrong),
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.strengthBar,
-                    strengthScore >= 2 &&
-                      (strengthScore === 2 ? styles.barMedium : styles.barStrong),
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.strengthBar,
-                    strengthScore >= 3 && styles.barStrong,
-                  ]}
-                />
-              </View>
-              <View style={styles.strengthHintRow}>
-                <Text
-                  style={[
-                    styles.strengthLabel,
-                    strengthScore === 1
-                      ? styles.textWeak
-                      : strengthScore === 2
-                      ? styles.textMedium
-                      : styles.textStrong,
-                  ]}
-                >
-                  {strengthScore === 1
-                    ? t('auth.strengthWeak') || 'Weak'
-                    : strengthScore === 2
-                    ? t('auth.strengthMedium') || 'Medium'
-                    : t('auth.strengthGreat') || 'Great'}
+          {/* A. Brand Hero Header with High-Resolution Logo */}
+          <View style={styles.brandHero}>
+            <View style={styles.logoBadge}>
+              <Image
+                source={require('../assets/bisco_logo_v1.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.brandTitle}>BISCO</Text>
+            <Text style={styles.brandTagline}>
+              {t('auth.brandTagline') || 'Complete health, nutrition & daily care for your companion.'}
+            </Text>
+          </View>
+
+          {/* Auth Main Card */}
+          <View style={styles.authCard}>
+            {/* B. Segmented Mode Pill Switcher */}
+            <View style={styles.segmentedContainer}>
+              <TouchableOpacity
+                style={[styles.segmentBtn, mode === 'signin' && styles.segmentBtnActive]}
+                onPress={() => {
+                  setMode('signin');
+                  setError('');
+                  if (onSwitch && initialMode === 'signup') onSwitch();
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.segmentText, mode === 'signin' && styles.segmentTextActive]}>
+                  {t('auth.signIn')}
                 </Text>
-                <Text style={styles.strengthHintText}>{strengthHint}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.segmentBtn, mode === 'signup' && styles.segmentBtnActive]}
+                onPress={() => {
+                  setMode('signup');
+                  setError('');
+                  if (onSwitch && initialMode === 'signin') onSwitch();
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.segmentText, mode === 'signup' && styles.segmentTextActive]}>
+                  {t('auth.createAccount')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* C. Social-First Priority: 1-Tap Apple & Google ABOVE Divider */}
+            <SocialSignInButtons dividerPosition="bottom" />
+
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+            {/* D. Input Fields & Focus States with Native Autofill & Keychain Support */}
+            <View style={styles.formGroup}>
+              <Text style={styles.inputLabel}>{t('auth.email')}</Text>
+              <View style={[styles.inputContainer, focusedField === 'email' && styles.inputContainerFocused]}>
+                <Feather
+                  name="mail"
+                  size={18}
+                  color={focusedField === 'email' ? theme.primary : theme.textMuted}
+                  style={styles.inputLeadingIcon}
+                />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="name@example.com"
+                  placeholderTextColor={theme.textMuted}
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  spellCheck={false}
+                  keyboardType="email-address"
+                  textContentType="emailAddress"
+                  autoComplete="email"
+                  importantForAutofill="yes"
+                  returnKeyType="next"
+                  onSubmitEditing={() => passwordInputRef.current?.focus()}
+                  onFocus={() => setFocusedField('email')}
+                  onBlur={() => setFocusedField(null)}
+                />
               </View>
             </View>
-          ) : null}
 
-          {/* Primary Action Button */}
-          <TouchableOpacity
-            style={[styles.primaryButton, loading && styles.buttonDisabled]}
-            onPress={mode === 'signin' ? handleLogin : handleRegister}
-            disabled={loading}
-            activeOpacity={0.85}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.primaryButtonText}>
-                {mode === 'signin'
-                  ? t('auth.signInToBisco') || `${t('auth.signIn')} →`
-                  : t('auth.createFreeAccount') || `${t('auth.createAccount')} →`}
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          {/* Terms & Privacy Notice (in Sign-Up mode) */}
-          {mode === 'signup' ? (
-            <View style={styles.termsRow}>
-              <Text style={styles.termsNotice}>{t('auth.termsNotice')}</Text>
-              <View style={styles.termsLinks}>
-                <TouchableOpacity onPress={() => setLegalDoc('terms')}>
-                  <Text style={styles.termsLink}>{t('settings.termsOfService')}</Text>
-                </TouchableOpacity>
-                <Text style={styles.termsDivider}> · </Text>
-                <TouchableOpacity onPress={() => setLegalDoc('privacy')}>
-                  <Text style={styles.termsLink}>{t('settings.privacyPolicy')}</Text>
+            <View style={styles.formGroup}>
+              <View style={styles.passwordLabelRow}>
+                <Text style={styles.inputLabel}>{t('auth.password')}</Text>
+                {mode === 'signin' ? (
+                  <TouchableOpacity
+                    onPress={() => setShowForgotPassword(true)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={styles.forgotText}>{t('auth.forgotPassword')}</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              <View style={[styles.inputContainer, focusedField === 'password' && styles.inputContainerFocused]}>
+                <Feather
+                  name="lock"
+                  size={18}
+                  color={focusedField === 'password' ? theme.primary : theme.textMuted}
+                  style={styles.inputLeadingIcon}
+                />
+                <TextInput
+                  ref={passwordInputRef}
+                  style={styles.textInput}
+                  placeholder="••••••••••••"
+                  placeholderTextColor={theme.textMuted}
+                  value={password}
+                  onChangeText={setPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  spellCheck={false}
+                  textContentType={mode === 'signup' ? 'newPassword' : 'password'}
+                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                  importantForAutofill="yes"
+                  secureTextEntry={!showPassword}
+                  returnKeyType="done"
+                  onSubmitEditing={handleSubmit}
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField(null)}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword((v) => !v)}
+                  style={styles.eyeBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Feather
+                    name={showPassword ? 'eye' : 'eye-off'}
+                    size={18}
+                    color={theme.textMuted}
+                  />
                 </TouchableOpacity>
               </View>
             </View>
-          ) : null}
-        </View>
 
+            {/* Real-time Password Strength Meter (in Sign-Up mode) */}
+            {mode === 'signup' && password.length > 0 ? (
+              <View style={styles.strengthContainer}>
+                <View style={styles.strengthBarsRow}>
+                  <View
+                    style={[
+                      styles.strengthBar,
+                      strengthScore >= 1 &&
+                        (strengthScore === 1 ? styles.barWeak : strengthScore === 2 ? styles.barMedium : styles.barStrong),
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.strengthBar,
+                      strengthScore >= 2 &&
+                        (strengthScore === 2 ? styles.barMedium : styles.barStrong),
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.strengthBar,
+                      strengthScore >= 3 && styles.barStrong,
+                    ]}
+                  />
+                </View>
+                <View style={styles.strengthHintRow}>
+                  <Text
+                    style={[
+                      styles.strengthLabel,
+                      strengthScore === 1
+                        ? styles.textWeak
+                        : strengthScore === 2
+                          ? styles.textMedium
+                          : styles.textStrong,
+                    ]}
+                  >
+                    {strengthScore === 1
+                      ? t('auth.strengthWeak') || 'Weak'
+                      : strengthScore === 2
+                        ? t('auth.strengthMedium') || 'Medium'
+                        : t('auth.strengthGreat') || 'Great'}
+                  </Text>
+                  <Text style={styles.strengthHintText}>{strengthHint}</Text>
+                </View>
+              </View>
+            ) : null}
+
+            {/* Primary Action Button */}
+            <TouchableOpacity
+              style={[styles.primaryButton, loading && styles.buttonDisabled]}
+              onPress={mode === 'signin' ? handleLogin : handleRegister}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.primaryButtonText}>
+                  {mode === 'signin'
+                    ? t('auth.signInToBisco') || `${t('auth.signIn')} →`
+                    : t('auth.createFreeAccount') || `${t('auth.createAccount')} →`}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Terms & Privacy Notice (in Sign-Up mode) */}
+            {mode === 'signup' ? (
+              <View style={styles.termsRow}>
+                <Text style={styles.termsNotice}>{t('auth.termsNotice')}</Text>
+                <View style={styles.termsLinks}>
+                  <TouchableOpacity onPress={() => setLegalDoc('terms')}>
+                    <Text style={styles.termsLink}>{t('settings.termsOfService')}</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.termsDivider}> · </Text>
+                  <TouchableOpacity onPress={() => setLegalDoc('privacy')}>
+                    <Text style={styles.termsLink}>{t('settings.privacyPolicy')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
+          </View>
         </View>
       </ScrollView>
-
-
     </KeyboardAvoidingView>
   );
 }
@@ -818,18 +816,6 @@ function makeStyles(theme: ThemeTokens, insets = { top: 0, bottom: 0 }, isDarkMo
       color: theme.textMuted,
       fontSize: 11,
     },
-    guestRow: {
-      marginTop: 20,
-      paddingVertical: 10,
-      paddingHorizontal: 16,
-    },
-    guestText: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: theme.textMuted,
-      letterSpacing: 0.2,
-    },
-    // Verification Screen Styles
     verificationContent: {
       flexGrow: 1,
       alignItems: 'center',
@@ -847,9 +833,6 @@ function makeStyles(theme: ThemeTokens, insets = { top: 0, bottom: 0 }, isDarkMo
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: 18,
-    },
-    verificationEmoji: {
-      fontSize: 34,
     },
     title: {
       fontSize: 22,
@@ -935,78 +918,6 @@ function makeStyles(theme: ThemeTokens, insets = { top: 0, bottom: 0 }, isDarkMo
     },
     backToSignInText: {
       fontSize: 14,
-      fontWeight: '700',
-      color: theme.textMuted,
-    },
-    // Guest Modal Styles
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 24,
-    },
-    modalCard: {
-      width: '100%',
-      maxWidth: 380,
-      backgroundColor: isDarkMode ? '#221E19' : '#FFFFFF',
-      borderRadius: 24,
-      padding: 24,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: isDarkMode ? '#3A332B' : '#EFE8DE',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.15,
-      shadowRadius: 20,
-      elevation: 8,
-    },
-    modalIconBox: {
-      width: 56,
-      height: 56,
-      borderRadius: 20,
-      backgroundColor: isDarkMode ? '#302921' : '#FFF5E8',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 14,
-    },
-    modalIconText: {
-      fontSize: 26,
-    },
-    modalTitle: {
-      fontSize: 19,
-      fontWeight: '800',
-      color: theme.textDark,
-      marginBottom: 8,
-      textAlign: 'center',
-    },
-    modalBody: {
-      fontSize: 14,
-      color: theme.textMuted,
-      textAlign: 'center',
-      lineHeight: 20,
-      marginBottom: 20,
-    },
-    modalPrimaryBtn: {
-      width: '100%',
-      backgroundColor: theme.primary,
-      borderRadius: 14,
-      paddingVertical: 13,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 10,
-    },
-    modalPrimaryBtnText: {
-      color: '#FFFFFF',
-      fontSize: 15,
-      fontWeight: '800',
-    },
-    modalCloseBtn: {
-      paddingVertical: 8,
-      paddingHorizontal: 16,
-    },
-    modalCloseBtnText: {
-      fontSize: 13,
       fontWeight: '700',
       color: theme.textMuted,
     },

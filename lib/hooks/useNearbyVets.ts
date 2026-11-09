@@ -4,15 +4,33 @@ import { VetResult } from '../../types';
 import { i18n } from '../i18n';
 
 const OVERPASS_ENDPOINTS = [
-  'https://overpass.openstreetmap.fr/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.openstreetmap.fr/api/interpreter',
   'https://overpass-api.de/api/interpreter',
 ];
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 const SEARCH_RADIUS_METERS = 5000;
+const OVERPASS_TIMEOUT_MS = 7000;
 const USER_AGENT = 'BiscoPetCare/1.0 (https://bisco.app; contact@bisco.app)';
 
 export type Coords = { lat: number; lon: number };
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs: number = OVERPASS_TIMEOUT_MS
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function haversineKm(a: Coords, b: Coords): number {
   const R = 6371;
@@ -57,7 +75,7 @@ function addressFromTags(tags: Record<string, string> | undefined): string | nul
 export async function reverseGeocodeAddress(coords: Coords): Promise<string | null> {
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?lat=${coords.lat}&lon=${coords.lon}&format=json&zoom=18&addressdetails=1`;
-    const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+    const res = await fetchWithTimeout(url, { headers: { 'User-Agent': USER_AGENT } }, OVERPASS_TIMEOUT_MS);
     if (!res.ok) return null;
     const data = await res.json();
     if (!data) return null;
@@ -76,7 +94,7 @@ export async function reverseGeocodeAddress(coords: Coords): Promise<string | nu
 }
 
 export async function fetchVetsNear(center: Coords): Promise<VetResult[]> {
-  const query = `[out:json][timeout:15];(
+  const query = `[out:json][timeout:6];(
     node["amenity"="veterinary"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon});
     way["amenity"="veterinary"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon});
     node["healthcare"="veterinary"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon});
@@ -85,18 +103,25 @@ export async function fetchVetsNear(center: Coords): Promise<VetResult[]> {
     way["amenity"="animal_hospital"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon});
   );out center 40;`;
 
+  let anyEndpointRespondedOk = false;
+
   for (const endpoint of OVERPASS_ENDPOINTS) {
     try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': USER_AGENT,
+      const response = await fetchWithTimeout(
+        endpoint,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': USER_AGENT,
+          },
+          body: `data=${encodeURIComponent(query)}`,
         },
-        body: `data=${encodeURIComponent(query)}`,
-      });
+        OVERPASS_TIMEOUT_MS
+      );
 
       if (response.ok) {
+        anyEndpointRespondedOk = true;
         const json = await response.json();
         const elements: OverpassElement[] = json.elements ?? [];
         if (elements.length > 0) {
@@ -151,7 +176,7 @@ export async function fetchVetsNear(center: Coords): Promise<VetResult[]> {
         }
       }
     } catch {
-      // try next mirror
+      // Abort timeout or HTTP/network error -> try next mirror immediately
     }
   }
 
@@ -163,31 +188,38 @@ export async function fetchVetsNear(center: Coords): Promise<VetResult[]> {
     const minLat = center.lat - delta;
     const maxLat = center.lat + delta;
     const nomUrl = `${NOMINATIM_URL}?amenity=veterinary&viewbox=${minLon},${maxLat},${maxLon},${minLat}&bounded=1&format=json&limit=15`;
-    const res = await fetch(nomUrl, { headers: { 'User-Agent': USER_AGENT } });
+    const res = await fetchWithTimeout(nomUrl, { headers: { 'User-Agent': USER_AGENT } }, OVERPASS_TIMEOUT_MS);
     if (res.ok) {
+      anyEndpointRespondedOk = true;
       const items = await res.json();
       if (Array.isArray(items) && items.length > 0) {
-        return items.map((item: any) => {
-          const lat = parseFloat(item.lat);
-          const lon = parseFloat(item.lon);
-          return {
-            id: String(item.place_id || item.osm_id),
-            name: item.name || item.display_name?.split(',')[0] || String(i18n.t('vetFinder.defaultName')),
-            lat,
-            lon,
-            address: item.display_name ?? null,
-            phone: null,
-            openingHours: null,
-            website: null,
-            email: null,
-            isEmergency: false,
-            distanceKm: haversineKm(center, { lat, lon }),
-          };
-        }).sort((a, b) => a.distanceKm - b.distanceKm);
+        return items
+          .map((item: any) => {
+            const lat = parseFloat(item.lat);
+            const lon = parseFloat(item.lon);
+            return {
+              id: String(item.place_id || item.osm_id),
+              name: item.name || item.display_name?.split(',')[0] || String(i18n.t('vetFinder.defaultName')),
+              lat,
+              lon,
+              address: item.display_name ?? null,
+              phone: null,
+              openingHours: null,
+              website: null,
+              email: null,
+              isEmergency: false,
+              distanceKm: haversineKm(center, { lat, lon }),
+            };
+          })
+          .sort((a, b) => a.distanceKm - b.distanceKm);
       }
     }
   } catch {
     // fallback failed
+  }
+
+  if (!anyEndpointRespondedOk) {
+    throw new Error('All map directory servers timed out or are temporarily unavailable.');
   }
 
   return [];
@@ -195,9 +227,13 @@ export async function fetchVetsNear(center: Coords): Promise<VetResult[]> {
 
 async function geocodeAddress(query: string): Promise<Coords | null> {
   const url = `${NOMINATIM_URL}?q=${encodeURIComponent(query)}&format=json&limit=1`;
-  const response = await fetch(url, {
-    headers: { 'User-Agent': USER_AGENT },
-  });
+  const response = await fetchWithTimeout(
+    url,
+    {
+      headers: { 'User-Agent': USER_AGENT },
+    },
+    OVERPASS_TIMEOUT_MS
+  );
   if (!response.ok) throw new Error('Address lookup failed');
   const json = await response.json();
   if (!Array.isArray(json) || json.length === 0) return null;
@@ -228,9 +264,11 @@ export function useNearbyVets() {
       if (lastKnown) {
         const center = { lat: lastKnown.coords.latitude, lon: lastKnown.coords.longitude };
         setUserLocation(center);
-        fetchVetsNear(center).then(results => {
-          if (results.length > 0) setVets(results);
-        }).catch(() => {});
+        fetchVetsNear(center)
+          .then(results => {
+            if (results.length > 0) setVets(results);
+          })
+          .catch(() => {});
       }
 
       const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });

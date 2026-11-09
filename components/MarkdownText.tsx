@@ -15,7 +15,7 @@ type InlineToken =
 
 function parseInlineMarkdown(line: string): InlineToken[] {
   const tokens: InlineToken[] = [];
-  const regex = /(\*\*[^*]+\*\*|\*[^*\n]+\*|`[^`\n]+`)/g;
+  const regex = /(\*\*[^*]+\*\*|__[^_]+__|\*[^*\n]+\*|_[^_\n]+_|`[^`\n]+`)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
@@ -24,11 +24,11 @@ function parseInlineMarkdown(line: string): InlineToken[] {
       tokens.push({ type: 'text', value: line.slice(lastIndex, match.index) });
     }
     const raw = match[0];
-    if (raw.startsWith('**') && raw.endsWith('**')) {
+    if ((raw.startsWith('**') && raw.endsWith('**')) || (raw.startsWith('__') && raw.endsWith('__'))) {
       tokens.push({ type: 'bold', value: raw.slice(2, -2) });
     } else if (raw.startsWith('`') && raw.endsWith('`')) {
       tokens.push({ type: 'code', value: raw.slice(1, -1) });
-    } else if (raw.startsWith('*') && raw.endsWith('*')) {
+    } else if ((raw.startsWith('*') && raw.endsWith('*')) || (raw.startsWith('_') && raw.endsWith('_'))) {
       tokens.push({ type: 'italic', value: raw.slice(1, -1) });
     } else {
       tokens.push({ type: 'text', value: raw });
@@ -48,7 +48,10 @@ export default function MarkdownText({ children }: Props) {
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   const blocks = useMemo(() => {
-    const rawLines = (children || '').replace(/\r\n/g, '\n').split('\n');
+    const rawLines = (children || '')
+      .replace(/\r\n/g, '\n')
+      .split('\n')
+      .filter((l) => !l.trim().startsWith('```'));
     return rawLines;
   }, [children]);
 
@@ -92,8 +95,8 @@ export default function MarkdownText({ children }: Props) {
           return <View key={index} style={styles.spacer} />;
         }
 
-        // Heading (#, ##, ###)
-        const headingMatch = line.match(/^(#{1,3})\s+(.*)$/);
+        // Heading (# through ######)
+        const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
         if (headingMatch) {
           return (
             <Text key={index} style={styles.headerText}>
@@ -114,7 +117,7 @@ export default function MarkdownText({ children }: Props) {
         }
 
         // Numbered list (1., 2., etc.)
-        const numberedMatch = line.match(/^(\d+\.)\s+(.*)$/);
+        const numberedMatch = line.match(/^(\d+[.)])\s+(.*)$/);
         if (numberedMatch) {
           return (
             <View key={index} style={styles.bulletRow}>
