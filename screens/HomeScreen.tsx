@@ -135,12 +135,24 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
 
   const currentTip = useMemo(() => getDailyVetTip(tipOffset, lang), [tipOffset, lang]);
 
+  const homeScrollRef = useRef<ScrollView>(null);
   const petStripRef = useRef<View>(null);
   const streakRef = useRef<View>(null);
   const rhythmRef = useRef<View>(null);
   const preventiveRef = useRef<View>(null);
   const vetCardRef = useRef<View>(null);
   const aiRef = useRef<View>(null);
+  const nearbyVetsRef = useRef<View>(null);
+  const homeTourY = useRef<{
+    passport?: number;
+    streak?: number;
+    preventive?: number;
+    vetCard?: number;
+    ai?: number;
+    nearbyVets?: number;
+  }>({});
+  const scrollToHomeTour = (y?: number) =>
+    homeScrollRef.current?.scrollTo({ y: Math.max(0, (y ?? 0) - 90), animated: true });
 
   useFocusEffect(
     useCallback(() => {
@@ -182,7 +194,7 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
 
   return (
     <>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView ref={homeScrollRef} style={styles.container} contentContainerStyle={styles.content}>
         {/* 1. Warm Editorial Header */}
         <View style={styles.header}>
           <View style={styles.headerTextGroup}>
@@ -233,7 +245,13 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
 
         {/* 2. Centerpiece: The Warm Companion Passport & Care Rhythm Card */}
         {activeDog ? (
-          <View ref={petStripRef} collapsable={false} style={styles.passportCard}>
+          <View
+            style={styles.passportCard}
+            onLayout={(e) => {
+              homeTourY.current.passport = e.nativeEvent.layout.y;
+            }}
+          >
+            <View ref={petStripRef} collapsable={false}>
             <TouchableOpacity
               style={styles.passportHeader}
               onPress={() => navigation.navigate('Pets', { dogId: activeDog.id })}
@@ -271,6 +289,7 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                 </Text>
               </View>
             </TouchableOpacity>
+            </View>
 
             {/* Daily Care Rhythm Inside the Passport Card */}
             <View ref={rhythmRef} collapsable={false} style={styles.rhythmContainer}>
@@ -513,7 +532,14 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
 
         {/* 3. Streak Card */}
         {streak > 0 ? (
-          <View ref={streakRef} collapsable={false} style={styles.streakCard}>
+          <View
+            ref={streakRef}
+            collapsable={false}
+            onLayout={(e) => {
+              homeTourY.current.streak = e.nativeEvent.layout.y;
+            }}
+            style={styles.streakCard}
+          >
             <View style={styles.streakIconCircle}>
               <Text style={styles.streakEmoji}>🔥</Text>
             </View>
@@ -530,7 +556,13 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
         ) : null}
 
         {/* 4. Immunity & Parasite Shield Reminder Card */}
-        <View ref={preventiveRef} collapsable={false}>
+        <View
+          ref={preventiveRef}
+          collapsable={false}
+          onLayout={(e) => {
+            homeTourY.current.preventive = e.nativeEvent.layout.y;
+          }}
+        >
           <PreventiveCareCard
             treatment={nextPreventiveTreatment}
             onPress={() => {
@@ -551,7 +583,13 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
         </View>
 
         {/* 5. Cozy "Next Up" Vet Appointment Card (Butter-Cream squircle) */}
-        <View ref={vetCardRef} collapsable={false}>
+        <View
+          ref={vetCardRef}
+          collapsable={false}
+          onLayout={(e) => {
+            homeTourY.current.vetCard = e.nativeEvent.layout.y;
+          }}
+        >
           <VetAppointmentCard
             appointment={nextAppointment}
             onSchedulePress={() => {
@@ -597,7 +635,13 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
         </View>
 
         {/* 7. Warm AI Care Companion Card (Replaces the generic gray bar) */}
-        <View ref={aiRef} collapsable={false}>
+        <View
+          ref={aiRef}
+          collapsable={false}
+          onLayout={(e) => {
+            homeTourY.current.ai = e.nativeEvent.layout.y;
+          }}
+        >
           <TouchableOpacity
             style={styles.aiCompanionCard}
             onPress={() => navigation.navigate('Chat', { fromLink: true })}
@@ -621,23 +665,77 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
         </View>
 
         {/* 8. Nearby Vet Clinics Preview */}
-        <NearbyVetsSection
-          dog={activeDog}
-          onOpenVetFinder={() => navigation.navigate('More', { openVetFinder: true })}
-        />
+        <View
+          ref={nearbyVetsRef}
+          collapsable={false}
+          onLayout={(e) => {
+            homeTourY.current.nearbyVets = e.nativeEvent.layout.y;
+          }}
+        >
+          <NearbyVetsSection
+            dog={activeDog}
+            onOpenVetFinder={() => navigation.navigate('More', { openVetFinder: true })}
+          />
+        </View>
 
         <TabTour
           tab="home"
           enabled={dogs.length > 0}
+          onFinish={() => homeScrollRef.current?.scrollTo({ y: 0, animated: true })}
           steps={[
-            { targetRef: petStripRef, position: 'bottom', title: t('tour.home.s1Title'), body: t('tour.home.s1Body') },
-            { targetRef: rhythmRef, position: 'bottom', title: t('tour.home.s2Title'), body: t('tour.home.s2Body') },
-            { targetRef: preventiveRef, position: 'bottom', title: t('tour.home.s3Title'), body: t('tour.home.s3Body') },
-            { targetRef: vetCardRef, position: 'bottom', title: t('tour.home.s4Title'), body: t('tour.home.s4Body') },
-            { targetRef: aiRef, position: 'top', title: t('tour.home.s5Title'), body: t('tour.home.s5Body') },
+            {
+              targetRef: petStripRef,
+              position: 'bottom',
+              title: t('tour.home.s1Title'),
+              body: t('tour.home.s1Body'),
+              ensureVisible: () => homeScrollRef.current?.scrollTo({ y: 0, animated: true }),
+            },
+            {
+              targetRef: rhythmRef,
+              position: 'bottom',
+              title: t('tour.home.s2Title'),
+              body: t('tour.home.s2Body'),
+              ensureVisible: () => scrollToHomeTour((homeTourY.current.passport ?? 80) + 40),
+            },
             ...(streak > 0
-              ? [{ targetRef: streakRef, position: 'bottom' as const, title: t('tour.home.streakTitle'), body: t('tour.home.streakBody') }]
+              ? [
+                  {
+                    targetRef: streakRef,
+                    position: 'bottom' as const,
+                    title: t('tour.home.streakTitle'),
+                    body: t('tour.home.streakBody'),
+                    ensureVisible: () => scrollToHomeTour(homeTourY.current.streak),
+                  },
+                ]
               : []),
+            {
+              targetRef: preventiveRef,
+              position: 'bottom',
+              title: t('tour.home.s3Title'),
+              body: t('tour.home.s3Body'),
+              ensureVisible: () => scrollToHomeTour(homeTourY.current.preventive),
+            },
+            {
+              targetRef: vetCardRef,
+              position: 'bottom',
+              title: t('tour.home.s4Title'),
+              body: t('tour.home.s4Body'),
+              ensureVisible: () => scrollToHomeTour(homeTourY.current.vetCard),
+            },
+            {
+              targetRef: aiRef,
+              position: 'top',
+              title: t('tour.home.s5Title'),
+              body: t('tour.home.s5Body'),
+              ensureVisible: () => scrollToHomeTour(homeTourY.current.ai),
+            },
+            {
+              targetRef: nearbyVetsRef,
+              position: 'top',
+              title: t('tour.home.s6Title'),
+              body: t('tour.home.s6Body'),
+              ensureVisible: () => scrollToHomeTour(homeTourY.current.nearbyVets),
+            },
           ]}
         />
       </ScrollView>

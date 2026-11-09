@@ -12,6 +12,16 @@ export type TourTab = 'home' | 'pets' | 'more';
 
 const TABS: TourTab[] = ['home', 'pets', 'more'];
 
+type Listener = () => void;
+const resetListeners = new Set<Listener>();
+
+export function subscribeTourReset(listener: Listener): () => void {
+  resetListeners.add(listener);
+  return () => {
+    resetListeners.delete(listener);
+  };
+}
+
 async function currentUserId(): Promise<string> {
   try {
     const { data } = await supabase.auth.getSession();
@@ -49,6 +59,7 @@ export async function resetAllTours(): Promise<void> {
   try {
     const uid = await currentUserId();
     await AsyncStorage.multiRemove(TABS.map((t) => keyFor(t, uid)));
+    resetListeners.forEach((fn) => fn());
   } catch {
     /* ignore */
   }

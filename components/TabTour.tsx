@@ -1,7 +1,7 @@
 import { RefObject, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
-import { hasSeenTour, markTourSeen, TourTab } from '../lib/hooks/useTourState';
+import { hasSeenTour, markTourSeen, subscribeTourReset, TourTab } from '../lib/hooks/useTourState';
 import TourTooltip from './TourTooltip';
 
 export type TourStep = {
@@ -18,15 +18,27 @@ type Props = {
   steps: TourStep[];
   /** Only start once the tab actually has the content the steps point at. */
   enabled: boolean;
+  /** Optional cleanup callback when the tour finishes or is skipped. */
+  onFinish?: () => void;
 };
 
-const START_DELAY_MS = 500;
+const START_DELAY_MS = 450;
 
-export default function TabTour({ tab, steps, enabled }: Props) {
+export default function TabTour({ tab, steps, enabled, onFinish }: Props) {
   const isFocused = useIsFocused();
   const [active, setActive] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
+  const [resetTick, setResetTick] = useState(0);
   const runningRef = useRef(false);
+
+  useEffect(() => {
+    return subscribeTourReset(() => {
+      runningRef.current = false;
+      setActive(false);
+      setStepIndex(0);
+      setResetTick((n) => n + 1);
+    });
+  }, []);
 
   useEffect(() => {
     if (!enabled || !isFocused || runningRef.current) return;
@@ -47,23 +59,22 @@ export default function TabTour({ tab, steps, enabled }: Props) {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [enabled, isFocused, tab]);
+  }, [enabled, isFocused, tab, resetTick]);
 
   const finish = () => {
     markTourSeen(tab);
     setActive(false);
     setStepIndex(0);
     runningRef.current = false;
-    // hasSeenTour() now returns true, so the effect won't restart it here;
-    // after resetAllTours(), re-focusing this tab starts the tour over.
+    onFinish?.();
   };
 
   const handleNext = () => {
-    setStepIndex((i) => {
-      if (i + 1 < steps.length) return i + 1;
+    if (stepIndex + 1 < steps.length) {
+      setStepIndex(stepIndex + 1);
+    } else {
       finish();
-      return i;
-    });
+    }
   };
 
   if (!active || !enabled) return null;

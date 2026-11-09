@@ -46,19 +46,19 @@ export default function TourTooltip({
   const { t } = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [rect, setRect] = useState<Rect | null>(null);
-  const [cardHeight, setCardHeight] = useState(0);
+  const [cardHeight, setCardHeight] = useState(140);
   const opacity = useRef(new Animated.Value(0)).current;
   const skippedRef = useRef(false);
 
   const win = Dimensions.get('window');
 
-  // Measure the target once the modal is up. Retry a couple of times because layout can
-  // still be settling right after the tab mounts. If it never measures, skip this step.
+  // Measure the target once the modal is up. Retry several times because layout or
+  // smooth scrolling can still be settling right after a tab/sub-tab switch.
   useEffect(() => {
     skippedRef.current = false;
     setRect(null);
     ensureVisible?.();
-    const maxAttempts = ensureVisible ? 10 : 6;
+    const maxAttempts = ensureVisible ? 12 : 8;
     let attempts = 0;
     let timer: ReturnType<typeof setTimeout>;
 
@@ -69,7 +69,7 @@ export default function TourTooltip({
         return;
       }
       node.measureInWindow((x, y, w, h) => {
-        if (w > 0 && h > 0 && y + h > 0 && y < win.height) {
+        if (w > 0 && h > 0 && y + h > 24 && y < win.height - 24) {
           setRect({ x, y, w, h });
         } else {
           retry();
@@ -85,10 +85,10 @@ export default function TourTooltip({
         }
         return;
       }
-      timer = setTimeout(tryMeasure, 120);
+      timer = setTimeout(tryMeasure, 110);
     };
 
-    timer = setTimeout(tryMeasure, ensureVisible ? 400 : 60);
+    timer = setTimeout(tryMeasure, ensureVisible ? 380 : 80);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, targetRef]);
@@ -110,7 +110,7 @@ export default function TourTooltip({
   const holeX = Math.max(0, rect.x - PAD);
   const holeY = Math.max(0, rect.y - PAD);
   const holeW = rect.w + PAD * 2;
-  const holeH = rect.h + PAD * 2;
+  const holeH = Math.min(rect.h + PAD * 2, win.height * 0.62);
 
   const spaceBelow = win.height - (holeY + holeH);
   const spaceAbove = holeY;
@@ -121,9 +121,13 @@ export default function TourTooltip({
         ? false
         : spaceBelow >= spaceAbove;
 
-  const cardTop = placeBelow
+  const rawCardTop = placeBelow
     ? holeY + holeH + GAP
-    : Math.max(EDGE, holeY - GAP - cardHeight);
+    : Math.max(EDGE + 24, holeY - GAP - cardHeight);
+  const cardTop = Math.max(
+    EDGE + 24,
+    Math.min(rawCardTop, win.height - cardHeight - EDGE - 20)
+  );
 
   const isLast = step === totalSteps;
 
@@ -182,7 +186,7 @@ function makeStyles(theme: ThemeTokens) {
       position: 'absolute',
       borderWidth: 2,
       borderColor: '#FFFFFF',
-      borderRadius: 12,
+      borderRadius: 16,
       shadowColor: theme.primary,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.9,
@@ -194,31 +198,34 @@ function makeStyles(theme: ThemeTokens) {
       left: EDGE,
       right: EDGE,
       backgroundColor: theme.surface,
-      borderRadius: 14,
-      paddingVertical: 14,
+      borderRadius: 16,
+      paddingVertical: 15,
       paddingHorizontal: 16,
+      borderWidth: 1,
+      borderColor: theme.border,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.18,
+      shadowOpacity: 0.22,
       shadowRadius: 12,
-      elevation: 6,
+      elevation: 8,
     },
     counter: {
       position: 'absolute',
-      top: 12,
+      top: 14,
       right: 16,
       fontSize: 11,
-      color: theme.textMuted,
+      fontWeight: '700',
+      color: theme.primary,
     },
     title: {
-      fontSize: 14,
-      fontWeight: '500',
+      fontSize: 15,
+      fontWeight: '700',
       color: theme.textDark,
-      marginBottom: 4,
-      paddingRight: 44,
+      marginBottom: 5,
+      paddingRight: 52,
     },
     body: {
-      fontSize: 12,
+      fontSize: 13,
       color: theme.textMuted,
       lineHeight: 18,
     },
@@ -231,17 +238,17 @@ function makeStyles(theme: ThemeTokens) {
     skip: {
       fontSize: 12,
       color: theme.textMuted,
-      fontWeight: '500',
+      fontWeight: '600',
     },
     nextBtn: {
       backgroundColor: theme.primary,
-      borderRadius: 10,
-      paddingHorizontal: 14,
-      paddingVertical: 7,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
     },
     nextBtnText: {
       fontSize: 12,
-      fontWeight: '600',
+      fontWeight: '700',
       color: '#FFFFFF',
     },
   });

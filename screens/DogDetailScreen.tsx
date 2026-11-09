@@ -207,11 +207,14 @@ export default function DogDetailScreen({
   );
 
   const scrollRef = useRef<ScrollView>(null);
+  const subTabBarRef = useRef<View>(null);
+  const moodCardRef = useRef<View>(null);
   const habitsSectionRef = useRef<View>(null);
   const addHabitRef = useRef<View>(null);
   const cycleSectionRef = useRef<View>(null);
   const poopSectionRef = useRef<View>(null);
-  const tourY = useRef<{ mood?: number; habits?: number; cycle?: number; poop?: number }>({});
+  const immunitySectionRef = useRef<View>(null);
+  const tourY = useRef<{ subTabs?: number; mood?: number; habits?: number; cycle?: number; poop?: number; immunity?: number }>({});
   const scrollToTour = (y?: number) =>
     scrollRef.current?.scrollTo({ y: Math.max(0, (y ?? 0) - 90), animated: true });
 
@@ -982,7 +985,14 @@ export default function DogDetailScreen({
         </View>
 
         {/* 2. 3-Tab Segmented Pill Switcher (Section 11 Architecture) */}
-        <View style={styles.subTabBar}>
+        <View
+          ref={subTabBarRef}
+          collapsable={false}
+          onLayout={(e) => {
+            tourY.current.subTabs = e.nativeEvent.layout.y;
+          }}
+          style={styles.subTabBar}
+        >
           <TouchableOpacity
             style={[styles.subTabPill, activeSubTab === 'daily' && styles.subTabPillActive]}
             onPress={() => setActiveSubTab('daily')}
@@ -1029,6 +1039,8 @@ export default function DogDetailScreen({
         {activeSubTab === 'daily' ? (
           <>
             <View
+              ref={moodCardRef}
+              collapsable={false}
               style={styles.moodCard}
               onLayout={(e) => {
                 tourY.current.mood = e.nativeEvent.layout.y;
@@ -1469,7 +1481,14 @@ export default function DogDetailScreen({
         {/* ============================================================ */}
         {activeSubTab === 'immunity' ? (
           <>
-            <View style={[styles.protectionWidget, { marginTop: 0 }]}>
+            <View
+              ref={immunitySectionRef}
+              collapsable={false}
+              onLayout={(e) => {
+                tourY.current.immunity = e.nativeEvent.layout.y;
+              }}
+              style={[styles.protectionWidget, { marginTop: 0 }]}
+            >
               <View style={styles.protectionHeaderRow}>
                 <View style={styles.protectionTitleCol}>
                   <Text style={styles.protectionBadge}>IMMUNITY & PROTECTION</Text>
@@ -1645,7 +1664,11 @@ export default function DogDetailScreen({
       {tourRefs ? (
         <TabTour
           tab="pets"
-          enabled
+          enabled={mode === 'detail'}
+          onFinish={() => {
+            setActiveSubTab('daily');
+            scrollRef.current?.scrollTo({ y: 0, animated: true });
+          }}
           steps={[
             {
               targetRef: tourRefs.switcherRef,
@@ -1658,23 +1681,57 @@ export default function DogDetailScreen({
               },
             },
             {
-              targetRef: habitsSectionRef,
+              targetRef: moodCardRef,
               position: 'bottom',
               title: t('tour.pets.s2Title'),
               body: t('tour.pets.s2Body'),
               ensureVisible: () => {
                 setActiveSubTab('daily');
-                scrollToTour(tourY.current.habits);
+                scrollToTour(tourY.current.mood ?? 240);
               },
             },
             {
-              targetRef: addHabitRef,
+              targetRef: habitsSectionRef,
               position: 'bottom',
               title: t('tour.pets.s3Title'),
               body: t('tour.pets.s3Body'),
               ensureVisible: () => {
                 setActiveSubTab('daily');
-                scrollToTour(tourY.current.habits);
+                scrollToTour(tourY.current.habits ?? 380);
+              },
+            },
+            {
+              targetRef: subTabBarRef,
+              position: 'bottom',
+              title: t('tour.pets.s4Title'),
+              body: t('tour.pets.s4Body'),
+              ensureVisible: () => {
+                setActiveSubTab('daily');
+                scrollToTour(tourY.current.subTabs ?? 180);
+              },
+            },
+            {
+              targetRef: poopSectionRef,
+              position: 'bottom',
+              title: t('tour.pets.s5Title'),
+              body: t('tour.pets.s5Body'),
+              ensureVisible: () => {
+                setActiveSubTab('tummy');
+                setTimeout(() => {
+                  scrollToTour(tourY.current.poop ?? 220);
+                }, 60);
+              },
+            },
+            {
+              targetRef: immunitySectionRef,
+              position: 'bottom',
+              title: t('tour.pets.s6Title'),
+              body: t('tour.pets.s6Body'),
+              ensureVisible: () => {
+                setActiveSubTab('immunity');
+                setTimeout(() => {
+                  scrollToTour(tourY.current.immunity ?? 220);
+                }, 60);
               },
             },
           ]}

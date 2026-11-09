@@ -51,45 +51,6 @@ type Props = BottomTabScreenProps<RootTabParamList, 'More'> & {
   notificationsState?: ReturnType<typeof useNotifications>;
 };
 
-type WishlistItem = {
-  id: string;
-  icon: string;
-  title: string;
-  subtitle: string;
-  baseVotes: number;
-};
-
-const WISHLIST_ITEMS: WishlistItem[] = [
-  {
-    id: 'food_scanner',
-    icon: '🔍',
-    title: 'Smart Barcode & Food Scanner',
-    subtitle: 'Scan ingredient labels to detect allergens, low-grade fillers & safety ratings',
-    baseVotes: 142,
-  },
-  {
-    id: 'community_qa',
-    icon: '👥',
-    title: 'Pet Parent Community Q&A',
-    subtitle: 'Connect with verified owners of the same breed and local playdate groups',
-    baseVotes: 98,
-  },
-  {
-    id: 'prescription_tracker',
-    icon: '💊',
-    title: 'Medication Refill Tracker',
-    subtitle: 'Auto-countdown doses and alert you before prescription refills run out',
-    baseVotes: 87,
-  },
-  {
-    id: 'telehealth_chat',
-    icon: '🩺',
-    title: 'Vet Telehealth Quick-Chat',
-    subtitle: '24/7 triage guidance with certified veterinary technicians',
-    baseVotes: 165,
-  },
-];
-
 export default function MoreScreen({
   route,
   navigation,
@@ -151,8 +112,13 @@ export default function MoreScreen({
     },
   ], [t]);
 
+  const moreScrollRef = useRef<ScrollView>(null);
   const upcomingRef = useRef<View>(null);
+  const vetFinderRef = useRef<View>(null);
   const roadmapRef = useRef<View>(null);
+  const moreTourY = useRef<{ upcoming?: number; vetFinder?: number; roadmap?: number }>({});
+  const scrollToMoreTour = (y?: number) =>
+    moreScrollRef.current?.scrollTo({ y: Math.max(0, (y ?? 0) - 90), animated: true });
 
   useEffect(() => {
     (async () => {
@@ -338,7 +304,7 @@ export default function MoreScreen({
   const allUpcoming = [...overdue, ...upcoming];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView ref={moreScrollRef} style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{t('more.title')}</Text>
 
       <TouchableOpacity
@@ -403,7 +369,14 @@ export default function MoreScreen({
       </View>
 
       <Text style={styles.sectionTitle}>{t('more.upcoming')}</Text>
-      <View ref={upcomingRef} collapsable={false} style={styles.card}>
+      <View
+        ref={upcomingRef}
+        collapsable={false}
+        onLayout={(e) => {
+          moreTourY.current.upcoming = e.nativeEvent.layout.y;
+        }}
+        style={styles.card}
+      >
         {allUpcoming.length === 0 ? (
           <Text style={styles.emptyText}>{t('more.noVaccinesTracked')}</Text>
         ) : (
@@ -443,7 +416,14 @@ export default function MoreScreen({
       ) : null}
 
       <Text style={styles.sectionTitle}>{t('more.vetFinder')}</Text>
-      <View style={styles.card}>
+      <View
+        ref={vetFinderRef}
+        collapsable={false}
+        onLayout={(e) => {
+          moreTourY.current.vetFinder = e.nativeEvent.layout.y;
+        }}
+        style={styles.card}
+      >
         <TouchableOpacity style={styles.row} onPress={() => setShowVetFinder(true)}>
           <View style={styles.iconBox}><Text style={styles.iconText}>📍</Text></View>
           <View style={styles.rowInfo}>
@@ -456,7 +436,14 @@ export default function MoreScreen({
 
       {/* Feature Wishlist & Roadmap Section */}
       <Text style={styles.sectionTitle}>{t('more.roadmapTitle') || 'Bisco Roadmap & Wishlist'}</Text>
-      <View ref={roadmapRef} collapsable={false} style={styles.card}>
+      <View
+        ref={roadmapRef}
+        collapsable={false}
+        onLayout={(e) => {
+          moreTourY.current.roadmap = e.nativeEvent.layout.y;
+        }}
+        style={styles.card}
+      >
         <Text style={styles.wishlistHeaderSubtitle}>
           {t('more.roadmapSubtitle') || 'Vote for upcoming capabilities you want our team to build next:'}
         </Text>
@@ -542,7 +529,7 @@ export default function MoreScreen({
           style={styles.row}
           onPress={async () => {
             await resetAllTours();
-            Alert.alert(t('tour.replayDoneTitle'), t('tour.replayDoneBody'));
+            navigation.navigate('Home');
           }}
         >
           <View style={styles.iconBox}><Text style={styles.iconText}>🎯</Text></View>
@@ -623,9 +610,29 @@ export default function MoreScreen({
       <TabTour
         tab="more"
         enabled
+        onFinish={() => moreScrollRef.current?.scrollTo({ y: 0, animated: true })}
         steps={[
-          { targetRef: upcomingRef, position: 'bottom', title: t('tour.more.s1Title'), body: t('tour.more.s1Body') },
-          { targetRef: roadmapRef, position: 'top', title: t('tour.more.s2Title'), body: t('tour.more.s2Body') },
+          {
+            targetRef: upcomingRef,
+            position: 'bottom',
+            title: t('tour.more.s1Title'),
+            body: t('tour.more.s1Body'),
+            ensureVisible: () => scrollToMoreTour(moreTourY.current.upcoming ?? 200),
+          },
+          {
+            targetRef: vetFinderRef,
+            position: 'bottom',
+            title: t('tour.more.s2Title'),
+            body: t('tour.more.s2Body'),
+            ensureVisible: () => scrollToMoreTour(moreTourY.current.vetFinder ?? 380),
+          },
+          {
+            targetRef: roadmapRef,
+            position: 'top',
+            title: t('tour.more.s3Title'),
+            body: t('tour.more.s3Body'),
+            ensureVisible: () => scrollToMoreTour(moreTourY.current.roadmap ?? 520),
+          },
         ]}
       />
     </ScrollView>
