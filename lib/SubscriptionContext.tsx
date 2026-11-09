@@ -41,7 +41,8 @@ export interface SubscriptionContextValue {
   closePaywall: () => void;
 }
 
-const SUBSCRIPTION_STORAGE_KEY = '@bisco_subscription_cache';
+const SUBSCRIPTION_STORAGE_KEY = '@bisco_subscription';
+const LEGACY_SUBSCRIPTION_STORAGE_KEY = '@pawcare_subscription';
 const CHAT_USAGE_KEY_PREFIX = '@bisco_chat_count_';
 const LEGACY_CHAT_USAGE_KEY_PREFIX = '@pawcare_chat_count_';
 const MAX_FREE_DAILY_CHATS = 5;
@@ -133,27 +134,36 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Initialize RevenueCat (StoreKit / Google Play Billing) and sync entitlements on launch
+  // Initialize RevenueCat (when API key is set) or load local QA preview subscription state
   useEffect(() => {
     let removeListener: (() => void) | undefined;
 
     (async () => {
-      // 1. Load last verified entitlement cache for instant offline startup
       try {
-        const raw = await AsyncStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
+        const raw =
+          (await AsyncStorage.getItem(SUBSCRIPTION_STORAGE_KEY)) ||
+          (await AsyncStorage.getItem(LEGACY_SUBSCRIPTION_STORAGE_KEY));
         if (raw) {
           const parsed: StoredSubscription = JSON.parse(raw);
-          if (parsed.tier === 'pro' && (!parsed.expiresAt || new Date(parsed.expiresAt) > new Date())) {
-            setTier('pro');
-            setPlan(parsed.plan);
-            setExpiresAt(parsed.expiresAt);
+          if (parsed.tier === 'pro') {
+            if (parsed.expiresAt && new Date(parsed.expiresAt) < new Date()) {
+              setTier('free');
+              setPlan(null);
+              setExpiresAt(null);
+              await AsyncStorage.removeItem(SUBSCRIPTION_STORAGE_KEY);
+              await AsyncStorage.removeItem(LEGACY_SUBSCRIPTION_STORAGE_KEY);
+            } else {
+              setTier('pro');
+              setPlan(parsed.plan);
+              setExpiresAt(parsed.expiresAt);
+            }
           }
         }
       } catch {
         // ignore cache read error
       }
 
-      // 2. Configure RevenueCat native SDK and verify live receipt entitlements
+      // If RevenueCat API keys are configured, verify live store entitlements
       try {
         const apiKey = Platform.OS === 'ios' ? REVENUECAT_IOS_KEY : REVENUECAT_ANDROID_KEY;
         const Purchases = await getRevenueCatModule();
@@ -238,12 +248,33 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const upgradeToPro = async (chosenPlan: SubscriptionPlan) => {
     try {
       const apiKey = Platform.OS === 'ios' ? REVENUECAT_IOS_KEY : REVENUECAT_ANDROID_KEY;
-      const Purchases = await getRevenueCatModule();
+      const Purchases = apiKey ? await getRevenueCatModule() : null;
 
+      // QA / Preview Fallback when RevenueCat API key is not configured yet
       if (!Purchases || !apiKey) {
+        const now = new Date();
+        const expiry = new Date(now);
+        if (chosenPlan === 'annual') {
+          expiry.setFullYear(expiry.getFullYear() + 1);
+        } else {
+          expiry.setMonth(expiry.getMonth() + 1);
+        }
+
+        const payload: StoredSubscription = {
+          tier: 'pro',
+          plan: chosenPlan,
+          subscribedAt: now.toISOString(),
+          expiresAt: expiry.toISOString(),
+        };
+
+        await AsyncStorage.setItem(SUBSCRIPTION_STORAGE_KEY, JSON.stringify(payload));
+        setTier('pro');
+        setPlan(chosenPlan);
+        setExpiresAt(payload.expiresAt);
+        setPaywallVisible(false);
         Alert.alert(
-          'Store Unavailable',
-          'In-App Purchases are not available in this build environment. Please install Bisco from the App Store or Google Play to subscribe.'
+          'Welcome to Bisco Pro! 🐾',
+          'Your upgrade is active (Preview Mode). Unlimited pet profiles, 24/7 AI consultations, and Vet PDF dossiers are now unlocked!'
         );
         return;
       }
@@ -292,7 +323,6 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       }
     } catch (err: any) {
       if (err?.userCancelled) {
-        // User dismissed native StoreKit / Google Play Billing sheet; no error alert needed
         return;
       }
       console.error('Store purchase failed:', err);
@@ -304,6 +334,22 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   };
 
   const cancelPro = async () => {
+    const apiKey = Platform.OS === 'ios' ? REVENUECAT_IOS_KEY : REVENUECAT_ANDROID_KEY;
+    if (!apiKey) {
+      // QA / Preview Mode: allow instant reset to Free tier for testing
+      try {
+        await AsyncStorage.removeItem(SUBSCRIPTION_STORAGE_KEY);
+        await AsyncStorage.removeItem(LEGACY_SUBSCRIPTION_STORAGE_KEY);
+        setTier('free');
+        setPlan(null);
+        setExpiresAt(null);
+        Alert.alert('Subscription Canceled', 'You have reverted to the Bisco Free tier.');
+      } catch (err) {
+        console.error('Failed to cancel subscription:', err);
+      }
+      return;
+    }
+
     try {
       if (Platform.OS === 'ios') {
         await Linking.openURL('https://apps.apple.com/account/subscriptions');
@@ -323,13 +369,22 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const restorePurchases = async (): Promise<boolean> => {
     try {
       const apiKey = Platform.OS === 'ios' ? REVENUECAT_IOS_KEY : REVENUECAT_ANDROID_KEY;
-      const Purchases = await getRevenueCatModule();
+      const Purchases = apiKey ? await getRevenueCatModule() : null;
 
       if (!Purchases || !apiKey) {
-        Alert.alert(
-          'Restore Unavailable',
-          'Store connection is not configured in this build environment.'
-        );
+        const raw = await AsyncStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
+        if (raw) {
+          const parsed: StoredSubscription = JSON.parse(raw);
+          if (parsed.tier === 'pro' && (!parsed.expiresAt || new Date(parsed.expiresAt) > new Date())) {
+            setTier('pro');
+            setPlan(parsed.plan);
+            setExpiresAt(parsed.expiresAt);
+            setPaywallVisible(false);
+            Alert.alert('Purchases Restored!', 'Your Bisco Pro subscription is active.');
+            return true;
+          }
+        }
+        Alert.alert('No Subscription Found', 'We could not find an active Bisco Pro subscription for this account.');
         return false;
       }
 
