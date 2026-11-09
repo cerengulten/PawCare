@@ -147,6 +147,7 @@ const en = {
     addressNotFound: 'Could not find that address. Try a different search.',
     emergencyBadge: '24/7 Emergency',
     openNowBadge: 'Open Now',
+    openBadge: 'Open Now',
     closedBadge: 'Closed',
     callClinic: 'Call',
     directions: 'Directions',
@@ -172,6 +173,7 @@ const en = {
   },
   nearbyVets: {
     sectionTitle: 'Nearby vets',
+    findVets: 'Vet Finder',
     tapToFind: 'Tap to find vets near you',
     vetRecommended: '⚠️ Vet recommended',
     openMap: 'Open map →',
@@ -853,6 +855,8 @@ const en = {
     trackOutdoors: 'Track outdoors',
     defaultWater: 'Clean Water',
     freshBowl: 'Fresh bowl',
+    today: 'Today',
+    clinicalSchedule: 'CLINICAL SCHEDULE',
   },
   more: {
     title: 'More',
@@ -1072,8 +1076,12 @@ const en = {
     },
   },
   vetAppointments: {
+    cardTitle: 'Upcoming Care Agenda',
     upcomingTitle: 'Upcoming Vet Visit',
     noUpcoming: 'No upcoming vet visits',
+    noUpcomingTitle: 'Next Vet Visit',
+    noUpcomingSubtitle: 'No visit scheduled yet',
+    scheduleBtn: 'Schedule',
     scheduleButton: 'Schedule visit',
     scheduleTitle: 'Schedule Vet Visit',
     editTitle: 'Edit Vet Visit',

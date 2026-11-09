@@ -41,8 +41,15 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // `lang` in the dep list is what re-renders every consumer when the language changes.
+  // Never leak raw `[missing "..." translation]` strings into the UI; return '' so `|| fallback` works cleanly.
   const t = useCallback(
-    (key: string, options?: TranslateOptions) => i18n.t(key, options),
+    (key: string, options?: TranslateOptions) => {
+      const res = i18n.t(key, options);
+      if (typeof res === 'string' && res.startsWith('[missing ')) {
+        return '';
+      }
+      return res;
+    },
     [lang]
   );
 

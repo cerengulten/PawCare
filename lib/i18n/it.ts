@@ -145,6 +145,7 @@ const it: typeof en = {
     addressNotFound: 'Impossibile trovare questo indirizzo. Prova una ricerca diversa.',
     emergencyBadge: '24/7 Emergenza',
     openNowBadge: 'Aperto Ora',
+    openBadge: 'Aperto Ora',
     closedBadge: 'Chiuso',
     callClinic: 'Chiama',
     directions: 'Indicazioni',
@@ -170,6 +171,7 @@ const it: typeof en = {
   },
   nearbyVets: {
     sectionTitle: 'Veterinari vicini',
+    findVets: 'Trova Veterinario',
     tapToFind: 'Tocca per trovare veterinari vicino a te',
     vetRecommended: '⚠️ Veterinario consigliato',
     openMap: 'Apri mappa →',
@@ -851,6 +853,8 @@ const it: typeof en = {
     trackOutdoors: 'Traccia uscite',
     defaultWater: 'Acqua fresca',
     freshBowl: 'Ciotola fresca',
+    today: 'Oggi',
+    clinicalSchedule: 'CALENDARIO CLINICO',
   },
   more: {
     title: 'Altro',
@@ -1070,8 +1074,12 @@ const it: typeof en = {
     },
   },
   vetAppointments: {
+    cardTitle: 'Agenda Cure in Arrivo',
     upcomingTitle: 'Prossima Visita Veterinaria',
     noUpcoming: 'Nessuna visita veterinaria programmata',
+    noUpcomingTitle: 'Prossima Visita Veterinaria',
+    noUpcomingSubtitle: 'Nessuna visita programmata',
+    scheduleBtn: 'Pianifica',
     scheduleButton: 'Pianifica visita',
     scheduleTitle: 'Pianifica Visita Veterinaria',
     editTitle: 'Modifica Visita',

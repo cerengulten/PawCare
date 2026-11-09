@@ -145,6 +145,7 @@ const tr: typeof en = {
     addressNotFound: 'Bu adres bulunamadı. Farklı bir arama deneyin.',
     emergencyBadge: '7/24 Acil',
     openNowBadge: 'Şu An Açık',
+    openBadge: 'Şu An Açık',
     closedBadge: 'Kapalı',
     callClinic: 'Ara',
     directions: 'Yol Tarifi',
@@ -170,6 +171,7 @@ const tr: typeof en = {
   },
   nearbyVets: {
     sectionTitle: 'Yakındaki veterinerler',
+    findVets: 'Veteriner Bul',
     tapToFind: 'Yakınındaki veterinerleri bulmak için dokun',
     vetRecommended: '⚠️ Veteriner önerilir',
     openMap: 'Haritayı aç →',
@@ -851,6 +853,8 @@ const tr: typeof en = {
     trackOutdoors: 'Dışarı kaydet',
     defaultWater: 'Taze Su',
     freshBowl: 'Doldur',
+    today: 'Bugün',
+    clinicalSchedule: 'KLİNİK TAKVİM',
   },
   more: {
     title: 'Daha Fazla',
@@ -1070,8 +1074,12 @@ const tr: typeof en = {
     },
   },
   vetAppointments: {
+    cardTitle: 'Yaklaşan Sağlık Takvimi',
     upcomingTitle: 'Yaklaşan Veteriner Ziyareti',
     noUpcoming: 'Yaklaşan veteriner ziyareti yok',
+    noUpcomingTitle: 'Sonraki Veteriner Ziyareti',
+    noUpcomingSubtitle: 'Henüz planlanmış randevu yok',
+    scheduleBtn: 'Planla',
     scheduleButton: 'Ziyaret planla',
     scheduleTitle: 'Veteriner Randevusu Planla',
     editTitle: 'Randevuyu Düzenle',

@@ -665,9 +665,11 @@ export default function HomeScreen({
               <View style={styles.agendaIconBadge}>
                 <Ionicons name="shield-checkmark-outline" size={17} color={theme.primary} />
               </View>
-              <View>
-                <Text style={styles.agendaEyebrow}>CLINICAL SCHEDULE</Text>
-                <Text style={styles.agendaHeaderTitle}>
+              <View style={styles.agendaTitleTextCol}>
+                <Text style={styles.agendaEyebrow} numberOfLines={1}>
+                  {t('home.clinicalSchedule') || 'CLINICAL SCHEDULE'}
+                </Text>
+                <Text style={styles.agendaHeaderTitle} numberOfLines={1}>
                   {t('vetAppointments.cardTitle') || 'Upcoming Care Agenda'}
                 </Text>
               </View>
@@ -678,7 +680,7 @@ export default function HomeScreen({
               activeOpacity={0.75}
             >
               <Feather name="navigation" size={13} color={theme.primary} />
-              <Text style={styles.findVetsPillText}>
+              <Text style={styles.findVetsPillText} numberOfLines={1}>
                 {t('nearbyVets.findVets') || 'Vet Finder'}
               </Text>
             </TouchableOpacity>
@@ -1145,6 +1147,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
     },
     passportInfo: {
       flex: 1,
+      minWidth: 0,
     },
     passportTitleRow: {
       flexDirection: 'row',
@@ -1157,6 +1160,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
+      flexShrink: 0,
     },
     streakInlinePill: {
       flexDirection: 'row',
@@ -1175,6 +1179,8 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       color: '#D97706',
     },
     passportName: {
+      flex: 1,
+      minWidth: 0,
       fontSize: 20,
       fontWeight: '800',
       color: theme.textDark,
@@ -1247,6 +1253,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
     },
     habitToken: {
       flex: 1,
+      minWidth: 0,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
@@ -1268,12 +1275,14 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       backgroundColor: theme.primaryLight,
       alignItems: 'center',
       justifyContent: 'center',
+      flexShrink: 0,
     },
     habitTokenIconBoxDone: {
       backgroundColor: theme.done,
     },
     habitTokenTextCol: {
       flex: 1,
+      minWidth: 0,
     },
     habitTokenTitle: {
       fontSize: 11,
@@ -1462,6 +1471,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
+      gap: 8,
       marginBottom: 14,
     },
     agendaTitleGroup: {
@@ -1469,6 +1479,11 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       alignItems: 'center',
       gap: 10,
       flex: 1,
+      minWidth: 0,
+    },
+    agendaTitleTextCol: {
+      flex: 1,
+      minWidth: 0,
     },
     agendaIconBadge: {
       width: 34,
@@ -1477,6 +1492,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       backgroundColor: theme.primaryLight,
       alignItems: 'center',
       justifyContent: 'center',
+      flexShrink: 0,
     },
     agendaEyebrow: {
       fontSize: 10,
@@ -1498,6 +1514,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       paddingHorizontal: 10,
       paddingVertical: 6,
       borderRadius: 12,
+      flexShrink: 0,
     },
     findVetsPillText: {
       fontSize: 12,
@@ -1525,9 +1542,11 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       justifyContent: 'center',
       borderWidth: 1,
       borderColor: theme.border,
+      flexShrink: 0,
     },
     agendaItemTextCol: {
       flex: 1,
+      minWidth: 0,
     },
     agendaItemTitle: {
       fontSize: 14,
@@ -1543,6 +1562,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
+      flexShrink: 0,
     },
     agendaSecondaryBtn: {
       width: 30,
@@ -1578,6 +1598,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       paddingHorizontal: 10,
       paddingVertical: 6,
       borderRadius: 10,
+      flexShrink: 0,
     },
     agendaOutlineBtnText: {
       fontSize: 12,
