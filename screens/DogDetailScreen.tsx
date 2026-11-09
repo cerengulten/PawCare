@@ -43,6 +43,7 @@ import { localeTag } from '../lib/i18n';
 import { ThemeTokens } from '../lib/themes';
 import { computeAge } from '../lib/petAge';
 import { checkAndCreateHealthAlert } from '../lib/notificationService';
+import { triggerLightHaptic, triggerSuccessHaptic } from '../lib/haptics';
 import { detectTreatmentType } from '../lib/treatmentLogic';
 import { formatDate } from '../lib/vaccineDisplay';
 import { toLocalDateString } from '../lib/dateUtils';
@@ -491,6 +492,7 @@ export default function DogDetailScreen({
         next_due_date: nextDueDate,
       });
       if (!adminErr) {
+        triggerSuccessHaptic();
         Alert.alert(
           t('treatments.administeredTitle') || 'Dose Logged! 🎉',
           t('treatments.administeredBody', { name: v.vaccine_name, date: formatDate(nextDueDate) }) ||
@@ -1067,6 +1069,7 @@ export default function DogDetailScreen({
                       key={opt.value}
                       style={[styles.moodBtn, selected && styles.moodBtnSelected]}
                       onPress={async () => {
+                        triggerLightHaptic();
                         await setTodayMood(opt.value);
                         checkAndCreateHealthAlert(dog.id, dog.owner_id);
                       }}
@@ -1138,10 +1141,16 @@ export default function DogDetailScreen({
                               return;
                             }
                             if (!done) {
+                              if (count + 1 >= target && completedToday.size + 1 >= habits.filter((item) => item.schedule_type !== 'weekly_target').length) {
+                                triggerSuccessHaptic();
+                              }
                               logHabitToday(h.id);
                               return;
                             }
                             isWater ? resetWaterToday(h.id) : resetHabitToday(h.id);
+                          }}
+                          onUndoOne={() => {
+                            undoOccurrence(h.id);
                           }}
                           onResetToday={() => {
                             isWater ? resetWaterToday(h.id) : resetHabitToday(h.id);
@@ -1181,7 +1190,10 @@ export default function DogDetailScreen({
                         />
                         {isWater && !done ? (
                           <WaterIncrementRow
-                            onAdd={(amount) => logWaterAmount(h.id, amount)}
+                            onAdd={(amount) => {
+                              triggerLightHaptic();
+                              logWaterAmount(h.id, amount);
+                            }}
                             onReset={() => resetWaterToday(h.id)}
                             onCustom={() => setWaterSheetHabitId(h.id)}
                           />

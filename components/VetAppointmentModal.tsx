@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -16,8 +16,9 @@ import DateTimePicker, {
   DateTimePickerAndroid,
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { Dog } from '../types';
-import { VetAppointment, getAppointmentDateTime } from '../lib/vetAppointments';
+import { VetAppointment } from '../lib/vetAppointments';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
@@ -52,9 +53,9 @@ export default function VetAppointmentModal({
   onSave,
   onDelete,
 }: Props) {
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
   const { t } = useT();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
 
   const [petId, setPetId] = useState<string>(selectedDogId || dogs[0]?.id || '');
   const [title, setTitle] = useState<string>('Wellness Checkup');
@@ -207,13 +208,18 @@ export default function VetAppointmentModal({
           <View style={styles.handleBar} />
 
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>
-              {appointment
-                ? t('vetAppointments.editTitle') || 'Edit Vet Visit'
-                : t('vetAppointments.scheduleTitle') || 'Schedule Vet Visit'}
-            </Text>
+            <View style={styles.headerLeft}>
+              <View style={styles.headerIconBadge}>
+                <Ionicons name="medkit-outline" size={18} color={theme.primary} />
+              </View>
+              <Text style={styles.headerTitle}>
+                {appointment
+                  ? t('vetAppointments.editTitle') || 'Edit Vet Visit'
+                  : t('vetAppointments.scheduleTitle') || 'Schedule Vet Visit'}
+              </Text>
+            </View>
             <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Text style={styles.closeBtn}>✕</Text>
+              <Feather name="x" size={20} color={theme.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -247,19 +253,41 @@ export default function VetAppointmentModal({
               <View style={styles.chipsWrap}>
                 {COMMON_TYPES.map((type) => {
                   const isSelected = title === type;
-                  const chipLabel =
-                    type === 'Parasite Treatment' ? (t('vetAppointments.reasonParasite') || '🪱 Parasite Treatment') :
-                    type === 'Vaccination' ? (t('vetAppointments.reasonVaccination') || '💉 Vaccination') :
-                    type === 'Wellness Checkup' ? (t('vetAppointments.reasonWellness') || '🩺 Wellness Checkup') :
-                    type;
+                  const cleanLabel =
+                    type === 'Parasite Treatment'
+                      ? (t('vetAppointments.reasonParasite') || 'Parasite Treatment').replace(/^[^\w\s]+\s*/, '')
+                      : type === 'Vaccination'
+                        ? (t('vetAppointments.reasonVaccination') || 'Vaccination').replace(/^[^\w\s]+\s*/, '')
+                        : type === 'Wellness Checkup'
+                          ? (t('vetAppointments.reasonWellness') || 'Wellness Checkup').replace(/^[^\w\s]+\s*/, '')
+                          : type;
                   return (
                     <TouchableOpacity
                       key={type}
                       onPress={() => setTitle(type)}
                       style={[styles.typeChip, isSelected && styles.typeChipSelected]}
                     >
+                      {type === 'Parasite Treatment' ? (
+                        <Feather
+                          name="shield"
+                          size={12}
+                          color={isSelected ? theme.primary : theme.textMuted}
+                        />
+                      ) : type === 'Vaccination' ? (
+                        <Ionicons
+                          name="shield-checkmark-outline"
+                          size={13}
+                          color={isSelected ? theme.primary : theme.textMuted}
+                        />
+                      ) : type === 'Wellness Checkup' ? (
+                        <Ionicons
+                          name="medkit-outline"
+                          size={13}
+                          color={isSelected ? theme.primary : theme.textMuted}
+                        />
+                      ) : null}
                       <Text style={[styles.typeChipText, isSelected && styles.typeChipTextSelected]}>
-                        {chipLabel}
+                        {cleanLabel}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -291,14 +319,16 @@ export default function VetAppointmentModal({
               <View style={[styles.fieldGroup, { flex: 1 }]}>
                 <Text style={styles.fieldLabel}>{t('vetAppointments.dateLabel') || 'Date'}</Text>
                 <TouchableOpacity style={styles.pickerBtn} onPress={openDatePicker}>
-                  <Text style={styles.pickerBtnText}>📅 {dateStr || 'Select Date'}</Text>
+                  <Ionicons name="calendar-outline" size={16} color={theme.primary} />
+                  <Text style={styles.pickerBtnText}>{dateStr || 'Select Date'}</Text>
                 </TouchableOpacity>
               </View>
 
               <View style={[styles.fieldGroup, { flex: 1 }]}>
                 <Text style={styles.fieldLabel}>{t('vetAppointments.timeLabel') || 'Time'}</Text>
                 <TouchableOpacity style={styles.pickerBtn} onPress={openTimePicker}>
-                  <Text style={styles.pickerBtnText}>⏰ {timeStr || '10:00'}</Text>
+                  <Feather name="clock" size={15} color={theme.primary} />
+                  <Text style={styles.pickerBtnText}>{timeStr || '10:00'}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -310,6 +340,7 @@ export default function VetAppointmentModal({
                   value={tempDate}
                   mode="date"
                   display="inline"
+                  themeVariant={isDarkMode ? 'dark' : 'light'}
                   onChange={(_, d) => {
                     if (d) {
                       setTempDate(d);
@@ -324,7 +355,7 @@ export default function VetAppointmentModal({
                   style={styles.iosPickerDone}
                   onPress={() => setShowIosDatePicker(false)}
                 >
-                  <Text style={styles.iosPickerDoneText}>Done</Text>
+                  <Text style={styles.iosPickerDoneText}>{t('common.done') || 'Done'}</Text>
                 </TouchableOpacity>
               </View>
             ) : null}
@@ -336,6 +367,7 @@ export default function VetAppointmentModal({
                   value={tempDate}
                   mode="time"
                   display="spinner"
+                  themeVariant={isDarkMode ? 'dark' : 'light'}
                   onChange={(_, d) => {
                     if (d) {
                       setTempDate(d);
@@ -349,7 +381,7 @@ export default function VetAppointmentModal({
                   style={styles.iosPickerDone}
                   onPress={() => setShowIosTimePicker(false)}
                 >
-                  <Text style={styles.iosPickerDoneText}>Done</Text>
+                  <Text style={styles.iosPickerDoneText}>{t('common.done') || 'Done'}</Text>
                 </TouchableOpacity>
               </View>
             ) : null}
@@ -396,8 +428,8 @@ export default function VetAppointmentModal({
                 {saving
                   ? 'Saving…'
                   : appointment
-                  ? t('common.save') || 'Save Changes'
-                  : t('vetAppointments.saveAppointment') || 'Schedule Appointment'}
+                    ? t('common.save') || 'Save Changes'
+                    : t('vetAppointments.saveAppointment') || 'Schedule Appointment'}
               </Text>
             </TouchableOpacity>
 
@@ -419,20 +451,22 @@ export default function VetAppointmentModal({
   );
 }
 
-function makeStyles(theme: ThemeTokens) {
+function makeStyles(theme: ThemeTokens, isDarkMode = false) {
   return StyleSheet.create({
     overlay: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.45)',
+      backgroundColor: isDarkMode ? 'rgba(0,0,0,0.75)' : 'rgba(0,0,0,0.45)',
       justifyContent: 'flex-end',
     },
     sheet: {
       backgroundColor: theme.surface,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
+      borderTopLeftRadius: 22,
+      borderTopRightRadius: 22,
       padding: 20,
       paddingTop: 12,
       maxHeight: '90%',
+      borderTopWidth: 1,
+      borderColor: theme.border,
     },
     handleBar: {
       width: 40,
@@ -448,15 +482,23 @@ function makeStyles(theme: ThemeTokens) {
       justifyContent: 'space-between',
       marginBottom: 16,
     },
+    headerLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    headerIconBadge: {
+      width: 32,
+      height: 32,
+      borderRadius: 10,
+      backgroundColor: theme.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     headerTitle: {
       fontSize: 17,
-      fontWeight: '600',
+      fontWeight: '700',
       color: theme.textDark,
-    },
-    closeBtn: {
-      fontSize: 18,
-      color: theme.textMuted,
-      padding: 4,
     },
     scroll: {
       marginBottom: 16,
@@ -477,8 +519,8 @@ function makeStyles(theme: ThemeTokens) {
       marginBottom: 4,
     },
     petChip: {
-      backgroundColor: theme.background,
-      borderWidth: 0.5,
+      backgroundColor: theme.surfaceAlt,
+      borderWidth: 1,
       borderColor: theme.border,
       borderRadius: 20,
       paddingHorizontal: 12,
@@ -504,12 +546,15 @@ function makeStyles(theme: ThemeTokens) {
       marginBottom: 8,
     },
     typeChip: {
-      backgroundColor: theme.background,
-      borderWidth: 0.5,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: theme.surfaceAlt,
+      borderWidth: 1,
       borderColor: theme.border,
       borderRadius: 16,
       paddingHorizontal: 10,
-      paddingVertical: 5,
+      paddingVertical: 6,
     },
     typeChipSelected: {
       backgroundColor: theme.primaryLight,
@@ -524,10 +569,10 @@ function makeStyles(theme: ThemeTokens) {
       fontWeight: '600',
     },
     textInput: {
-      backgroundColor: theme.background,
-      borderWidth: 0.5,
+      backgroundColor: theme.surfaceAlt,
+      borderWidth: 1,
       borderColor: theme.border,
-      borderRadius: 10,
+      borderRadius: 12,
       paddingHorizontal: 12,
       paddingVertical: 10,
       fontSize: 14,
@@ -542,23 +587,28 @@ function makeStyles(theme: ThemeTokens) {
       gap: 12,
     },
     pickerBtn: {
-      backgroundColor: theme.background,
-      borderWidth: 0.5,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: theme.surfaceAlt,
+      borderWidth: 1,
       borderColor: theme.border,
-      borderRadius: 10,
+      borderRadius: 12,
       paddingHorizontal: 12,
       paddingVertical: 11,
     },
     pickerBtnText: {
       fontSize: 14,
       color: theme.textDark,
-      fontWeight: '500',
+      fontWeight: '600',
     },
     iosPickerWrap: {
-      backgroundColor: theme.background,
+      backgroundColor: theme.surfaceAlt,
       borderRadius: 12,
       padding: 10,
       marginBottom: 16,
+      borderWidth: 1,
+      borderColor: theme.border,
     },
     iosPickerDone: {
       alignSelf: 'flex-end',
@@ -575,9 +625,9 @@ function makeStyles(theme: ThemeTokens) {
       justifyContent: 'space-between',
       paddingVertical: 10,
       marginBottom: 16,
-      borderTopWidth: 0.5,
-      borderBottomWidth: 0.5,
-      borderColor: theme.divider,
+      borderTopWidth: 1,
+      borderBottomWidth: 1,
+      borderColor: theme.border,
     },
     reminderInfo: {
       flex: 1,
@@ -585,7 +635,7 @@ function makeStyles(theme: ThemeTokens) {
     },
     reminderTitle: {
       fontSize: 14,
-      fontWeight: '500',
+      fontWeight: '600',
       color: theme.textDark,
     },
     reminderSubtitle: {
@@ -595,7 +645,7 @@ function makeStyles(theme: ThemeTokens) {
     },
     saveBtn: {
       backgroundColor: theme.primary,
-      borderRadius: 12,
+      borderRadius: 14,
       paddingVertical: 13,
       alignItems: 'center',
       marginTop: 6,
@@ -606,11 +656,11 @@ function makeStyles(theme: ThemeTokens) {
     saveBtnText: {
       color: '#FFFFFF',
       fontSize: 15,
-      fontWeight: '600',
+      fontWeight: '700',
     },
     deleteBtn: {
       backgroundColor: theme.surfaceAlt,
-      borderRadius: 12,
+      borderRadius: 14,
       paddingVertical: 12,
       alignItems: 'center',
       marginTop: 8,

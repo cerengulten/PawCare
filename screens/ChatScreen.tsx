@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,10 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { Dog } from '../types';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
+import MarkdownText from '../components/MarkdownText';
 import { useAllergens } from '../lib/hooks/useAllergens';
 import { useMealDetails } from '../lib/hooks/useMealDetails';
 import { useMoodHistory } from '../lib/hooks/useMoodHistory';
@@ -23,6 +25,7 @@ import { useVomitLogs } from '../lib/hooks/useVomitLogs';
 import { useWaterLogs } from '../lib/hooks/useWaterLogs';
 import { buildDogContextSummary } from '../lib/dogContextSummary';
 import { hasGeminiApiKey, sendChatMessage, ChatTurn } from '../lib/gemini';
+import { triggerLightHaptic } from '../lib/haptics';
 import { RootTabParamList } from './AppTabs';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
@@ -36,6 +39,11 @@ type Props = BottomTabScreenProps<RootTabParamList, 'Chat'> & {
   onSwipeBack: () => void;
 };
 
+type UIMessage = ChatTurn & {
+  isError?: boolean;
+  retryPrompt?: string;
+};
+
 const SCOPE_INSTRUCTION = `You are a friendly, knowledgeable, and careful pet-care assistant inside the Bisco app.
 IMPORTANT: You are an AI assistant, NOT a veterinarian. You cannot diagnose medical conditions or prescribe medications.
 Only answer questions about: food amounts, safe/toxic foods, hydration, poop/vomit triage, hypoallergenic diet questions, and general symptom guidance. Politely decline anything outside pet care.
@@ -43,9 +51,7 @@ Only answer questions about: food amounts, safe/toxic foods, hydration, poop/vom
 CRITICAL MEDICAL & SAFETY RULES:
 1. Always explicitly remind the pet parent to consult their licensed veterinarian whenever discussing any symptom, illness, health abnormality, or diet change.
 2. For severe symptoms, blood, severe pain, breathing difficulty, poisoning/toxin ingestion, persistent vomiting, or lethargy, urge the user to seek immediate emergency veterinary attention.
-3. Keep answers concise, empathetic, and clear.
-
-Respond in plain text only — no markdown (no asterisks, no headers, no numbered/bulleted lists). Write short plain sentences or paragraphs instead, since the chat UI displays raw text.`;
+3. Keep answers concise, empathetic, and clear. Use clean Markdown formatting (**bold** key points and short bullet lists) where helpful for readability.`;
 
 export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigation, route }: Props) {
   const { theme, isDarkMode } = useTheme();
@@ -59,9 +65,9 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
     openPaywall,
   } = useSubscription();
   const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
-  const activeDog = dogs.find(d => d.id === selectedDogId) ?? dogs[0] ?? null;
+  const activeDog = dogs.find((d) => d.id === selectedDogId) ?? dogs[0] ?? null;
 
-  const buildGreeting = (dogName: string): ChatTurn => ({
+  const buildGreeting = (dogName: string): UIMessage => ({
     role: 'model',
     text: t('chat.greeting', { name: dogName }),
   });
@@ -73,7 +79,7 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
   const { logs: vomitLogs } = useVomitLogs(activeDog?.id ?? null);
   const { logs: waterLogs } = useWaterLogs(activeDog?.id ?? null, 7);
 
-  const [messages, setMessages] = useState<ChatTurn[]>(
+  const [messages, setMessages] = useState<UIMessage[]>(
     activeDog ? [buildGreeting(activeDog.name)] : []
   );
   const [input, setInput] = useState('');
@@ -81,28 +87,32 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
   const [swipeEnabled, setSwipeEnabled] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
-  const starterPrompts = useMemo(() => [
-    { emoji: '🥩', text: t('chat.starterChicken') || 'Is cooked chicken safe daily?' },
-    { emoji: '💧', text: t('chat.starterWater') || 'How much water does my dog need?' },
-    { emoji: '🤒', text: t('chat.starterVaccine') || 'Common puppy vaccine reactions' },
-    { emoji: '💩', text: t('chat.starterPoop') || 'Soft stool for 2 days — what to do?' },
-  ], [t]);
+  const starterPrompts = useMemo(
+    () => [
+      {
+        icon: <Ionicons name="restaurant-outline" size={14} color={theme.primary} />,
+        text: t('chat.starterChicken') || 'Is cooked chicken safe daily?',
+      },
+      {
+        icon: <Ionicons name="water-outline" size={14} color={theme.primary} />,
+        text: t('chat.starterWater') || 'How much water does my dog need?',
+      },
+      {
+        icon: <Ionicons name="shield-checkmark-outline" size={14} color={theme.primary} />,
+        text: t('chat.starterVaccine') || 'Common puppy vaccine reactions',
+      },
+      {
+        icon: <Feather name="activity" size={14} color={theme.primary} />,
+        text: t('chat.starterPoop') || 'Soft stool for 2 days — what to do?',
+      },
+    ],
+    [t, theme.primary]
+  );
 
-  // Tab screens stay mounted in the background (React Navigation doesn't unmount an
-  // unfocused tab by default), so switching the active pet elsewhere in the app re-renders
-  // this screen with a new `activeDog` but wouldn't otherwise touch `messages` — the
-  // greeting and conversation history would keep referencing the previous dog. Reset the
-  // conversation whenever the active dog actually changes.
   useEffect(() => {
     if (activeDog) setMessages([buildGreeting(activeDog.name)]);
   }, [activeDog?.id]);
 
-  // Swipe-back is only meaningful when Chat was entered via a drill-in link (Home's "Ask
-  // about..." bar) — sitting on the Chat tab normally (like Pets/More/Home) shouldn't swipe.
-  // A plain `useEffect` keyed on `route.params?.fromLink` only reacts to the param
-  // *changing*, so after we clear it below it would never re-fire on a later plain tab
-  // press (param stays `undefined` both before and after) and `swipeEnabled` would stay
-  // stuck `true`. Listening to `focus` instead re-evaluates on every visit, param-driven or not.
   useEffect(() => {
     return navigation.addListener('focus', () => {
       if (route.params?.fromLink) {
@@ -127,32 +137,56 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
     }, [swipeEnabled, onSwipeBack])
   );
 
-  async function handleSend(overrideText?: string) {
+  async function handleSend(overrideText?: string, isRetry = false) {
     const text = (typeof overrideText === 'string' ? overrideText : input).trim();
     if (!text || sending) return;
 
-    if (!canSendChatMessage()) {
+    if (!isRetry && !canSendChatMessage()) {
       openPaywall('ai_consultations');
       return;
     }
 
-    const nextHistory: ChatTurn[] = [...messages, { role: 'user', text }];
-    setMessages(nextHistory);
-    setInput('');
+    triggerLightHaptic();
+
+    const baseMessages = isRetry
+      ? messages.filter((m) => !m.isError)
+      : [...messages, { role: 'user' as const, text }];
+
+    const cleanHistory: ChatTurn[] = baseMessages.map((m) => ({
+      role: m.role,
+      text: m.text,
+    }));
+
+    setMessages(baseMessages);
+    if (!isRetry) {
+      setInput('');
+      await recordChatMessage();
+    }
     setSending(true);
-    await recordChatMessage();
+
     try {
-      const systemInstruction = `${SCOPE_INSTRUCTION}\n\n${t('chat.respondInLanguage', { language: LANG_LABELS[lang] })}\n\nDog profile and recent data:\n${buildDogContextSummary(
-        activeDog!,
-        { allergens, mealDetails, moodHistoryByDate, healthLogs, vomitLogs, waterLogs }
-      )}`;
-      const reply = await sendChatMessage(nextHistory, systemInstruction);
-      setMessages(prev => [...prev, { role: 'model', text: reply }]);
+      const systemInstruction = `${SCOPE_INSTRUCTION}\n\n${t('chat.respondInLanguage', {
+        language: LANG_LABELS[lang],
+      })}\n\nDog profile and recent data:\n${buildDogContextSummary(activeDog!, {
+        allergens,
+        mealDetails,
+        moodHistoryByDate,
+        healthLogs,
+        vomitLogs,
+        waterLogs,
+      })}`;
+      const reply = await sendChatMessage(cleanHistory, systemInstruction);
+      setMessages((prev) => [...prev, { role: 'model', text: reply }]);
     } catch (err) {
       console.log('Chat send failed:', err);
-      setMessages(prev => [
+      setMessages((prev) => [
         ...prev,
-        { role: 'model', text: t('chat.sendFailed') },
+        {
+          role: 'model',
+          text: t('chat.sendFailed'),
+          isError: true,
+          retryPrompt: text,
+        },
       ]);
     } finally {
       setSending(false);
@@ -173,9 +207,7 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
     content = (
       <View style={styles.container}>
         <View style={styles.center}>
-          <Text style={styles.emptyText}>
-            {t('chat.notSetUp')}
-          </Text>
+          <Text style={styles.emptyText}>{t('chat.notSetUp')}</Text>
         </View>
       </View>
     );
@@ -187,7 +219,9 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
         keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
       >
         <View style={styles.disclaimerBar}>
-          <Text style={styles.disclaimerIcon}>🩺</Text>
+          <View style={styles.disclaimerIconBox}>
+            <Ionicons name="medkit-outline" size={16} color={theme.primary} />
+          </View>
           <Text style={styles.disclaimerText}>{t('chat.disclaimer')}</Text>
         </View>
 
@@ -200,11 +234,30 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
           {messages.map((m, i) => (
             <View
               key={i}
-              style={[styles.bubble, m.role === 'user' ? styles.bubbleUser : styles.bubbleModel]}
+              style={[
+                styles.bubble,
+                m.role === 'user' ? styles.bubbleUser : styles.bubbleModel,
+                m.isError && styles.bubbleError,
+              ]}
             >
-              <Text style={m.role === 'user' ? styles.bubbleTextUser : styles.bubbleTextModel}>
-                {m.text}
-              </Text>
+              {m.role === 'user' ? (
+                <Text style={styles.bubbleTextUser}>{m.text}</Text>
+              ) : (
+                <>
+                  <MarkdownText>{m.text}</MarkdownText>
+                  {m.isError && m.retryPrompt ? (
+                    <TouchableOpacity
+                      style={styles.retryBtn}
+                      onPress={() => handleSend(m.retryPrompt, true)}
+                      disabled={sending}
+                      activeOpacity={0.75}
+                    >
+                      <Feather name="refresh-cw" size={13} color={theme.primary} />
+                      <Text style={styles.retryBtnText}>Retry</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </>
+              )}
             </View>
           ))}
           {sending ? (
@@ -217,18 +270,19 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
         {/* Freemium AI Chat Usage Strip */}
         {isPro ? (
           <View style={styles.quotaRowPro}>
-            <Text style={styles.quotaProText}>👑 Bisco Pro AI · Unlimited 24/7 Triage</Text>
+            <Ionicons name="sparkles-outline" size={14} color={isDarkMode ? '#FBBF24' : '#B45309'} />
+            <Text style={styles.quotaProText}>Bisco Pro AI · Unlimited 24/7 Triage</Text>
           </View>
         ) : (
           <View style={styles.quotaRow}>
             <Text style={styles.quotaText}>
-              🐾 Free AI: {remainingDailyChats} of {maxFreeDailyChats} chats left today
+              Free AI: {remainingDailyChats} of {maxFreeDailyChats} chats left today
             </Text>
             <TouchableOpacity
               onPress={() => openPaywall('ai_consultations')}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Text style={styles.quotaUpgradeBtn}>Upgrade 👑</Text>
+              <Text style={styles.quotaUpgradeBtn}>Upgrade</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -249,7 +303,7 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
                   activeOpacity={0.7}
                   disabled={sending}
                 >
-                  <Text style={styles.starterChipEmoji}>{prompt.emoji}</Text>
+                  {prompt.icon}
                   <Text style={styles.starterChipText}>{prompt.text}</Text>
                 </TouchableOpacity>
               ))}
@@ -272,7 +326,7 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
             onPress={() => handleSend()}
             disabled={sending || !input.trim()}
           >
-            <Text style={styles.sendBtnText}>➤</Text>
+            <Feather name="send" size={17} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -310,8 +364,13 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       alignItems: 'center',
       gap: 10,
     },
-    disclaimerIcon: {
-      fontSize: 18,
+    disclaimerIconBox: {
+      width: 28,
+      height: 28,
+      borderRadius: 9,
+      backgroundColor: theme.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     disclaimerText: {
       flex: 1,
@@ -328,7 +387,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       gap: 12,
     },
     bubble: {
-      maxWidth: '82%',
+      maxWidth: '84%',
       paddingVertical: 12,
       paddingHorizontal: 16,
     },
@@ -356,16 +415,32 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       shadowRadius: 4,
       elevation: 1,
     },
+    bubbleError: {
+      borderColor: theme.alertBorder,
+    },
     bubbleTextUser: {
       color: '#FFFFFF',
       fontSize: 15,
       lineHeight: 21,
       fontWeight: '500',
     },
-    bubbleTextModel: {
-      color: theme.textDark,
-      fontSize: 15,
-      lineHeight: 21,
+    retryBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      gap: 6,
+      marginTop: 10,
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      backgroundColor: theme.primaryLight,
+      borderWidth: 1,
+      borderColor: theme.primary,
+    },
+    retryBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: theme.primary,
     },
     starterChipsContainer: {
       paddingVertical: 8,
@@ -381,41 +456,29 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      backgroundColor: isDarkMode ? '#221C18' : '#FFFFFF',
+      backgroundColor: theme.surface,
       paddingVertical: 7,
       paddingHorizontal: 12,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: isDarkMode ? '#3B2E24' : '#E8DFD3',
+      borderColor: theme.border,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.04,
       shadowRadius: 3,
       elevation: 1,
     },
-    starterChipEmoji: {
-      fontSize: 14,
-    },
     starterChipText: {
       fontSize: 12,
       fontWeight: '600',
       color: theme.textDark,
-    },
-    composerRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-end',
-      padding: 12,
-      gap: 10,
-      borderTopWidth: 1,
-      borderTopColor: theme.border,
-      backgroundColor: theme.surface,
     },
     quotaRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: 16,
-      paddingVertical: 9,
+      paddingVertical: 8,
       backgroundColor: theme.surfaceAlt,
       borderTopWidth: 1,
       borderTopColor: theme.border,
@@ -431,30 +494,44 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       color: theme.primary,
     },
     quotaRowPro: {
+      flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
+      gap: 6,
+      paddingHorizontal: 16,
       paddingVertical: 7,
-      backgroundColor: theme.surfaceAlt,
+      backgroundColor: isDarkMode ? '#292218' : '#FEF9EC',
       borderTopWidth: 1,
-      borderTopColor: theme.border,
+      borderTopColor: isDarkMode ? '#4A3923' : '#F5E4B8',
     },
     quotaProText: {
       fontSize: 11,
       fontWeight: '800',
-      color: theme.done,
+      color: isDarkMode ? '#FBBF24' : '#B45309',
       letterSpacing: 0.3,
+    },
+    composerRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      padding: 12,
+      paddingBottom: Platform.OS === 'ios' ? 24 : 14,
+      gap: 10,
+      backgroundColor: theme.surface,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
     },
     input: {
       flex: 1,
+      minHeight: 44,
       maxHeight: 110,
       backgroundColor: theme.surfaceAlt,
       borderRadius: 20,
-      borderWidth: 1.5,
-      borderColor: theme.border,
       paddingHorizontal: 16,
       paddingVertical: 10,
       fontSize: 15,
       color: theme.textDark,
+      borderWidth: 1,
+      borderColor: theme.border,
     },
     sendBtn: {
       width: 44,
@@ -465,17 +542,14 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       justifyContent: 'center',
       shadowColor: theme.primary,
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.3,
+      shadowOpacity: 0.25,
       shadowRadius: 4,
-      elevation: 3,
+      elevation: 2,
     },
     sendBtnDisabled: {
-      opacity: 0.45,
-    },
-    sendBtnText: {
-      color: '#FFFFFF',
-      fontSize: 17,
-      fontWeight: '800',
+      opacity: 0.4,
+      shadowOpacity: 0,
+      elevation: 0,
     },
   });
 }

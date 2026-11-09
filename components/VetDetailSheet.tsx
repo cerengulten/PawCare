@@ -59,9 +59,9 @@ export default function VetDetailSheet({
   onClose,
   onOpenDossier,
 }: Props) {
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
   const { t } = useT();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
 
   const primaryVetKey = activeDog ? `@bisco_primary_vet_${activeDog.id}` : null;
   const [isPrimary, setIsPrimary] = useState(false);
@@ -502,11 +502,11 @@ export default function VetDetailSheet({
   );
 }
 
-function makeStyles(theme: ThemeTokens) {
+function makeStyles(theme: ThemeTokens, isDarkMode = false) {
   return StyleSheet.create({
     overlay: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.45)',
+      backgroundColor: isDarkMode ? 'rgba(0,0,0,0.75)' : 'rgba(0,0,0,0.45)',
       justifyContent: 'flex-end',
     },
     backdrop: {

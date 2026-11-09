@@ -1,23 +1,36 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, Alert, BackHandler, StyleSheet, Platform, Modal, TextInput, KeyboardAvoidingView } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  Image,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  BackHandler,
+  StyleSheet,
+  Platform,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { useProfile } from '../lib/hooks/useProfile';
 import { useDogs } from '../lib/hooks/useDogs';
 import { useSelectedPet } from '../lib/hooks/useSelectedPet';
 import { useOverallStreak } from '../lib/hooks/useOverallStreak';
 import { useVetAppointments } from '../lib/hooks/useVetAppointments';
-import { VetAppointment } from '../lib/vetAppointments';
+import { VetAppointment, getAppointmentDateTime } from '../lib/vetAppointments';
 import { getDailyVetTip } from '../lib/vetTips';
 import { computeAge } from '../lib/petAge';
 import { useHabits, getHabitTarget } from '../lib/hooks/useHabits';
 import { useAllVaccines } from '../lib/hooks/useAllVaccines';
 import { useDogMood } from '../lib/hooks/useDogMood';
 import { getMoodStatus } from '../lib/moodStatus';
-import PetSummaryCard from '../components/PetSummaryCard';
-import NearbyVetsSection from '../components/NearbyVetsSection';
-import PreventiveCareCard from '../components/PreventiveCareCard';
-import VetAppointmentCard from '../components/VetAppointmentCard';
+import { detectTreatmentType } from '../lib/treatmentLogic';
+import { renderHabitVectorIcon } from '../lib/habitIcons';
+import { triggerLightHaptic, triggerSuccessHaptic } from '../lib/haptics';
 import VetAppointmentModal from '../components/VetAppointmentModal';
 import TabTour from '../components/TabTour';
 import { checkAndCreateStreakAlert } from '../lib/notificationService';
@@ -39,7 +52,14 @@ type Props = BottomTabScreenProps<RootTabParamList, 'Home'> & {
   checkUsernameAvailable: ProfileState['checkUsernameAvailable'];
 };
 
-export default function HomeScreen({ navigation, dogs, selectedDogId, profile, updateProfile, checkUsernameAvailable }: Props) {
+export default function HomeScreen({
+  navigation,
+  dogs,
+  selectedDogId,
+  profile,
+  updateProfile,
+  checkUsernameAvailable,
+}: Props) {
   const { theme, isDarkMode } = useTheme();
   const { t, lang } = useT();
   const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
@@ -49,7 +69,7 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
   const [editingAppointment, setEditingAppointment] = useState<VetAppointment | null>(null);
   const [tipOffset, setTipOffset] = useState(0);
 
-  const activeDog = dogs.find(d => d.id === selectedDogId) ?? dogs[0] ?? null;
+  const activeDog = dogs.find((d) => d.id === selectedDogId) ?? dogs[0] ?? null;
   const activeDogName = activeDog?.name ?? t('home.yourPet');
   const {
     habits,
@@ -62,7 +82,6 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
     isWeeklyGoalReached,
     logHabitToday,
     logWaterAmount,
-    undoHabitToday,
     resetHabitToday,
     undoOccurrence,
     resetWaterToday,
@@ -73,14 +92,33 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
   const age = computeAge(activeDog?.birth_date ?? null);
 
   const nextPreventiveTreatment = useMemo(() => {
-    const activeOverdue = overdueVaccines.find(v => v.dog_id === activeDog?.id);
+    const activeOverdue = overdueVaccines.find((v) => v.dog_id === activeDog?.id);
     if (activeOverdue) return activeOverdue;
     const anyOverdue = overdueVaccines[0];
     if (anyOverdue) return anyOverdue;
-    const activeUpcoming = upcomingVaccines.find(v => v.dog_id === activeDog?.id);
+    const activeUpcoming = upcomingVaccines.find((v) => v.dog_id === activeDog?.id);
     if (activeUpcoming) return activeUpcoming;
     return upcomingVaccines[0] ?? null;
   }, [overdueVaccines, upcomingVaccines, activeDog?.id]);
+
+  const preventiveStatusInfo = useMemo(() => {
+    if (!nextPreventiveTreatment) return null;
+    const dueMs = new Date(`${nextPreventiveTreatment.next_due_date}T00:00:00`).getTime();
+    const todayMs = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00').getTime();
+    const diffDays = Math.round((dueMs - todayMs) / (1000 * 60 * 60 * 24));
+    const isOverdue = diffDays < 0;
+    const kind = detectTreatmentType(nextPreventiveTreatment.vaccine_name, nextPreventiveTreatment.notes);
+    return {
+      diffDays,
+      isOverdue,
+      kind,
+      label: isOverdue
+        ? `${Math.abs(diffDays)}d overdue`
+        : diffDays === 0
+          ? t('home.today') || 'Due today'
+          : `Due in ${diffDays}d`,
+    };
+  }, [nextPreventiveTreatment, t]);
 
   const formattedDate = useMemo(() => {
     try {
@@ -108,7 +146,9 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
   const [showCompleteModal, setShowCompleteModal] = useState(false);
 
   function handleCompleteWithNotes(id: string) {
-    const appt = appointments.find((a) => a.id === id) || (nextAppointment?.id === id ? nextAppointment : null);
+    const appt =
+      appointments.find((a) => a.id === id) ||
+      (nextAppointment?.id === id ? nextAppointment : null);
     if (appt) {
       setCompletingAppt(appt);
       setCompleteNotes(appt.notes || '');
@@ -128,6 +168,7 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
         });
       }
       await markCompleted(completingAppt.id);
+      triggerSuccessHaptic();
     }
     setShowCompleteModal(false);
     setCompletingAppt(null);
@@ -137,19 +178,13 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
 
   const homeScrollRef = useRef<ScrollView>(null);
   const petStripRef = useRef<View>(null);
-  const streakRef = useRef<View>(null);
   const rhythmRef = useRef<View>(null);
-  const preventiveRef = useRef<View>(null);
-  const vetCardRef = useRef<View>(null);
+  const agendaRef = useRef<View>(null);
   const aiRef = useRef<View>(null);
-  const nearbyVetsRef = useRef<View>(null);
   const homeTourY = useRef<{
     passport?: number;
-    streak?: number;
-    preventive?: number;
-    vetCard?: number;
+    agenda?: number;
     ai?: number;
-    nearbyVets?: number;
   }>({});
   const scrollToHomeTour = (y?: number) =>
     homeScrollRef.current?.scrollTo({ y: Math.max(0, (y ?? 0) - 90), animated: true });
@@ -177,7 +212,8 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
   }, [profile?.id]);
 
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? t('home.goodMorning') : hour < 18 ? t('home.goodAfternoon') : t('home.goodEvening');
+  const greeting =
+    hour < 12 ? t('home.goodMorning') : hour < 18 ? t('home.goodAfternoon') : t('home.goodEvening');
   const firstName = profile?.full_name?.split(' ')[0] ?? t('home.there');
 
   if (showProfile) {
@@ -192,21 +228,25 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
     );
   }
 
+  const rhythmHabits = dueHabitsToday.length > 0 ? dueHabitsToday : habits;
+
   return (
     <>
       <ScrollView ref={homeScrollRef} style={styles.container} contentContainerStyle={styles.content}>
-        {/* 1. Warm Editorial Header */}
+        {/* Warm Editorial Header */}
         <View style={styles.header}>
           <View style={styles.headerTextGroup}>
             <Text style={styles.dateLabel}>{formattedDate.toUpperCase()}</Text>
-            <Text style={styles.greetingName}>{greeting}, {firstName} 👋</Text>
+            <Text style={styles.greetingName}>
+              {greeting}, {firstName}
+            </Text>
           </View>
           <TouchableOpacity onPress={() => setShowProfile(true)} activeOpacity={0.8}>
             {profile?.avatar_url ? (
               <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarEmoji}>🐾</Text>
+                <Feather name="user" size={20} color={theme.primary} />
               </View>
             )}
           </TouchableOpacity>
@@ -215,8 +255,12 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
         {/* Multi-Pet Selector Strip (when > 1 pet) */}
         {dogs.length > 1 && (
           <View style={styles.petSelectorStrip}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.petSelectorContent}>
-              {dogs.map(dog => {
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.petSelectorContent}
+            >
+              {dogs.map((dog) => {
                 const isSelected = dog.id === activeDog?.id;
                 return (
                   <TouchableOpacity
@@ -243,7 +287,9 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
           </View>
         )}
 
-        {/* 2. Centerpiece: The Warm Companion Passport & Care Rhythm Card */}
+        {/* ================================================================== */}
+        {/* SECTION 1: HERO COMPANION PASSPORT & CARE RHYTHM                   */}
+        {/* ================================================================== */}
         {activeDog ? (
           <View
             style={styles.passportCard}
@@ -252,104 +298,123 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
             }}
           >
             <View ref={petStripRef} collapsable={false}>
-            <TouchableOpacity
-              style={styles.passportHeader}
-              onPress={() => navigation.navigate('Pets', { dogId: activeDog.id })}
-              activeOpacity={0.85}
-            >
-              {activeDog.photo_url ? (
-                <Image source={{ uri: activeDog.photo_url }} style={styles.passportAvatar} />
-              ) : (
-                <View style={styles.passportAvatarPlaceholder}>
-                  <Text style={styles.passportAvatarEmoji}>🐾</Text>
-                </View>
-              )}
-              <View style={styles.passportInfo}>
-                <View style={styles.passportTitleRow}>
-                  <Text style={styles.passportName} numberOfLines={1}>{activeDog.name}</Text>
-                  <TouchableOpacity
-                    style={[
-                      styles.stampBadge,
-                      {
-                        backgroundColor: moodStatus.badgeBg,
-                        borderColor: moodStatus.borderColor,
-                      },
-                    ]}
-                    onPress={() => navigation.navigate('Pets', { dogId: activeDog.id })}
-                    activeOpacity={0.75}
-                  >
-                    <View style={[styles.stampDot, { backgroundColor: moodStatus.dotColor }]} />
-                    <Text style={[styles.stampText, { color: moodStatus.textColor }]}>
-                      {moodStatus.label}
+              <TouchableOpacity
+                style={styles.passportHeader}
+                onPress={() => navigation.navigate('Pets', { dogId: activeDog.id })}
+                activeOpacity={0.85}
+              >
+                {activeDog.photo_url ? (
+                  <Image source={{ uri: activeDog.photo_url }} style={styles.passportAvatar} />
+                ) : (
+                  <View style={styles.passportAvatarPlaceholder}>
+                    <Text style={styles.passportAvatarEmoji}>🐾</Text>
+                  </View>
+                )}
+                <View style={styles.passportInfo}>
+                  <View style={styles.passportTitleRow}>
+                    <Text style={styles.passportName} numberOfLines={1}>
+                      {activeDog.name}
                     </Text>
-                  </TouchableOpacity>
+                    <View style={styles.passportBadgesRow}>
+                      {streak > 0 ? (
+                        <View style={styles.streakInlinePill}>
+                          <Feather name="zap" size={13} color="#D97706" />
+                          <Text style={styles.streakInlineText}>{streak}d</Text>
+                        </View>
+                      ) : null}
+                      <TouchableOpacity
+                        style={[
+                          styles.stampBadge,
+                          {
+                            backgroundColor: moodStatus.badgeBg,
+                            borderColor: moodStatus.borderColor,
+                          },
+                        ]}
+                        onPress={() => navigation.navigate('Pets', { dogId: activeDog.id })}
+                        activeOpacity={0.75}
+                      >
+                        <View style={[styles.stampDot, { backgroundColor: moodStatus.dotColor }]} />
+                        <Text style={[styles.stampText, { color: moodStatus.textColor }]}>
+                          {moodStatus.label}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  <Text style={styles.passportMeta} numberOfLines={1}>
+                    {[activeDog.breed, age].filter(Boolean).join(' · ') || 'Beloved Companion'}
+                  </Text>
                 </View>
-                <Text style={styles.passportMeta} numberOfLines={1}>
-                  {[activeDog.breed, age].filter(Boolean).join(' · ') || 'Beloved Companion'}
-                </Text>
-              </View>
-            </TouchableOpacity>
+              </TouchableOpacity>
             </View>
 
             {/* Daily Care Rhythm Inside the Passport Card */}
             <View ref={rhythmRef} collapsable={false} style={styles.rhythmContainer}>
               <View style={styles.rhythmHeader}>
-                <Text style={styles.rhythmTitle}>{t('home.careRhythmTitle') || "TODAY'S CARE RHYTHM"}</Text>
+                <Text style={styles.rhythmTitle}>
+                  {t('home.careRhythmTitle') || "TODAY'S CARE RHYTHM"}
+                </Text>
                 <Text style={styles.rhythmCount}>
-                  {(dueHabitsToday.length > 0 ? dueHabitsToday.length : habits.length) > 0
+                  {rhythmHabits.length > 0
                     ? t('home.careRhythmCompleted', {
-                        completed: dueHabitsToday.length > 0
-                          ? dueHabitsToday.filter(h => completedToday.has(h.id)).length
-                          : completedToday.size,
-                        total: dueHabitsToday.length > 0 ? dueHabitsToday.length : habits.length,
+                        completed:
+                          dueHabitsToday.length > 0
+                            ? dueHabitsToday.filter((h) => completedToday.has(h.id)).length
+                            : completedToday.size,
+                        total: rhythmHabits.length,
                       })
                     : t('home.careRhythmEmpty')}
                 </Text>
               </View>
 
-              {(dueHabitsToday.length > 0 ? dueHabitsToday.length : habits.length) > 0 ? (
+              {rhythmHabits.length > 0 ? (
                 <View style={styles.rhythmProgressBar}>
-                  <View
-                    style={[
-                      styles.rhythmProgressFill,
-                      { width: `${completionRate}%` },
-                    ]}
-                  />
+                  <View style={[styles.rhythmProgressFill, { width: `${completionRate}%` }]} />
                 </View>
               ) : null}
 
               <View style={styles.habitTokensRow}>
-                {(dueHabitsToday.length > 0 ? dueHabitsToday : habits).length > 0 ? (
-                  (dueHabitsToday.length > 0 ? dueHabitsToday : habits).slice(0, 3).map((habit) => {
+                {rhythmHabits.length > 0 ? (
+                  rhythmHabits.slice(0, 3).map((habit) => {
                     const isWater = habit.habit_type === 'water';
                     const isWeekly = habit.schedule_type === 'weekly_target';
-                    const target = isWeekly ? (habit.weekly_target_count ?? 1) : getHabitTarget(habit);
+                    const target = isWeekly
+                      ? (habit.weekly_target_count ?? 1)
+                      : getHabitTarget(habit);
                     const count = isWeekly
                       ? (weeklyCounts.get(habit.id) ?? 0)
                       : (completedCounts.get(habit.id) ?? 0);
                     const isDone = isWeekly
                       ? isWeeklyGoalReached(habit)
                       : completedToday.has(habit.id);
-                    const icon = isWater ? '💧' : habit.habit_type === 'feeding' ? '🥩' : habit.habit_type === 'walking' ? '🦮' : habit.habit_type === 'vitamin' ? '🐟' : habit.habit_type === 'dental' ? '🪥' : '⭐';
 
                     return (
                       <TouchableOpacity
                         key={habit.id}
-                        style={[
-                          styles.habitToken,
-                          isDone && styles.habitTokenDone,
-                        ]}
+                        style={[styles.habitToken, isDone && styles.habitTokenDone]}
                         onPress={() => {
+                          triggerLightHaptic();
                           if (isWater) {
                             if (isDone) {
                               resetWaterToday(habit.id);
                             } else {
+                              if (
+                                count + 150 >= target &&
+                                completedToday.size + 1 >= rhythmHabits.length
+                              ) {
+                                triggerSuccessHaptic();
+                              }
                               logWaterAmount(habit.id, 150);
                             }
                           } else {
                             if (isDone) {
                               resetHabitToday(habit.id);
                             } else {
+                              if (
+                                count + 1 >= target &&
+                                completedToday.size + 1 >= rhythmHabits.length
+                              ) {
+                                triggerSuccessHaptic();
+                              }
                               logHabitToday(habit.id);
                             }
                           }
@@ -358,7 +423,8 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                           if (count <= 0) return;
                           Alert.alert(
                             habit.title,
-                            t('habitRow.manageProgress', { count, target }) || `${t('home.today') || 'Today'}: ${count}/${target}`,
+                            t('habitRow.manageProgress', { count, target }) ||
+                              `${t('home.today') || 'Today'}: ${count}/${target}`,
                             [
                               { text: t('common.cancel'), style: 'cancel' },
                               target > 1 && count > 1
@@ -370,28 +436,46 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                               {
                                 text: t('habitRow.resetToZero') || 'Reset to 0',
                                 style: 'destructive',
-                                onPress: () => (isWater ? resetWaterToday(habit.id) : resetHabitToday(habit.id)),
+                                onPress: () =>
+                                  isWater
+                                    ? resetWaterToday(habit.id)
+                                    : resetHabitToday(habit.id),
                               },
                             ].filter(Boolean) as any
                           );
                         }}
                         activeOpacity={0.7}
                       >
-                        <View style={[styles.habitTokenIconBox, isDone && styles.habitTokenIconBoxDone]}>
-                          <Text style={styles.habitTokenIcon}>{isDone ? '✓' : icon}</Text>
+                        <View
+                          style={[
+                            styles.habitTokenIconBox,
+                            isDone && styles.habitTokenIconBoxDone,
+                          ]}
+                        >
+                          {isDone ? (
+                            <Feather name="check" size={14} color="#FFFFFF" />
+                          ) : (
+                            renderHabitVectorIcon(habit.habit_type, theme.primary, 15)
+                          )}
                         </View>
                         <View style={styles.habitTokenTextCol}>
-                          <Text style={[styles.habitTokenTitle, isDone && styles.habitTokenTitleDone]} numberOfLines={1}>
+                          <Text
+                            style={[
+                              styles.habitTokenTitle,
+                              isDone && styles.habitTokenTitleDone,
+                            ]}
+                            numberOfLines={1}
+                          >
                             {habit.title}
                           </Text>
                           <Text style={styles.habitTokenSubtitle} numberOfLines={1}>
                             {isWater
                               ? `${count}/${target}ml`
                               : isWeekly
-                              ? `${count}/${target} wk`
-                              : isDone
-                              ? `${t('common.done') || 'Done'} ✓`
-                              : `${count}/${target}`}
+                                ? `${count}/${target} wk`
+                                : isDone
+                                  ? `${t('common.done') || 'Done'}`
+                                  : `${count}/${target}`}
                           </Text>
                         </View>
                       </TouchableOpacity>
@@ -405,11 +489,15 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                       activeOpacity={0.7}
                     >
                       <View style={styles.habitTokenIconBox}>
-                        <Text style={styles.habitTokenIcon}>🥩</Text>
+                        <Ionicons name="restaurant-outline" size={15} color={theme.primary} />
                       </View>
                       <View style={styles.habitTokenTextCol}>
-                        <Text style={styles.habitTokenTitle}>{t('home.defaultMeal') || 'Meals'}</Text>
-                        <Text style={styles.habitTokenSubtitle}>{t('home.setRoutine') || 'Set routine'}</Text>
+                        <Text style={styles.habitTokenTitle}>
+                          {t('home.defaultMeal') || 'Meals'}
+                        </Text>
+                        <Text style={styles.habitTokenSubtitle}>
+                          {t('home.setRoutine') || 'Set routine'}
+                        </Text>
                       </View>
                     </TouchableOpacity>
 
@@ -419,11 +507,15 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                       activeOpacity={0.7}
                     >
                       <View style={styles.habitTokenIconBox}>
-                        <Text style={styles.habitTokenIcon}>🦮</Text>
+                        <Feather name="activity" size={14} color={theme.primary} />
                       </View>
                       <View style={styles.habitTokenTextCol}>
-                        <Text style={styles.habitTokenTitle}>{t('home.defaultWalk') || 'Daily Walk'}</Text>
-                        <Text style={styles.habitTokenSubtitle}>{t('home.trackOutdoors') || 'Track outdoors'}</Text>
+                        <Text style={styles.habitTokenTitle}>
+                          {t('home.defaultWalk') || 'Daily Walk'}
+                        </Text>
+                        <Text style={styles.habitTokenSubtitle}>
+                          {t('home.trackOutdoors') || 'Track outdoors'}
+                        </Text>
                       </View>
                     </TouchableOpacity>
 
@@ -433,11 +525,15 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                       activeOpacity={0.7}
                     >
                       <View style={styles.habitTokenIconBox}>
-                        <Text style={styles.habitTokenIcon}>💧</Text>
+                        <Ionicons name="water-outline" size={15} color={theme.primary} />
                       </View>
                       <View style={styles.habitTokenTextCol}>
-                        <Text style={styles.habitTokenTitle}>{t('home.defaultWater') || 'Clean Water'}</Text>
-                        <Text style={styles.habitTokenSubtitle}>{t('home.freshBowl') || 'Fresh bowl'}</Text>
+                        <Text style={styles.habitTokenTitle}>
+                          {t('home.defaultWater') || 'Clean Water'}
+                        </Text>
+                        <Text style={styles.habitTokenSubtitle}>
+                          {t('home.freshBowl') || 'Fresh bowl'}
+                        </Text>
                       </View>
                     </TouchableOpacity>
                   </>
@@ -458,21 +554,24 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
               <Text style={styles.emptyPetTitle}>{t('pets.addFirstPet')}</Text>
               <Text style={styles.emptyPetSubtitle}>{t('pets.noPetsSubtitle')}</Text>
             </View>
-            <Text style={styles.chevron}>›</Text>
+            <Feather name="chevron-right" size={18} color={theme.textMuted} />
           </TouchableOpacity>
         )}
 
-        {/* Weekly Routines & Supplements Strip */}
+        {/* ================================================================== */}
+        {/* SECTION 2: WEEKLY ROUTINES & SUPPLEMENTS STRIP                     */}
+        {/* ================================================================== */}
         {activeDog && weeklyTargetHabits.length > 0 ? (
           <View style={styles.weeklyCard}>
             <View style={styles.weeklyHeader}>
               <View style={styles.weeklyHeaderIconBox}>
-                <Text style={styles.weeklyHeaderEmoji}>📅</Text>
+                <Ionicons name="calendar-outline" size={16} color={theme.primary} />
               </View>
               <View style={styles.weeklyHeaderTextCol}>
                 <Text style={styles.weeklySectionTitle}>{t('habits.weeklyRoutinesSection')}</Text>
                 <Text style={styles.weeklySectionSubtitle}>
-                  {weeklyTargetHabits.filter(h => isWeeklyGoalReached(h)).length} of {weeklyTargetHabits.length} {t('habits.goalReached')}
+                  {weeklyTargetHabits.filter((h) => isWeeklyGoalReached(h)).length} of{' '}
+                  {weeklyTargetHabits.length} {t('habits.goalReached')}
                 </Text>
               </View>
             </View>
@@ -482,7 +581,6 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                 const count = weeklyCounts.get(habit.id) ?? 0;
                 const target = habit.weekly_target_count ?? 1;
                 const reached = count >= target;
-                const icon = habit.habit_type === 'vitamin' ? '🐟' : habit.habit_type === 'dental' ? '🪥' : '💊';
 
                 return (
                   <View
@@ -493,11 +591,26 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                     ]}
                   >
                     <View style={styles.weeklyItemLeft}>
-                      <View style={[styles.weeklyItemIconBox, reached && styles.weeklyItemIconBoxDone]}>
-                        <Text style={styles.weeklyItemIcon}>{reached ? '✓' : icon}</Text>
+                      <View
+                        style={[
+                          styles.weeklyItemIconBox,
+                          reached && styles.weeklyItemIconBoxDone,
+                        ]}
+                      >
+                        {reached ? (
+                          <Feather name="check" size={15} color="#FFFFFF" />
+                        ) : (
+                          renderHabitVectorIcon(habit.habit_type, theme.primary, 16)
+                        )}
                       </View>
                       <View style={styles.weeklyItemTextCol}>
-                        <Text style={[styles.weeklyItemTitle, reached && styles.weeklyItemTitleDone]} numberOfLines={1}>
+                        <Text
+                          style={[
+                            styles.weeklyItemTitle,
+                            reached && styles.weeklyItemTitleDone,
+                          ]}
+                          numberOfLines={1}
+                        >
                           {habit.title}
                         </Text>
                         <Text style={styles.weeklyItemSubtitle}>
@@ -511,6 +624,7 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                     <TouchableOpacity
                       style={[styles.weeklyLogBtn, reached && styles.weeklyLogBtnDone]}
                       onPress={() => {
+                        triggerLightHaptic();
                         if (reached) {
                           resetHabitToday(habit.id);
                         } else {
@@ -519,8 +633,13 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                       }}
                       activeOpacity={0.7}
                     >
-                      <Text style={[styles.weeklyLogBtnText, reached && styles.weeklyLogBtnTextDone]}>
-                        {reached ? 'Done' : t('habits.logAction')}
+                      <Text
+                        style={[
+                          styles.weeklyLogBtnText,
+                          reached && styles.weeklyLogBtnTextDone,
+                        ]}
+                      >
+                        {reached ? t('common.done') || 'Done' : t('habits.logAction')}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -530,41 +649,116 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
           </View>
         ) : null}
 
-        {/* 3. Streak Card */}
-        {streak > 0 ? (
-          <View
-            ref={streakRef}
-            collapsable={false}
-            onLayout={(e) => {
-              homeTourY.current.streak = e.nativeEvent.layout.y;
-            }}
-            style={styles.streakCard}
-          >
-            <View style={styles.streakIconCircle}>
-              <Text style={styles.streakEmoji}>🔥</Text>
-            </View>
-            <View style={styles.streakTextGroup}>
-              <Text style={styles.streakTitle}>{t('home.streakTitle', { count: streak })}</Text>
-              <Text style={styles.streakSubtitle}>
-                Consistent care keeps {activeDogName} healthy & thriving
-              </Text>
-            </View>
-            <View style={styles.weekChip}>
-              <Text style={styles.weekChipText}>{t('home.week', { count: Math.ceil(streak / 7) })}</Text>
-            </View>
-          </View>
-        ) : null}
-
-        {/* 4. Immunity & Parasite Shield Reminder Card */}
+        {/* ================================================================== */}
+        {/* SECTION 3: UPCOMING CARE AGENDA CARD (Vet Visit + Immunity Shield) */}
+        {/* ================================================================== */}
         <View
-          ref={preventiveRef}
+          ref={agendaRef}
           collapsable={false}
           onLayout={(e) => {
-            homeTourY.current.preventive = e.nativeEvent.layout.y;
+            homeTourY.current.agenda = e.nativeEvent.layout.y;
           }}
+          style={styles.careAgendaCard}
         >
-          <PreventiveCareCard
-            treatment={nextPreventiveTreatment}
+          <View style={styles.agendaHeaderRow}>
+            <View style={styles.agendaTitleGroup}>
+              <View style={styles.agendaIconBadge}>
+                <Ionicons name="shield-checkmark-outline" size={17} color={theme.primary} />
+              </View>
+              <View>
+                <Text style={styles.agendaEyebrow}>CLINICAL SCHEDULE</Text>
+                <Text style={styles.agendaHeaderTitle}>
+                  {t('vetAppointments.cardTitle') || 'Upcoming Care Agenda'}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.findVetsPill}
+              onPress={() => navigation.navigate('More', { openVetFinder: true })}
+              activeOpacity={0.75}
+            >
+              <Feather name="navigation" size={13} color={theme.primary} />
+              <Text style={styles.findVetsPillText}>
+                {t('nearbyVets.findVets') || 'Vet Finder'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Sub-row A: Next Vet Appointment */}
+          <View style={styles.agendaItemBox}>
+            <View style={styles.agendaItemTop}>
+              <View style={styles.agendaItemIconCircle}>
+                <Ionicons name="medkit-outline" size={16} color={theme.primary} />
+              </View>
+              <View style={styles.agendaItemTextCol}>
+                <Text style={styles.agendaItemTitle} numberOfLines={1}>
+                  {nextAppointment
+                    ? nextAppointment.title
+                    : t('vetAppointments.noUpcomingTitle') || 'Next Vet Visit'}
+                </Text>
+                <Text style={styles.agendaItemMeta} numberOfLines={1}>
+                  {nextAppointment
+                    ? [
+                        nextAppointment.clinicName,
+                        `${nextAppointment.appointmentDate} · ${nextAppointment.appointmentTime}`,
+                        (() => {
+                          const diffMs =
+                            getAppointmentDateTime(
+                              nextAppointment.appointmentDate,
+                              nextAppointment.appointmentTime
+                            ).getTime() - Date.now();
+                          const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                          return diffDays <= 0
+                            ? t('home.today') || 'Today'
+                            : `In ${diffDays}d`;
+                        })(),
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')
+                    : t('vetAppointments.noUpcomingSubtitle') || 'No visit scheduled yet'}
+                </Text>
+              </View>
+              {nextAppointment ? (
+                <View style={styles.agendaActionsInline}>
+                  <TouchableOpacity
+                    style={styles.agendaSecondaryBtn}
+                    onPress={() => {
+                      setEditingAppointment(nextAppointment);
+                      setShowVetModal(true);
+                    }}
+                  >
+                    <Feather name="edit-2" size={13} color={theme.textDark} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.agendaPrimaryBtn}
+                    onPress={() => handleCompleteWithNotes(nextAppointment.id)}
+                  >
+                    <Feather name="check" size={13} color="#FFFFFF" />
+                    <Text style={styles.agendaPrimaryBtnText}>
+                      {t('common.done') || 'Done'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.agendaOutlineBtn}
+                  onPress={() => {
+                    setEditingAppointment(null);
+                    setShowVetModal(true);
+                  }}
+                >
+                  <Feather name="plus" size={13} color={theme.primary} />
+                  <Text style={styles.agendaOutlineBtnText}>
+                    {t('vetAppointments.scheduleBtn') || 'Schedule'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          {/* Sub-row B: Vaccine & Parasite Shield */}
+          <TouchableOpacity
+            style={[styles.agendaItemBox, { marginTop: 10 }]}
             onPress={() => {
               if (activeDog) {
                 navigation.navigate('Pets', { dogId: activeDog.id, openAddParasite: true });
@@ -572,110 +766,124 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
                 navigation.navigate('Pets', { openAddParasite: true });
               }
             }}
-            onSchedulePress={() => {
-              if (activeDog) {
-                navigation.navigate('Pets', { dogId: activeDog.id, openAddParasite: true });
-              } else {
-                navigation.navigate('Pets', { openAddParasite: true });
-              }
-            }}
-          />
-        </View>
-
-        {/* 5. Cozy "Next Up" Vet Appointment Card (Butter-Cream squircle) */}
-        <View
-          ref={vetCardRef}
-          collapsable={false}
-          onLayout={(e) => {
-            homeTourY.current.vetCard = e.nativeEvent.layout.y;
-          }}
-        >
-          <VetAppointmentCard
-            appointment={nextAppointment}
-            onSchedulePress={() => {
-              setEditingAppointment(null);
-              setShowVetModal(true);
-            }}
-            onEditPress={(appt) => {
-              setEditingAppointment(appt);
-              setShowVetModal(true);
-            }}
-            onCompletePress={(id) => handleCompleteWithNotes(id)}
-          />
-        </View>
-
-        {/* 6. Curated Daily Vet Bite & Care Insight (Pistachio Whisper card) */}
-        <View style={styles.tipCard}>
-          <View style={styles.tipHeaderRow}>
-            <View style={styles.tipBadge}>
-              <Text style={styles.tipBadgeText}>
-                {currentTip.emoji} {currentTip.badge}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => setTipOffset((prev) => prev + 1)}
-              style={styles.nextTipBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text style={styles.nextTipText}>↻ {t('home.nextTip') || 'Next tip'}</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.tipTitle}>{currentTip.title}</Text>
-          <Text style={styles.tipBody}>{currentTip.body}</Text>
-
-          <TouchableOpacity
-            style={styles.tipAiRow}
-            onPress={() => navigation.navigate('Chat', { fromLink: true })}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
           >
-            <Text style={styles.tipAiText}>💬 {t('home.askBiscoAboutInsight') || 'Ask Bisco AI about this insight'}</Text>
-            <Text style={styles.tipAiChevron}>›</Text>
+            <View style={styles.agendaItemTop}>
+              <View
+                style={[
+                  styles.agendaItemIconCircle,
+                  preventiveStatusInfo?.isOverdue && { backgroundColor: theme.allergenBg },
+                ]}
+              >
+                {preventiveStatusInfo?.kind === 'vaccine' ? (
+                  <Ionicons
+                    name="shield-checkmark-outline"
+                    size={16}
+                    color={preventiveStatusInfo?.isOverdue ? theme.allergenText : theme.primary}
+                  />
+                ) : (
+                  <Feather
+                    name="shield"
+                    size={15}
+                    color={preventiveStatusInfo?.isOverdue ? theme.allergenText : theme.primary}
+                  />
+                )}
+              </View>
+              <View style={styles.agendaItemTextCol}>
+                <Text style={styles.agendaItemTitle} numberOfLines={1}>
+                  {nextPreventiveTreatment
+                    ? nextPreventiveTreatment.vaccine_name
+                    : t('treatments.tabs.parasiteShield') || 'Vaccine & Parasite Shield'}
+                </Text>
+                <Text
+                  style={[
+                    styles.agendaItemMeta,
+                    preventiveStatusInfo?.isOverdue && {
+                      color: theme.allergenText,
+                      fontWeight: '700',
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {nextPreventiveTreatment && preventiveStatusInfo
+                    ? `${preventiveStatusInfo.label} · ${nextPreventiveTreatment.next_due_date}`
+                    : t('treatments.noParasiteTracked') || 'Tap to log flea, tick, or vaccine protection'}
+                </Text>
+              </View>
+              <View style={styles.agendaOutlineBtn}>
+                <Text style={styles.agendaOutlineBtnText}>
+                  {nextPreventiveTreatment ? t('common.edit') || 'Manage' : `+ ${t('common.add') || 'Add'}`}
+                </Text>
+              </View>
+            </View>
           </TouchableOpacity>
         </View>
 
-        {/* 7. Warm AI Care Companion Card (Replaces the generic gray bar) */}
+        {/* ================================================================== */}
+        {/* SECTION 4: AI COMPANION & DAILY INSIGHT TRAY                       */}
+        {/* ================================================================== */}
         <View
           ref={aiRef}
           collapsable={false}
           onLayout={(e) => {
             homeTourY.current.ai = e.nativeEvent.layout.y;
           }}
+          style={styles.aiInsightTray}
         >
+          {/* Top Half: Curated Daily Vet Insight */}
+          <View style={styles.tipHeaderRow}>
+            <View style={styles.tipBadge}>
+              <Ionicons
+                name="sparkles-outline"
+                size={13}
+                color={isDarkMode ? '#86EFAC' : '#2D5A3E'}
+              />
+              <Text style={styles.tipBadgeText}>{currentTip.badge}</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                triggerLightHaptic();
+                setTipOffset((prev) => prev + 1);
+              }}
+              style={styles.nextTipBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Feather name="refresh-cw" size={12} color={theme.primary} />
+              <Text style={styles.nextTipText}>{t('home.nextTip') || 'Next tip'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.tipTitle}>{currentTip.title}</Text>
+          <Text style={styles.tipBody}>{currentTip.body}</Text>
+
+          {/* Bottom Half: Integrated AI Care Companion */}
+          <View style={styles.aiCompanionDivider} />
+
+          <View style={styles.aiCompanionRow}>
+            <View style={styles.aiCompanionIconBox}>
+              <Ionicons name="sparkles-outline" size={18} color={theme.primary} />
+            </View>
+            <View style={styles.aiCompanionTextCol}>
+              <Text style={styles.aiCompanionTitle}>
+                {t('home.careConsultationPrompt') || 'Have a symptom or food question?'}
+              </Text>
+              <Text style={styles.aiCompanionSubtitle}>
+                {t('home.aiQuestionSubtitle', { name: activeDogName }) ||
+                  `Ask Bisco AI for fast, vet-informed guidance for ${activeDogName}.`}
+              </Text>
+            </View>
+          </View>
+
           <TouchableOpacity
-            style={styles.aiCompanionCard}
+            style={styles.aiCompanionActionRow}
             onPress={() => navigation.navigate('Chat', { fromLink: true })}
             activeOpacity={0.85}
           >
-            <View style={styles.aiCompanionRow}>
-              <View style={styles.aiCompanionIconBox}>
-                <Text style={styles.aiCompanionIcon}>✨</Text>
-              </View>
-              <View style={styles.aiCompanionTextCol}>
-                <Text style={styles.aiCompanionTitle}>{t('home.careConsultationPrompt') || 'Have a symptom or food question?'}</Text>
-                <Text style={styles.aiCompanionSubtitle}>
-                  {t('home.aiQuestionSubtitle', { name: activeDogName }) || `Ask Bisco AI for fast, vet-informed guidance for ${activeDogName}.`}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.aiCompanionActionRow}>
-              <Text style={styles.aiCompanionActionText}>{t('home.startCareConsultation') || 'Start Care Consultation →'}</Text>
-            </View>
+            <Ionicons name="chatbubble-ellipses-outline" size={16} color="#FFFFFF" />
+            <Text style={styles.aiCompanionActionText}>
+              {t('home.startCareConsultation') || 'Start Care Consultation →'}
+            </Text>
           </TouchableOpacity>
-        </View>
-
-        {/* 8. Nearby Vet Clinics Preview */}
-        <View
-          ref={nearbyVetsRef}
-          collapsable={false}
-          onLayout={(e) => {
-            homeTourY.current.nearbyVets = e.nativeEvent.layout.y;
-          }}
-        >
-          <NearbyVetsSection
-            dog={activeDog}
-            onOpenVetFinder={() => navigation.navigate('More', { openVetFinder: true })}
-          />
         </View>
 
         <TabTour
@@ -697,30 +905,12 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
               body: t('tour.home.s2Body'),
               ensureVisible: () => scrollToHomeTour((homeTourY.current.passport ?? 80) + 40),
             },
-            ...(streak > 0
-              ? [
-                  {
-                    targetRef: streakRef,
-                    position: 'bottom' as const,
-                    title: t('tour.home.streakTitle'),
-                    body: t('tour.home.streakBody'),
-                    ensureVisible: () => scrollToHomeTour(homeTourY.current.streak),
-                  },
-                ]
-              : []),
             {
-              targetRef: preventiveRef,
+              targetRef: agendaRef,
               position: 'bottom',
               title: t('tour.home.s3Title'),
               body: t('tour.home.s3Body'),
-              ensureVisible: () => scrollToHomeTour(homeTourY.current.preventive),
-            },
-            {
-              targetRef: vetCardRef,
-              position: 'bottom',
-              title: t('tour.home.s4Title'),
-              body: t('tour.home.s4Body'),
-              ensureVisible: () => scrollToHomeTour(homeTourY.current.vetCard),
+              ensureVisible: () => scrollToHomeTour(homeTourY.current.agenda),
             },
             {
               targetRef: aiRef,
@@ -729,18 +919,10 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
               body: t('tour.home.s5Body'),
               ensureVisible: () => scrollToHomeTour(homeTourY.current.ai),
             },
-            {
-              targetRef: nearbyVetsRef,
-              position: 'top',
-              title: t('tour.home.s6Title'),
-              body: t('tour.home.s6Body'),
-              ensureVisible: () => scrollToHomeTour(homeTourY.current.nearbyVets),
-            },
           ]}
         />
       </ScrollView>
 
-      {/* Vet Appointment Schedule & Edit Modal */}
       {/* Vet Visit Completion & Clinical Notes Modal */}
       <Modal
         visible={showCompleteModal}
@@ -750,32 +932,27 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}
+          style={styles.completeModalBackdrop}
         >
-          <View style={{ width: '100%', maxWidth: 400, backgroundColor: theme.surface, borderRadius: 20, padding: 20 }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: theme.textDark, marginBottom: 6 }}>
-              🩺 {t('vetAppointments.completeVisitTitle') || 'Complete Vet Visit & Add Notes'}
-            </Text>
-            <Text style={{ fontSize: 13, color: theme.textMuted, marginBottom: 14 }}>
-              {completingAppt?.clinicName ? `${completingAppt.clinicName} · ` : ''}{completingAppt?.title}
+          <View style={styles.completeModalCard}>
+            <View style={styles.completeModalTitleRow}>
+              <View style={styles.agendaIconBadge}>
+                <Ionicons name="medkit-outline" size={18} color={theme.primary} />
+              </View>
+              <Text style={styles.completeModalTitle}>
+                {t('vetAppointments.completeVisitTitle') || 'Complete Vet Visit & Add Notes'}
+              </Text>
+            </View>
+            <Text style={styles.completeModalSub}>
+              {completingAppt?.clinicName ? `${completingAppt.clinicName} · ` : ''}
+              {completingAppt?.title}
             </Text>
 
-            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.textDark, marginBottom: 6 }}>
+            <Text style={styles.completeModalLabel}>
               {t('vetAppointments.clinicalNotesLabel')}
             </Text>
             <TextInput
-              style={{
-                backgroundColor: theme.background,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: theme.border,
-                padding: 12,
-                fontSize: 14,
-                color: theme.textDark,
-                minHeight: 90,
-                textAlignVertical: 'top',
-                marginBottom: 16,
-              }}
+              style={styles.completeModalInput}
               placeholder={t('vetAppointments.notesPlaceholder')}
               placeholderTextColor={theme.textMuted}
               value={completeNotes}
@@ -783,22 +960,29 @@ export default function HomeScreen({ navigation, dogs, selectedDogId, profile, u
               multiline
             />
 
-            <Text style={{ fontSize: 12, color: theme.textMuted, marginBottom: 16, lineHeight: 16 }}>
-              📋 {t('vetAppointments.savedToReportNotice')}
-            </Text>
+            <View style={styles.completeModalNoticeRow}>
+              <Feather name="file-text" size={14} color={theme.textMuted} />
+              <Text style={styles.completeModalNoticeText}>
+                {t('vetAppointments.savedToReportNotice')}
+              </Text>
+            </View>
 
-            <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end' }}>
+            <View style={styles.completeModalActions}>
               <TouchableOpacity
                 onPress={() => setShowCompleteModal(false)}
-                style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10 }}
+                style={styles.completeModalCancelBtn}
               >
-                <Text style={{ color: theme.textMuted, fontWeight: '600' }}>{t('common.cancel') || 'Cancel'}</Text>
+                <Text style={{ color: theme.textMuted, fontWeight: '600' }}>
+                  {t('common.cancel') || 'Cancel'}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleSaveCompletion}
-                style={{ backgroundColor: theme.primary, paddingVertical: 10, paddingHorizontal: 18, borderRadius: 10 }}
+                style={styles.completeModalSaveBtn}
               >
-                <Text style={{ color: '#fff', fontWeight: '700' }}>{t('vetAppointments.saveAndComplete')}</Text>
+                <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
+                  {t('vetAppointments.saveAndComplete')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -864,24 +1048,21 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       letterSpacing: -0.3,
     },
     avatar: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
+      width: 46,
+      height: 46,
+      borderRadius: 23,
       borderWidth: 2,
-      borderColor: isDarkMode ? '#352D27' : '#FFFFFF',
+      borderColor: theme.border,
     },
     avatarPlaceholder: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: isDarkMode ? '#2A2420' : '#F4EDE4',
+      width: 46,
+      height: 46,
+      borderRadius: 23,
+      backgroundColor: theme.surfaceAlt,
       borderWidth: 1.5,
       borderColor: theme.border,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    avatarEmoji: {
-      fontSize: 22,
     },
     petSelectorStrip: {
       marginBottom: 14,
@@ -902,7 +1083,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       borderColor: theme.border,
     },
     petSelectorChipSelected: {
-      backgroundColor: isDarkMode ? '#332019' : '#FDF1EB',
+      backgroundColor: theme.primaryLight,
       borderColor: theme.primary,
     },
     petSelectorPhoto: {
@@ -922,14 +1103,14 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       color: theme.primary,
       fontWeight: '700',
     },
-    // Centerpiece: The Warm Companion Passport Card
+    // Section 1: Hero Companion Passport & Care Rhythm
     passportCard: {
       backgroundColor: theme.surface,
       borderRadius: 24,
       borderWidth: 1.5,
       borderColor: theme.border,
       padding: 18,
-      marginBottom: 18,
+      marginBottom: 16,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: isDarkMode ? 0.25 : 0.05,
@@ -969,14 +1150,36 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: 8,
+      gap: 6,
       marginBottom: 3,
+    },
+    passportBadgesRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    streakInlinePill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
+      backgroundColor: isDarkMode ? '#3B2A1A' : '#FEF3C7',
+      borderColor: isDarkMode ? '#6B4F2E' : '#FDE68A',
+      borderWidth: 1,
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      borderRadius: 10,
+    },
+    streakInlineText: {
+      fontSize: 10,
+      fontWeight: '800',
+      color: '#D97706',
     },
     passportName: {
       fontSize: 20,
       fontWeight: '800',
       color: theme.textDark,
       letterSpacing: -0.3,
+      flexShrink: 1,
     },
     passportMeta: {
       fontSize: 13,
@@ -987,23 +1190,19 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 5,
-      backgroundColor: isDarkMode ? '#1F3327' : '#EAF3ED',
       paddingHorizontal: 8,
       paddingVertical: 3,
       borderRadius: 10,
       borderWidth: 1,
-      borderColor: isDarkMode ? '#2F523D' : '#C6DFCE',
     },
     stampDot: {
       width: 6,
       height: 6,
       borderRadius: 3,
-      backgroundColor: theme.done,
     },
     stampText: {
       fontSize: 10,
       fontWeight: '800',
-      color: theme.done,
       letterSpacing: 0.3,
     },
     rhythmContainer: {
@@ -1066,15 +1265,12 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       width: 26,
       height: 26,
       borderRadius: 8,
-      backgroundColor: theme.surfaceAlt,
+      backgroundColor: theme.primaryLight,
       alignItems: 'center',
       justifyContent: 'center',
     },
     habitTokenIconBoxDone: {
       backgroundColor: theme.done,
-    },
-    habitTokenIcon: {
-      fontSize: 13,
     },
     habitTokenTextCol: {
       flex: 1,
@@ -1104,130 +1300,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 14,
-      marginBottom: 18,
-    },
-    // Weekly Routines & Supplements
-    weeklyCard: {
-      backgroundColor: theme.surface,
-      borderRadius: theme.radiiCard,
-      padding: 16,
-      marginBottom: 18,
-      borderWidth: 1,
-      borderColor: theme.border,
-      ...Platform.select({
-        ios: {
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 8,
-        },
-        android: { elevation: 2 },
-      }),
-    },
-    weeklyHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 12,
-      gap: 10,
-    },
-    weeklyHeaderIconBox: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      backgroundColor: theme.notStartedBg,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    weeklyHeaderEmoji: {
-      fontSize: 16,
-    },
-    weeklyHeaderTextCol: {
-      flex: 1,
-    },
-    weeklySectionTitle: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: theme.textDark,
-      letterSpacing: 0.3,
-    },
-    weeklySectionSubtitle: {
-      fontSize: 12,
-      color: theme.textMuted,
-      marginTop: 1,
-    },
-    weeklyItemsList: {
-      backgroundColor: theme.background,
-      borderRadius: theme.radiiCard,
-      paddingHorizontal: 12,
-      paddingVertical: 4,
-    },
-    weeklyItemRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingVertical: 10,
-    },
-    weeklyItemBorder: {
-      borderBottomWidth: 1,
-      borderBottomColor: theme.border,
-    },
-    weeklyItemLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flex: 1,
-      gap: 10,
-      marginRight: 10,
-    },
-    weeklyItemIconBox: {
-      width: 34,
-      height: 34,
-      borderRadius: 17,
-      backgroundColor: theme.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: theme.border,
-    },
-    weeklyItemIconBoxDone: {
-      backgroundColor: theme.done,
-      borderColor: theme.done,
-    },
-    weeklyItemIcon: {
-      fontSize: 16,
-    },
-    weeklyItemTextCol: {
-      flex: 1,
-    },
-    weeklyItemTitle: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: theme.textDark,
-    },
-    weeklyItemTitleDone: {
-      color: theme.textMuted,
-      textDecorationLine: 'line-through',
-    },
-    weeklyItemSubtitle: {
-      fontSize: 12,
-      color: theme.textMuted,
-      marginTop: 2,
-    },
-    weeklyLogBtn: {
-      backgroundColor: theme.primary,
-      paddingHorizontal: 14,
-      paddingVertical: 7,
-      borderRadius: 16,
-    },
-    weeklyLogBtnDone: {
-      backgroundColor: theme.done,
-    },
-    weeklyLogBtnText: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: '#FFFFFF',
-    },
-    weeklyLogBtnTextDone: {
-      color: '#FFFFFF',
+      marginBottom: 16,
     },
     emptyPetIconBox: {
       width: 48,
@@ -1254,70 +1327,275 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       color: theme.textMuted,
       lineHeight: 17,
     },
-    // Streak Milestone Card
-    streakCard: {
-      backgroundColor: isDarkMode ? '#2D2319' : '#FEF8EE',
+    // Section 2: Weekly Routines & Supplements Strip
+    weeklyCard: {
+      backgroundColor: theme.surface,
+      borderRadius: 22,
+      padding: 16,
+      marginBottom: 16,
       borderWidth: 1.5,
-      borderColor: isDarkMode ? '#543F2A' : '#F5E2C4',
-      borderRadius: 20,
-      padding: 14,
+      borderColor: theme.border,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+        },
+        android: { elevation: 2 },
+      }),
+    },
+    weeklyHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
-      marginBottom: 18,
+      marginBottom: 12,
+      gap: 10,
     },
-    streakIconCircle: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: isDarkMode ? '#44321E' : '#FFF0D4',
+    weeklyHeaderIconBox: {
+      width: 32,
+      height: 32,
+      borderRadius: 10,
+      backgroundColor: theme.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    weeklyHeaderTextCol: {
+      flex: 1,
+    },
+    weeklySectionTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: theme.textDark,
+      letterSpacing: 0.2,
+    },
+    weeklySectionSubtitle: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 1,
+    },
+    weeklyItemsList: {
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 14,
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+    },
+    weeklyItemRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 10,
+    },
+    weeklyItemBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    },
+    weeklyItemLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+      gap: 10,
+      marginRight: 10,
+    },
+    weeklyItemIconBox: {
+      width: 32,
+      height: 32,
+      borderRadius: 10,
+      backgroundColor: theme.surface,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: isDarkMode ? '#6B4F2E' : '#E8CFA6',
+      borderColor: theme.border,
     },
-    streakEmoji: {
-      fontSize: 20,
+    weeklyItemIconBoxDone: {
+      backgroundColor: theme.done,
+      borderColor: theme.done,
     },
-    streakTextGroup: {
+    weeklyItemTextCol: {
       flex: 1,
     },
-    streakTitle: {
+    weeklyItemTitle: {
       fontSize: 14,
-      fontWeight: '800',
-      color: theme.pendingAmberText,
-      marginBottom: 2,
+      fontWeight: '600',
+      color: theme.textDark,
     },
-    streakSubtitle: {
+    weeklyItemTitleDone: {
+      color: theme.textMuted,
+      textDecorationLine: 'line-through',
+    },
+    weeklyItemSubtitle: {
       fontSize: 12,
       color: theme.textMuted,
-      lineHeight: 16,
+      marginTop: 2,
     },
-    weekChip: {
-      backgroundColor: theme.surface,
+    weeklyLogBtn: {
+      backgroundColor: theme.primary,
+      paddingHorizontal: 14,
+      paddingVertical: 7,
       borderRadius: 14,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderWidth: 1,
-      borderColor: isDarkMode ? '#543F2A' : '#EAD5B8',
     },
-    weekChipText: {
-      fontSize: 11,
-      fontWeight: '800',
-      color: theme.pendingAmberText,
+    weeklyLogBtnDone: {
+      backgroundColor: theme.done,
     },
-    // Daily Vet Bite & Care Insight (Soft Pistachio Whisper Card)
-    tipCard: {
-      backgroundColor: isDarkMode ? '#1B2721' : '#F3F7F2',
+    weeklyLogBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    weeklyLogBtnTextDone: {
+      color: '#FFFFFF',
+    },
+    // Section 3: Upcoming Care Agenda Card
+    careAgendaCard: {
+      backgroundColor: theme.surface,
       borderRadius: 22,
       borderWidth: 1.5,
-      borderColor: isDarkMode ? '#2D4438' : '#DDE8DC',
+      borderColor: theme.border,
       padding: 16,
-      marginBottom: 18,
+      marginBottom: 16,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 6,
+      shadowOpacity: isDarkMode ? 0.2 : 0.04,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    agendaHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 14,
+    },
+    agendaTitleGroup: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      flex: 1,
+    },
+    agendaIconBadge: {
+      width: 34,
+      height: 34,
+      borderRadius: 11,
+      backgroundColor: theme.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    agendaEyebrow: {
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 0.8,
+      color: theme.textMuted,
+    },
+    agendaHeaderTitle: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: theme.textDark,
+      letterSpacing: -0.2,
+    },
+    findVetsPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: theme.primaryLight,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 12,
+    },
+    findVetsPillText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: theme.primary,
+    },
+    agendaItemBox: {
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 16,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    agendaItemTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    agendaItemIconCircle: {
+      width: 34,
+      height: 34,
+      borderRadius: 11,
+      backgroundColor: theme.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    agendaItemTextCol: {
+      flex: 1,
+    },
+    agendaItemTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: theme.textDark,
+    },
+    agendaItemMeta: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 2,
+    },
+    agendaActionsInline: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    agendaSecondaryBtn: {
+      width: 30,
+      height: 30,
+      borderRadius: 10,
+      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    agendaPrimaryBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: theme.done,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 10,
+    },
+    agendaPrimaryBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    agendaOutlineBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.border,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 10,
+    },
+    agendaOutlineBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: theme.primary,
+    },
+    // Section 4: AI Companion & Daily Insight Tray
+    aiInsightTray: {
+      backgroundColor: theme.surface,
+      borderRadius: 22,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      padding: 16,
+      marginBottom: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDarkMode ? 0.2 : 0.04,
+      shadowRadius: 8,
       elevation: 2,
     },
     tipHeaderRow: {
@@ -1327,9 +1605,12 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       marginBottom: 10,
     },
     tipBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
       backgroundColor: isDarkMode ? '#243C2E' : '#E5F0E4',
-      borderRadius: 12,
-      paddingHorizontal: 10,
+      borderRadius: 10,
+      paddingHorizontal: 9,
       paddingVertical: 4,
       borderWidth: 1,
       borderColor: isDarkMode ? '#355944' : '#CCE0CB',
@@ -1338,9 +1619,12 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       fontSize: 11,
       fontWeight: '800',
       color: isDarkMode ? '#86EFAC' : '#2D5A3E',
-      letterSpacing: 0.4,
+      letterSpacing: 0.3,
     },
     nextTipBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
       paddingHorizontal: 6,
       paddingVertical: 2,
     },
@@ -1353,46 +1637,18 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       fontSize: 15,
       fontWeight: '800',
       color: theme.textDark,
-      marginBottom: 6,
+      marginBottom: 5,
       letterSpacing: -0.2,
     },
     tipBody: {
       fontSize: 13,
       color: theme.textMuted,
       lineHeight: 19,
-      marginBottom: 12,
     },
-    tipAiRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingTop: 10,
-      borderTopWidth: 1,
-      borderTopColor: isDarkMode ? '#2D4438' : '#DDE8DC',
-    },
-    tipAiText: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: theme.primary,
-    },
-    tipAiChevron: {
-      fontSize: 14,
-      color: theme.primary,
-      fontWeight: '700',
-    },
-    // Warm AI Care Companion Card
-    aiCompanionCard: {
-      backgroundColor: isDarkMode ? '#281F1A' : '#FFF9EE',
-      borderRadius: 22,
-      borderWidth: 1.5,
-      borderColor: isDarkMode ? '#4D3627' : '#F6E5CC',
-      padding: 16,
-      marginBottom: 18,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 6,
-      elevation: 2,
+    aiCompanionDivider: {
+      height: 1,
+      backgroundColor: theme.border,
+      marginVertical: 14,
     },
     aiCompanionRow: {
       flexDirection: 'row',
@@ -1401,26 +1657,21 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       marginBottom: 12,
     },
     aiCompanionIconBox: {
-      width: 42,
-      height: 42,
-      borderRadius: 14,
-      backgroundColor: isDarkMode ? '#3B291E' : '#FFF2DB',
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      backgroundColor: theme.primaryLight,
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: isDarkMode ? '#5E3E2A' : '#F2D7AE',
-    },
-    aiCompanionIcon: {
-      fontSize: 20,
     },
     aiCompanionTextCol: {
       flex: 1,
     },
     aiCompanionTitle: {
-      fontSize: 15,
+      fontSize: 14,
       fontWeight: '800',
       color: theme.textDark,
-      marginBottom: 3,
+      marginBottom: 2,
       letterSpacing: -0.2,
     },
     aiCompanionSubtitle: {
@@ -1429,11 +1680,13 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       lineHeight: 17,
     },
     aiCompanionActionRow: {
-      backgroundColor: theme.primary,
-      borderRadius: 14,
-      paddingVertical: 10,
+      flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
+      gap: 8,
+      backgroundColor: theme.primary,
+      borderRadius: 14,
+      paddingVertical: 11,
     },
     aiCompanionActionText: {
       fontSize: 13,
@@ -1441,9 +1694,85 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       color: '#FFFFFF',
       letterSpacing: 0.3,
     },
-    chevron: {
-      fontSize: 18,
+    // Complete Vet Visit Modal
+    completeModalBackdrop: {
+      flex: 1,
+      backgroundColor: isDarkMode ? 'rgba(0,0,0,0.75)' : 'rgba(0,0,0,0.45)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    completeModalCard: {
+      width: '100%',
+      maxWidth: 400,
+      backgroundColor: theme.surface,
+      borderRadius: 22,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    completeModalTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 6,
+    },
+    completeModalTitle: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: theme.textDark,
+      flex: 1,
+    },
+    completeModalSub: {
+      fontSize: 13,
       color: theme.textMuted,
+      marginBottom: 14,
+    },
+    completeModalLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.textDark,
+      marginBottom: 6,
+    },
+    completeModalInput: {
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+      padding: 12,
+      fontSize: 14,
+      color: theme.textDark,
+      minHeight: 90,
+      textAlignVertical: 'top',
+      marginBottom: 14,
+    },
+    completeModalNoticeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 16,
+    },
+    completeModalNoticeText: {
+      fontSize: 12,
+      color: theme.textMuted,
+      lineHeight: 16,
+      flex: 1,
+    },
+    completeModalActions: {
+      flexDirection: 'row',
+      gap: 10,
+      justifyContent: 'flex-end',
+    },
+    completeModalCancelBtn: {
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 10,
+    },
+    completeModalSaveBtn: {
+      backgroundColor: theme.primary,
+      paddingVertical: 10,
+      paddingHorizontal: 18,
+      borderRadius: 10,
     },
   });
 }

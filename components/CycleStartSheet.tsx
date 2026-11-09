@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
   View,
@@ -18,6 +18,7 @@ import DateTimePicker, {
   DateTimePickerAndroid,
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
@@ -25,6 +26,7 @@ import { CycleSpecies } from '../types';
 import { cycleStartTip } from '../lib/cycleLogic';
 import { longDate } from '../lib/i18n/calendar';
 import { toLocalDateString } from '../lib/dateUtils';
+import { triggerLightHaptic } from '../lib/haptics';
 
 type Props = {
   visible: boolean;
@@ -72,8 +74,11 @@ export default function CycleStartSheet({ visible, species, onClose, onSave }: P
       },
       onPanResponderRelease: (_, gesture) => {
         if (gesture.dy > DISMISS_THRESHOLD) {
-          Animated.timing(translateY, { toValue: SHEET_HEIGHT, duration: 150, useNativeDriver: true })
-            .start(() => onClose());
+          Animated.timing(translateY, {
+            toValue: SHEET_HEIGHT,
+            duration: 150,
+            useNativeDriver: true,
+          }).start(() => onClose());
         } else {
           Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
         }
@@ -92,11 +97,13 @@ export default function CycleStartSheet({ visible, species, onClose, onSave }: P
   const isCustom = !isToday && !isYesterday;
 
   function selectToday() {
+    triggerLightHaptic();
     setStartDate(new Date());
     setShowIOSPicker(false);
   }
 
   function selectYesterday() {
+    triggerLightHaptic();
     const d = new Date();
     d.setDate(d.getDate() - 1);
     setStartDate(d);
@@ -114,11 +121,12 @@ export default function CycleStartSheet({ visible, species, onClose, onSave }: P
         },
       });
     } else {
-      setShowIOSPicker(prev => !prev);
+      setShowIOSPicker((prev) => !prev);
     }
   }
 
   async function handleSave() {
+    triggerLightHaptic();
     setLoading(true);
     await onSave(startDate, notes.trim() || null);
     setLoading(false);
@@ -142,13 +150,11 @@ export default function CycleStartSheet({ visible, species, onClose, onSave }: P
 
           <View style={styles.headerRow}>
             <View style={styles.iconCircle}>
-              <Text style={styles.headerEmoji}>🌸</Text>
+              <Ionicons name="calendar-outline" size={20} color={theme.primary} />
             </View>
             <View style={styles.headerTextGroup}>
               <Text style={styles.title}>{t('cycle.startSheetTitle')}</Text>
-              <Text style={styles.subtitle}>
-                {t('cycle.startDateLabel')}
-              </Text>
+              <Text style={styles.subtitle}>{t('cycle.startDateLabel')}</Text>
             </View>
           </View>
 
@@ -184,8 +190,13 @@ export default function CycleStartSheet({ visible, species, onClose, onSave }: P
               }}
               activeOpacity={0.7}
             >
+              <Ionicons
+                name="calendar-outline"
+                size={14}
+                color={isCustom ? theme.primary : theme.textDark}
+              />
               <Text style={[styles.presetChipText, isCustom && styles.presetChipTextActive]}>
-                📅 {t('common.edit')}
+                {t('common.edit')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -197,14 +208,14 @@ export default function CycleStartSheet({ visible, species, onClose, onSave }: P
           >
             <View style={styles.dateDisplayLeft}>
               <Text style={styles.dateDisplayLabel}>{t('cycle.startDateLabel')}</Text>
-              <Text style={styles.dateDisplayValue}>
-                {longDate(currentSelectedStr)}
-              </Text>
+              <Text style={styles.dateDisplayValue}>{longDate(currentSelectedStr)}</Text>
             </View>
             <View style={styles.dateActionPill}>
-              <Text style={styles.dateActionText}>
-                {Platform.OS === 'ios' && showIOSPicker ? '▲' : '▼'}
-              </Text>
+              <Feather
+                name={Platform.OS === 'ios' && showIOSPicker ? 'chevron-up' : 'chevron-down'}
+                size={15}
+                color={theme.primary}
+              />
             </View>
           </TouchableOpacity>
 
@@ -234,11 +245,21 @@ export default function CycleStartSheet({ visible, species, onClose, onSave }: P
           />
 
           <View style={styles.tipCard}>
-            <Text style={styles.tipText}>💡 {cycleStartTip(species)}</Text>
+            <Ionicons name="sparkles-outline" size={15} color={theme.primary} />
+            <Text style={styles.tipText}>{cycleStartTip(species)}</Text>
           </View>
 
-          <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading} activeOpacity={0.85}>
-            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>{t('cycle.startSheetButton')}</Text>}
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleSave}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.buttonText}>{t('cycle.startSheetButton')}</Text>
+            )}
           </TouchableOpacity>
         </Animated.View>
       </KeyboardAvoidingView>
@@ -250,7 +271,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
   return StyleSheet.create({
     backdrop: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(0,0,0,0.45)',
+      backgroundColor: isDarkMode ? 'rgba(0,0,0,0.75)' : 'rgba(0,0,0,0.45)',
     },
     sheetWrapper: {
       flex: 1,
@@ -285,13 +306,10 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
     iconCircle: {
       width: 42,
       height: 42,
-      borderRadius: 21,
-      backgroundColor: theme.moodSelBg,
+      borderRadius: 14,
+      backgroundColor: theme.primaryLight,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    headerEmoji: {
-      fontSize: 22,
     },
     headerTextGroup: {
       flex: 1,
@@ -313,16 +331,18 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
     },
     presetChip: {
       flex: 1,
+      flexDirection: 'row',
+      gap: 5,
       paddingVertical: 10,
-      borderRadius: theme.radiiCard,
-      backgroundColor: theme.background,
+      borderRadius: 12,
+      backgroundColor: theme.surfaceAlt,
       borderWidth: 1,
       borderColor: theme.border,
       alignItems: 'center',
       justifyContent: 'center',
     },
     presetChipActive: {
-      backgroundColor: theme.moodSelBg,
+      backgroundColor: theme.primaryLight,
       borderColor: theme.primary,
     },
     presetChipText: {
@@ -338,8 +358,8 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      backgroundColor: theme.background,
-      borderRadius: theme.radiiCard,
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 14,
       paddingHorizontal: 16,
       paddingVertical: 12,
       borderWidth: 1,
@@ -372,22 +392,17 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       borderWidth: 1,
       borderColor: theme.border,
     },
-    dateActionText: {
-      fontSize: 12,
-      color: theme.primary,
-      fontWeight: '600',
-    },
     iosPickerContainer: {
-      backgroundColor: isDarkMode ? '#221B26' : '#FFFFFF',
-      borderRadius: theme.radiiCard,
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 14,
       padding: 8,
       marginBottom: 12,
       borderWidth: 1,
       borderColor: theme.border,
     },
     input: {
-      backgroundColor: theme.background,
-      borderRadius: theme.radiiCard,
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 14,
       padding: 14,
       fontSize: 14,
       color: theme.textDark,
@@ -397,29 +412,33 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       minHeight: 48,
     },
     tipCard: {
-      backgroundColor: theme.moodSelBg,
-      borderRadius: theme.radiiCard,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: theme.primaryLight,
+      borderRadius: 14,
       padding: 12,
       marginBottom: 16,
-      borderWidth: 0.5,
+      borderWidth: 1,
       borderColor: theme.primary,
     },
     tipText: {
+      flex: 1,
       fontSize: 12,
       color: theme.primary,
       lineHeight: 17,
     },
     button: {
       backgroundColor: theme.primary,
-      borderRadius: theme.radiiCard,
+      borderRadius: 14,
       paddingVertical: 16,
       alignItems: 'center',
       justifyContent: 'center',
     },
     buttonText: {
-      color: 'white',
+      color: '#FFFFFF',
       fontSize: 16,
-      fontWeight: '600',
+      fontWeight: '700',
     },
   });
 }

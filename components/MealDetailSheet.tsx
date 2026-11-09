@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
   View,
@@ -14,10 +14,12 @@ import {
   StyleSheet,
   Dimensions,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { MealDetail, FoodType } from '../types';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
+import { triggerLightHaptic } from '../lib/haptics';
 
 type SavePayload = {
   food_type: FoodType;
@@ -39,7 +41,7 @@ type Props = {
 
 const FOOD_TYPE_OPTIONS: FoodType[] = ['wet', 'dry', 'mixed', 'raw'];
 
-const SHEET_HEIGHT = Math.round(Dimensions.get('window').height * 0.6);
+const SHEET_HEIGHT = Math.round(Dimensions.get('window').height * 0.62);
 const DISMISS_THRESHOLD = 100;
 
 function amountText(grams: number | null): string {
@@ -54,9 +56,9 @@ function parseAmount(text: string, errorMsg: string): { value: number | null; er
 }
 
 export default function MealDetailSheet({ visible, initial, onClose, onSave }: Props) {
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
   const { t } = useT();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
   const [foodType, setFoodType] = useState<FoodType | null>(initial?.food_type ?? null);
   const [wetAmountText, setWetAmountText] = useState(amountText(initial?.wet_amount_grams ?? null));
   const [brandWet, setBrandWet] = useState(initial?.brand_wet ?? '');
@@ -94,8 +96,11 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
       },
       onPanResponderRelease: (_, gesture) => {
         if (gesture.dy > DISMISS_THRESHOLD) {
-          Animated.timing(translateY, { toValue: SHEET_HEIGHT, duration: 150, useNativeDriver: true })
-            .start(() => onClose());
+          Animated.timing(translateY, {
+            toValue: SHEET_HEIGHT,
+            duration: 150,
+            useNativeDriver: true,
+          }).start(() => onClose());
         } else {
           Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
         }
@@ -116,30 +121,40 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
 
     if (foodType === 'wet' || foodType === 'mixed') {
       const r = parseAmount(wetAmountText, amtErr);
-      if (r.error) { setError(r.error); return; }
+      if (r.error) {
+        setError(r.error);
+        return;
+      }
       wetAmount = r.value;
     }
     if (foodType === 'dry' || foodType === 'mixed') {
       const r = parseAmount(dryAmountText, amtErr);
-      if (r.error) { setError(r.error); return; }
+      if (r.error) {
+        setError(r.error);
+        return;
+      }
       dryAmount = r.value;
     }
     if (foodType === 'raw') {
       const r = parseAmount(rawAmountText, amtErr);
-      if (r.error) { setError(r.error); return; }
+      if (r.error) {
+        setError(r.error);
+        return;
+      }
       rawAmount = r.value;
     }
 
+    triggerLightHaptic();
     setLoading(true);
     setError('');
     const { error } = await onSave({
       food_type: foodType,
       wet_amount_grams: wetAmount,
-      brand_wet: (foodType === 'wet' || foodType === 'mixed') ? (brandWet.trim() || null) : null,
+      brand_wet: foodType === 'wet' || foodType === 'mixed' ? brandWet.trim() || null : null,
       dry_amount_grams: dryAmount,
-      brand_dry: (foodType === 'dry' || foodType === 'mixed') ? (brandDry.trim() || null) : null,
+      brand_dry: foodType === 'dry' || foodType === 'mixed' ? brandDry.trim() || null : null,
       raw_amount_grams: rawAmount,
-      brand_raw: foodType === 'raw' ? (brandRaw.trim() || null) : null,
+      brand_raw: foodType === 'raw' ? brandRaw.trim() || null : null,
       notes: notes.trim() || null,
     });
     setLoading(false);
@@ -162,20 +177,30 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
             <View style={styles.handle} />
           </View>
 
-          <Text style={styles.title}>{t('meal.detailTitle')}</Text>
+          <View style={styles.headerRow}>
+            <View style={styles.iconBadge}>
+              <Ionicons name="restaurant-outline" size={18} color={theme.primary} />
+            </View>
+            <Text style={styles.title}>{t('meal.detailTitle')}</Text>
+          </View>
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Text style={styles.fieldLabel}>{t('meal.foodTypeLabel')}</Text>
           <View style={styles.chipGrid}>
-            {FOOD_TYPE_OPTIONS.map(opt => {
+            {FOOD_TYPE_OPTIONS.map((opt) => {
               const selected = foodType === opt;
               return (
                 <TouchableOpacity
                   key={opt}
                   style={[styles.chipBtn, selected && styles.chipBtnSelected]}
-                  onPress={() => setFoodType(opt)}
+                  onPress={() => {
+                    triggerLightHaptic();
+                    setFoodType(opt);
+                  }}
                 >
-                  <Text style={styles.chipBtnLabel}>{t('meal.foodType.' + opt)}</Text>
+                  <Text style={[styles.chipBtnLabel, selected && { color: theme.primary }]}>
+                    {t('meal.foodType.' + opt)}
+                  </Text>
                 </TouchableOpacity>
               );
             })}
@@ -291,7 +316,11 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
           />
 
           <TouchableOpacity style={styles.button} onPress={handleSave} disabled={loading}>
-            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>{t('common.save')}</Text>}
+            {loading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.buttonText}>{t('common.save')}</Text>
+            )}
           </TouchableOpacity>
         </Animated.View>
       </KeyboardAvoidingView>
@@ -299,11 +328,11 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
   );
 }
 
-function makeStyles(theme: ThemeTokens) {
+function makeStyles(theme: ThemeTokens, isDarkMode = false) {
   return StyleSheet.create({
     backdrop: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(0,0,0,0.35)',
+      backgroundColor: isDarkMode ? 'rgba(0,0,0,0.75)' : 'rgba(0,0,0,0.45)',
     },
     sheetWrapper: {
       flex: 1,
@@ -311,10 +340,12 @@ function makeStyles(theme: ThemeTokens) {
     },
     sheet: {
       backgroundColor: theme.surface,
-      borderTopLeftRadius: theme.radiiCard,
-      borderTopRightRadius: theme.radiiCard,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
       padding: 20,
       paddingBottom: 32,
+      borderTopWidth: 1,
+      borderColor: theme.border,
     },
     handleArea: {
       alignItems: 'center',
@@ -326,11 +357,24 @@ function makeStyles(theme: ThemeTokens) {
       borderRadius: 2,
       backgroundColor: theme.border,
     },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 14,
+    },
+    iconBadge: {
+      width: 34,
+      height: 34,
+      borderRadius: 11,
+      backgroundColor: theme.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     title: {
       fontSize: 18,
       fontWeight: '700',
       color: theme.textDark,
-      marginBottom: 12,
     },
     error: {
       color: theme.allergenText,
@@ -354,15 +398,15 @@ function makeStyles(theme: ThemeTokens) {
       paddingVertical: 10,
       paddingHorizontal: 14,
       borderRadius: 12,
-      backgroundColor: theme.background,
+      backgroundColor: theme.surfaceAlt,
       borderWidth: 1,
       borderColor: theme.border,
       marginRight: 8,
       marginBottom: 8,
     },
     chipBtnSelected: {
-      backgroundColor: theme.moodSelBg,
-      borderColor: theme.moodSelBorder,
+      backgroundColor: theme.primaryLight,
+      borderColor: theme.primary,
     },
     chipBtnLabel: {
       fontSize: 13,
@@ -370,8 +414,8 @@ function makeStyles(theme: ThemeTokens) {
       color: theme.textDark,
     },
     input: {
-      backgroundColor: theme.background,
-      borderRadius: theme.radiiCard,
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 14,
       padding: 14,
       fontSize: 15,
       color: theme.textDark,
@@ -394,15 +438,15 @@ function makeStyles(theme: ThemeTokens) {
     },
     button: {
       backgroundColor: theme.primary,
-      borderRadius: theme.radiiCard,
+      borderRadius: 14,
       padding: 16,
       alignItems: 'center',
       marginTop: 6,
     },
     buttonText: {
-      color: 'white',
+      color: '#FFFFFF',
       fontSize: 16,
-      fontWeight: '600',
+      fontWeight: '700',
     },
   });
 }
