@@ -9,6 +9,7 @@
 //    pending/etc.), not brand identity, carried over verbatim from the old lib/theme.ts.
 
 export type ThemeFamily =
+  | 'nordic_slate'
   | 'sage_clay'
   | 'warm_honey'
   | 'cool_ash'
@@ -167,6 +168,31 @@ const SEMANTIC_DARK: typeof SEMANTIC = {
 };
 
 export const THEMES: Record<ThemeFamily, ThemeTokens> = {
+  // Option 2: Nordic Slate (Universal Default) - crisp porcelain · deep slate navy · minimal
+  nordic_slate: {
+    background: '#F8F9FA',
+    surface: '#FFFFFF',
+    surfaceAlt: '#F1F5F9',
+    border: '#E2E8F0',
+    divider: '#F1F5F9',
+    primary: '#1E293B',
+    primaryLight: '#EFF6FF',
+    primaryMid: '#475569',
+    primaryDark: '#0F172A',
+    textDark: '#0F172A',
+    textMuted: '#64748B',
+    chipText: '#334155',
+    streakBg: '#FEF3C7',
+    streakBorder: '#FDE68A',
+    alertBg: '#FEE2E2',
+    alertBorder: '#EF4444',
+    moodSelBg: '#EFF6FF',
+    moodSelBorder: '#1E293B',
+    done: '#16A34A',
+    pending: '#F59E0B',
+    ...SEMANTIC,
+  },
+
   // Crisp Botanical Wellness: vibrant forest sage (#2A7A4C) primary, fresh pure crisp background (#F9FAF9),
   // warm terracotta (#E06D44) reserved for streaks/flames & alerts, deep charcoal text (#19211C).
   sage_clay: {
@@ -372,6 +398,31 @@ export const THEMES: Record<ThemeFamily, ThemeTokens> = {
 // High-quality dark companion palettes: warm charcoal (#181614), dark surfaces (#24201D),
 // calming sage/terracotta accents and high-readability text (#F5F2EB).
 export const DARK_THEMES: Record<ThemeFamily, ThemeTokens> = {
+  // Option 2: Nordic Slate (Universal Dark Default)
+  nordic_slate: {
+    background: '#0B0F19',
+    surface: '#151C2C',
+    surfaceAlt: '#1E293B',
+    border: '#26334D',
+    divider: '#1E293B',
+    primary: '#60A5FA',
+    primaryLight: '#172554',
+    primaryMid: '#3B82F6',
+    primaryDark: '#93C5FD',
+    textDark: '#F8FAFC',
+    textMuted: '#94A3B8',
+    chipText: '#CBD5E1',
+    streakBg: '#2D231B',
+    streakBorder: '#4E3E22',
+    alertBg: '#36211C',
+    alertBorder: '#EF4444',
+    moodSelBg: '#172554',
+    moodSelBorder: '#60A5FA',
+    done: '#22C55E',
+    pending: '#FBBF24',
+    ...SEMANTIC_DARK,
+  },
+
   sage_clay: {
     background: '#181614',
     surface: '#24201D',
@@ -566,6 +617,7 @@ export const DARK_THEMES: Record<ThemeFamily, ThemeTokens> = {
 };
 
 export const THEME_LABELS: Record<ThemeFamily, string> = {
+  nordic_slate: 'Nordic Slate',
   sage_clay: 'Sage & Clay',
   warm_honey: 'Warm Honey',
   cool_ash: 'Cool Ash',
@@ -577,6 +629,7 @@ export const THEME_LABELS: Record<ThemeFamily, string> = {
 };
 
 export const THEME_DESCRIPTIONS: Record<ThemeFamily, string> = {
+  nordic_slate: 'crisp porcelain · deep slate navy · minimal',
   sage_clay: 'meadow sage · warm oat · honey terracotta',
   warm_honey: 'golden retriever · apricot · labrador',
   cool_ash: 'grey · silver · Weimaraner',

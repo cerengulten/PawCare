@@ -67,5 +67,5 @@ export function suggestThemeFamily(breed: string): ThemeFamily | null {
   if (!trimmed) return null;
 
   const match = ALL_KEYWORDS.find(({ keyword }) => trimmed.includes(keyword));
-  return match?.family ?? null;
+  return match?.family ?? 'nordic_slate';
 }

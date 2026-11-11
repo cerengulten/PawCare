@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   BackHandler,
   StyleSheet,
+  Keyboard,
+  StatusBar,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { BottomTabScreenProps, useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -88,6 +90,22 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
   const scrollRef = useRef<ScrollView>(null);
   const prevMessagesCountRef = useRef(messages.length);
   const bottomTabBarHeight = useBottomTabBarHeight();
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const starterPrompts = useMemo(
     () => [
@@ -242,6 +260,7 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
           style={styles.messages}
           contentContainerStyle={styles.messagesContent}
           keyboardShouldPersistTaps="handled"
+          maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
         >
           {messages.map((m, i) => (
             <View
@@ -300,7 +319,7 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
         )}
 
         {/* Starter Prompt Chips when empty/initial conversation */}
-        {messages.length <= 1 && (
+        {messages.length <= 1 && !isKeyboardVisible && (
           <View style={styles.starterChipsContainer}>
             <ScrollView
               horizontal
@@ -353,7 +372,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
     container: {
       flex: 1,
       backgroundColor: theme.background,
-      paddingTop: 60,
+      paddingTop: Platform.OS === 'ios' ? 56 : (StatusBar.currentHeight ?? 24) + 6,
     },
     center: {
       flex: 1,

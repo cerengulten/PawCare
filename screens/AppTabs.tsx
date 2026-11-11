@@ -79,6 +79,7 @@ export default function AppTabs({
           initialRouteName="Home"
           screenOptions={{
             headerShown: false,
+            tabBarHideOnKeyboard: true,
             tabBarActiveTintColor: theme.primary,
             tabBarInactiveTintColor: theme.notStartedText,
             tabBarStyle: { backgroundColor: theme.background, borderTopColor: theme.border },

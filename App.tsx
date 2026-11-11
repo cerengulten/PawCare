@@ -69,7 +69,7 @@ function AuthedApp({ session }: { session: Session }) {
     : null;
 
   useEffect(() => {
-    setTheme(selectedDog?.theme_family ?? 'sage_clay');
+    setTheme(selectedDog?.theme_family ?? 'nordic_slate');
   }, [selectedDog?.id, selectedDog?.theme_family]);
 
   useEffect(() => {
@@ -245,7 +245,5 @@ const styles = StyleSheet.create({
   },
   loading: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

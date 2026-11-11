@@ -76,7 +76,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
   const [photoUri, setPhotoUri] = useState<string | null>(dog?.photo_url ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [selectedTheme, setSelectedTheme] = useState<ThemeFamily>(dog?.theme_family ?? 'sage_clay');
+  const [selectedTheme, setSelectedTheme] = useState<ThemeFamily>(dog?.theme_family ?? 'nordic_slate');
   const [themeManuallyPicked, setThemeManuallyPicked] = useState(false);
   const [breedTouched, setBreedTouched] = useState(false);
 
@@ -85,7 +85,7 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
   useEffect(() => {
     if (!dog) {
       const match = suggestThemeFamily(breed);
-      setSelectedTheme(match ?? 'sage_clay');
+      setSelectedTheme(match ?? 'nordic_slate');
     } else if (!themeManuallyPicked && suggested) {
       setSelectedTheme(suggested);
     }

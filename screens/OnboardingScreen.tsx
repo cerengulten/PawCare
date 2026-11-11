@@ -159,7 +159,7 @@ export default function OnboardingScreen({
   const [petName, setPetName] = useState('');
   const [petSpecies, setPetSpecies] = useState('Dog');
   const [petBreed, setPetBreed] = useState('');
-  const [petTheme, setPetTheme] = useState<ThemeFamily>('sage_clay');
+  const [petTheme, setPetTheme] = useState<ThemeFamily>('nordic_slate');
   const [petSex, setPetSex] = useState<'male' | 'female' | 'unknown'>('male');
   const [petSterilized, setPetSterilized] = useState(false);
   const [petWeightText, setPetWeightText] = useState('');
@@ -778,7 +778,7 @@ export default function OnboardingScreen({
             onSubmitEditing={Keyboard.dismiss}
           />
 
-          {petBreed.trim() && petTheme !== 'sage_clay' ? (
+          {petBreed.trim() && petTheme !== 'nordic_slate' ? (
             <View style={styles.coatMatchCard}>
               <Text style={styles.coatMatchEmoji}>🎨</Text>
               <Text style={styles.coatMatchText}>

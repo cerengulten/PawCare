@@ -18,7 +18,7 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [activeFamily, setActiveFamily] = useState<ThemeFamily>('sage_clay');
+  const [activeFamily, setActiveFamily] = useState<ThemeFamily>('nordic_slate');
   const [isDarkMode, setIsDarkModeState] = useState<boolean>(false);
 
   useEffect(() => {
@@ -48,9 +48,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const activeTheme = useMemo(() => {
     if (isDarkMode) {
-      return DARK_THEMES[activeFamily] ?? DARK_THEMES.sage_clay;
+      return DARK_THEMES[activeFamily] ?? DARK_THEMES.nordic_slate;
     }
-    return THEMES[activeFamily] ?? THEMES.sage_clay;
+    return THEMES[activeFamily] ?? THEMES.nordic_slate;
   }, [activeFamily, isDarkMode]);
 
   const value = useMemo<ThemeContextValue>(
