@@ -12,7 +12,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { BottomTabScreenProps, useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { Dog } from '../types';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
@@ -86,6 +86,8 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
   const [sending, setSending] = useState(false);
   const [swipeEnabled, setSwipeEnabled] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const prevMessagesCountRef = useRef(messages.length);
+  const bottomTabBarHeight = useBottomTabBarHeight();
 
   const starterPrompts = useMemo(
     () => [
@@ -110,8 +112,18 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
   );
 
   useEffect(() => {
-    if (activeDog) setMessages([buildGreeting(activeDog.name)]);
+    if (activeDog) {
+      setMessages([buildGreeting(activeDog.name)]);
+      prevMessagesCountRef.current = 1;
+    }
   }, [activeDog?.id]);
+
+  useEffect(() => {
+    if (messages.length > prevMessagesCountRef.current && messages.length > 1) {
+      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+    }
+    prevMessagesCountRef.current = messages.length;
+  }, [messages.length]);
 
   useEffect(() => {
     return navigation.addListener('focus', () => {
@@ -216,7 +228,7 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? bottomTabBarHeight : 0}
       >
         <View style={styles.disclaimerBar}>
           <View style={styles.disclaimerIconBox}>
@@ -229,7 +241,7 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
           ref={scrollRef}
           style={styles.messages}
           contentContainerStyle={styles.messagesContent}
-          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+          keyboardShouldPersistTaps="handled"
         >
           {messages.map((m, i) => (
             <View
@@ -514,7 +526,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       flexDirection: 'row',
       alignItems: 'flex-end',
       padding: 12,
-      paddingBottom: Platform.OS === 'ios' ? 24 : 14,
+      paddingBottom: 12,
       gap: 10,
       backgroundColor: theme.surface,
       borderTopWidth: 1,

@@ -193,10 +193,21 @@
   function isAllowedDeepLinkTarget(rawTarget) {
     if (!rawTarget || typeof rawTarget !== 'string') return false;
     var trimmed = rawTarget.trim();
-    if (!/^(bisco:\/\/|exp:\/\/)/i.test(trimmed)) return false;
-    if (/^(javascript|data|vbscript|http|https|file|ftp):/i.test(trimmed)) return false;
-    if (trimmed.indexOf('//', 8) !== -1) return false;
-    return true;
+    try {
+      var parsed = new URL(trimmed);
+      if (parsed.protocol === 'bisco:') {
+        return true;
+      }
+      if (parsed.protocol === 'exp:') {
+        var h = parsed.hostname;
+        if (h === 'localhost' || h === '127.0.0.1' || /^192\.168\.\d+\.\d+$/.test(h) || /^10\.\d+\.\d+\.\d+$/.test(h) || /^172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+$/.test(h)) {
+          return true;
+        }
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
   }
 
   var searchParams = new URLSearchParams(window.location.search);
@@ -260,9 +271,9 @@
     msg.className = 'status-msg';
     msg.textContent = '';
 
-    if (p1.length < 8) {
+    if (p1.length < 8 || !/[A-Z]/.test(p1) || !/[a-z]/.test(p1) || !/[0-9]/.test(p1)) {
       msg.className = 'status-msg error';
-      msg.textContent = 'Password must be at least 8 characters.';
+      msg.textContent = 'Password must be at least 8 characters and include uppercase, lowercase, and a number.';
       return;
     }
     if (p1 !== p2) {

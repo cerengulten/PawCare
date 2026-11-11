@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, ActivityIndicator, StyleSheet, Linking } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Linking, Alert } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { supabase } from './lib/supabase';
@@ -154,20 +154,43 @@ function AppInner() {
       const authData = parseAuthUrl(url);
       if (!authData) return;
 
-      if (authData.access_token && authData.refresh_token) {
-        const { error } = await supabase.auth.setSession({
-          access_token: authData.access_token,
-          refresh_token: authData.refresh_token,
-        });
-        if (!error && authData.type === 'recovery') {
-          setRecoveryActive(true);
+      const applySession = async () => {
+        if (authData.access_token && authData.refresh_token) {
+          const { error } = await supabase.auth.setSession({
+            access_token: authData.access_token,
+            refresh_token: authData.refresh_token,
+          });
+          if (!error && authData.type === 'recovery') {
+            setRecoveryActive(true);
+          }
+        } else if (authData.code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(authData.code);
+          if (!error && authData.type === 'recovery') {
+            setRecoveryActive(true);
+          }
         }
-      } else if (authData.code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(authData.code);
-        if (!error && authData.type === 'recovery') {
-          setRecoveryActive(true);
-        }
+      };
+
+      const { data: { session: existingSession } } = await supabase.auth.getSession();
+      if (existingSession && authData.type !== 'recovery') {
+        Alert.alert(
+          'Sign In Request',
+          'An account sign-in request was received from a link while you are already signed in. Would you like to switch accounts?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Switch Account',
+              style: 'destructive',
+              onPress: () => {
+                applySession().catch(() => {});
+              },
+            },
+          ]
+        );
+        return;
       }
+
+      await applySession();
     }
 
     Linking.getInitialURL().then((url) => {

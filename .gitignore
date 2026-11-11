@@ -47,3 +47,6 @@ supabase/.temp/
 
 # scratch scripts
 scratch/
+
+# private founder notes
+LAUNCH_CHECKLIST.md

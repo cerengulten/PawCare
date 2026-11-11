@@ -69,17 +69,31 @@ serve(async (req) => {
       });
     }
 
-    // 3. Parse, sanitize, and bound request payload
+    // 3. Verify server-side rate limit & daily quota
+    try {
+      const { data: isAllowedQuota, error: quotaError } = await supabase.rpc('check_and_increment_chat_quota');
+      if (!quotaError && isAllowedQuota === false) {
+        return new Response(
+          JSON.stringify({
+            error: 'Daily consultation limit reached. Please upgrade to Pro or try again tomorrow.',
+          }),
+          {
+            status: 429,
+            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+    } catch {
+      // Fail-open if quota table is migrating so chat is not blocked
+    }
+
+    // 4. Parse, sanitize, and bound request payload
     const body = await req.json();
     const rawHistory = Array.isArray(body?.history) ? body.history : [];
     const clientContextInstruction =
       typeof body?.systemInstruction === 'string'
         ? body.systemInstruction.slice(0, MAX_SYSTEM_INSTRUCTION_CHARS)
         : '';
-
-    const combinedSystemPrompt = clientContextInstruction
-      ? `${SERVER_SYSTEM_BASE}\n\nPet Context & Preferences:\n${clientContextInstruction}`
-      : SERVER_SYSTEM_BASE;
 
     const sanitizedHistory = rawHistory
       .slice(-MAX_HISTORY_TURNS)
@@ -102,12 +116,29 @@ serve(async (req) => {
       });
     }
 
+    // Structure client pet context into conversation history without contaminating systemInstruction
+    let conversationContents = sanitizedHistory;
+    if (clientContextInstruction) {
+      const cleanContext = clientContextInstruction.replace(/[\r\n]+/g, ' ').trim();
+      conversationContents = [
+        {
+          role: 'user',
+          parts: [{ text: `[Active Pet Profile & Context: ${cleanContext}]` }],
+        },
+        {
+          role: 'model',
+          parts: [{ text: 'Understood. I will keep this pet profile in mind while providing pet care guidance.' }],
+        },
+        ...sanitizedHistory,
+      ];
+    }
+
     const response = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: combinedSystemPrompt }] },
-        contents: sanitizedHistory,
+        systemInstruction: { parts: [{ text: SERVER_SYSTEM_BASE }] },
+        contents: conversationContents,
         generationConfig: {
           maxOutputTokens: 600,
           temperature: 0.7,

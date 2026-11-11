@@ -45,9 +45,9 @@ function intensityBg(theme: ThemeTokens, intensity: CycleIntensity | null): { bg
 }
 
 export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle }: Props) {
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
   const { t } = useT();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
   const DAY_LABELS = weekdayLetters();
   const {
     cycles, symptoms, activeCycle, currentPhase, predictedPhases, nextCycleDate,
@@ -503,7 +503,7 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
   );
 }
 
-function makeStyles(theme: ThemeTokens) {
+function makeStyles(theme: ThemeTokens, isDarkMode = false) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -752,7 +752,7 @@ function makeStyles(theme: ThemeTokens) {
     monthLabel: {
       fontSize: 14,
       fontWeight: '700',
-      color: theme.textDark,
+      color: isDarkMode ? '#E9D5FF' : theme.textDark,
       marginBottom: 12,
     },
     editDatesLink: {
@@ -768,7 +768,7 @@ function makeStyles(theme: ThemeTokens) {
       flex: 1,
       textAlign: 'center',
       fontSize: 11,
-      color: theme.textMuted,
+      color: isDarkMode ? '#E9D5FF' : theme.textMuted,
     },
     grid: {
       flexDirection: 'row',
@@ -789,12 +789,14 @@ function makeStyles(theme: ThemeTokens) {
       justifyContent: 'center',
     },
     dayCellInRange: {
-      backgroundColor: theme.surfaceAlt,
+      backgroundColor: isDarkMode ? '#35253F' : theme.surfaceAlt,
+      borderWidth: 1,
+      borderColor: isDarkMode ? '#553668' : theme.border,
     },
     dayCellSelected: {
       borderWidth: 2,
-      borderColor: theme.primary,
-      backgroundColor: theme.moodSelBg,
+      borderColor: isDarkMode ? '#C084FC' : theme.primary,
+      backgroundColor: isDarkMode ? '#A855F7' : theme.moodSelBg,
     },
     dayCellDisabled: {
       opacity: 0.25,
@@ -802,15 +804,15 @@ function makeStyles(theme: ThemeTokens) {
     dayNumber: {
       fontSize: 12,
       fontWeight: '500',
-      color: theme.textDark,
+      color: isDarkMode ? '#F3E8FF' : theme.textDark,
     },
     dayNumberInRange: {
       fontWeight: '600',
-      color: theme.textDark,
+      color: isDarkMode ? '#F3E8FF' : theme.textDark,
     },
     dayNumberSelected: {
       fontWeight: '700',
-      color: theme.primaryDark || theme.primary,
+      color: isDarkMode ? '#FFFFFF' : theme.primaryDark || theme.primary,
     },
     dayDetailCard: {
       marginTop: 10,

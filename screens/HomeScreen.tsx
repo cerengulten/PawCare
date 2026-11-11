@@ -12,15 +12,20 @@ import {
   Modal,
   TextInput,
   KeyboardAvoidingView,
+  Linking,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { Feather, Ionicons } from '@expo/vector-icons';
+import { WebView } from 'react-native-webview';
 import { useProfile } from '../lib/hooks/useProfile';
 import { useDogs } from '../lib/hooks/useDogs';
 import { useSelectedPet } from '../lib/hooks/useSelectedPet';
 import { useOverallStreak } from '../lib/hooks/useOverallStreak';
 import { useVetAppointments } from '../lib/hooks/useVetAppointments';
+import { useHomeVetPreview } from '../lib/hooks/useHomeVetPreview';
+import { buildVetMapHtml } from '../lib/vetMapHtml';
+import { openVetDirections } from '../components/VetDetailSheet';
 import { VetAppointment, getAppointmentDateTime } from '../lib/vetAppointments';
 import { getDailyVetTip } from '../lib/vetTips';
 import { computeAge } from '../lib/petAge';
@@ -69,6 +74,69 @@ export default function HomeScreen({
   const [editingAppointment, setEditingAppointment] = useState<VetAppointment | null>(null);
   const [tipOffset, setTipOffset] = useState(0);
   const [tipExpanded, setTipExpanded] = useState(false);
+  const [mapFailed, setMapFailed] = useState(false);
+  const { vets: previewVets, userLocation } = useHomeVetPreview();
+
+  const mapCenter = useMemo(
+    () => userLocation ?? { lat: 45.4642, lon: 9.19 },
+    [userLocation]
+  );
+
+  const mapVets = useMemo(() => {
+    if (previewVets.length > 0) return previewVets;
+    return [
+      {
+        id: 'preview-1',
+        name: 'Central Animal Hospital',
+        lat: mapCenter.lat + 0.0045,
+        lon: mapCenter.lon + 0.0052,
+        distanceKm: 0.8,
+        address: null,
+        phone: null,
+        openingHours: null,
+        website: null,
+      },
+      {
+        id: 'preview-2',
+        name: 'City Pet Clinic',
+        lat: mapCenter.lat - 0.005,
+        lon: mapCenter.lon + 0.004,
+        distanceKm: 1.2,
+        address: null,
+        phone: null,
+        openingHours: null,
+        website: null,
+      },
+      {
+        id: 'preview-3',
+        name: 'Green Park Veterinary',
+        lat: mapCenter.lat + 0.006,
+        lon: mapCenter.lon - 0.0055,
+        distanceKm: 1.6,
+        address: null,
+        phone: null,
+        openingHours: null,
+        website: null,
+      },
+      {
+        id: 'preview-4',
+        name: '24/7 Pet Emergency Care',
+        lat: mapCenter.lat - 0.0042,
+        lon: mapCenter.lon - 0.0062,
+        distanceKm: 2.1,
+        address: null,
+        phone: null,
+        openingHours: '24/7',
+        website: null,
+      },
+    ];
+  }, [previewVets, mapCenter]);
+
+  const nearestLiveVet = previewVets[0] ?? null;
+  const nearbyMapPillLabel =
+    previewVets.length > 0 && nearestLiveVet
+      ? `${previewVets.length} Vets Nearby · Nearest ${nearestLiveVet.distanceKm.toFixed(1)} km`
+      : '4 Vets Nearby · Nearest 0.8 km';
 
   const activeDog = dogs.find((d) => d.id === selectedDogId) ?? dogs[0] ?? null;
   const activeDogName = activeDog?.name ?? t('home.yourPet');
@@ -826,6 +894,96 @@ export default function HomeScreen({
                     : `+ ${t('common.add') || 'Add'}`}
                 </Text>
               </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* Compact 140px Visual Mini-Map Preview Card */}
+          <View style={styles.agendaMapSection}>
+            <Text style={styles.agendaMapSectionLabel}>
+              {t('nearbyVets.sectionTitle') || 'NEARBY CLINICS & EMERGENCY'}
+            </Text>
+            <TouchableOpacity
+              style={styles.miniMapCard}
+              onPress={() => navigation.navigate('More', { openVetFinder: true })}
+              activeOpacity={0.88}
+            >
+              <View style={styles.miniMapTile}>
+                <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
+                  {mapFailed ? (
+                    <View style={styles.miniMapFallback}>
+                      <Feather name="map" size={26} color={theme.textMuted} />
+                    </View>
+                  ) : (
+                    <WebView
+                      originWhitelist={['https://*', 'about:blank']}
+                      source={{
+                        html: buildVetMapHtml(mapCenter, mapVets, { interactive: false }),
+                      }}
+                      style={styles.miniMapWebView}
+                      scrollEnabled={false}
+                      onError={() => setMapFailed(true)}
+                      onHttpError={() => setMapFailed(true)}
+                    />
+                  )}
+                </View>
+
+                {/* Floating Pill Overlay: Vets Nearby + Nearest Distance */}
+                <View style={styles.miniMapStatusPill}>
+                  <Feather name="map-pin" size={12} color={theme.primary} />
+                  <Text style={styles.miniMapStatusPillText} numberOfLines={1}>
+                    {nearbyMapPillLabel}
+                  </Text>
+                </View>
+
+                {/* Floating Action Pill: Open Interactive Map → */}
+                <View style={styles.miniMapOpenPill}>
+                  <Text style={styles.miniMapOpenPillText}>Open Interactive Map →</Text>
+                </View>
+              </View>
+
+              {nearestLiveVet ? (
+                <View style={styles.miniMapNearestRow}>
+                  <View style={styles.miniMapVetBadge}>
+                    <Ionicons name="medkit-outline" size={16} color={theme.primary} />
+                  </View>
+                  <View style={styles.miniMapVetInfo}>
+                    <Text style={styles.miniMapVetName} numberOfLines={1}>
+                      {nearestLiveVet.name}
+                    </Text>
+                    <Text style={styles.miniMapVetMeta} numberOfLines={1}>
+                      {t('nearbyVets.kmAway', { km: nearestLiveVet.distanceKm.toFixed(1) })}
+                    </Text>
+                  </View>
+                  {nearestLiveVet.phone ? (
+                    <TouchableOpacity
+                      style={styles.miniMapCallBtn}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        Linking.openURL(`tel:${nearestLiveVet.phone}`);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Feather name="phone" size={13} color="#FFFFFF" />
+                      <Text style={styles.miniMapCallBtnText}>
+                        {t('nearbyVets.call') || 'Call'}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  <TouchableOpacity
+                    style={styles.miniMapDirectionsBtn}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      openVetDirections(nearestLiveVet);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Feather name="navigation" size={13} color={theme.primary} />
+                    <Text style={styles.miniMapDirectionsBtnText}>
+                      {t('nearbyVets.directions') || 'Directions'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
             </TouchableOpacity>
           </View>
         </View>
@@ -1652,6 +1810,144 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
     },
     agendaOutlineBtnText: {
       fontSize: 12,
+      fontWeight: '700',
+      color: theme.primary,
+    },
+    agendaMapSection: {
+      marginTop: 14,
+      paddingTop: 14,
+      borderTopWidth: 1,
+      borderTopColor: theme.divider,
+    },
+    agendaMapSectionLabel: {
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 0.8,
+      color: theme.textMuted,
+      textTransform: 'uppercase',
+      marginBottom: 8,
+    },
+    miniMapCard: {
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: theme.border,
+      overflow: 'hidden',
+      backgroundColor: theme.surfaceAlt,
+    },
+    miniMapTile: {
+      height: 140,
+      width: '100%',
+      position: 'relative',
+      overflow: 'hidden',
+    },
+    miniMapWebView: {
+      flex: 1,
+      backgroundColor: 'transparent',
+    },
+    miniMapFallback: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.surfaceAlt,
+    },
+    miniMapStatusPill: {
+      position: 'absolute',
+      bottom: 10,
+      left: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: isDarkMode ? 'rgba(24,22,20,0.92)' : 'rgba(255,255,255,0.94)',
+      borderRadius: 12,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    miniMapStatusPillText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: theme.textDark,
+    },
+    miniMapOpenPill: {
+      position: 'absolute',
+      top: 10,
+      right: 10,
+      backgroundColor: theme.primary,
+      borderRadius: 12,
+      paddingHorizontal: 11,
+      paddingVertical: 5,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.18,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    miniMapOpenPillText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    miniMapNearestRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      backgroundColor: theme.surface,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+    },
+    miniMapVetBadge: {
+      width: 34,
+      height: 34,
+      borderRadius: 11,
+      backgroundColor: theme.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    miniMapVetInfo: {
+      flex: 1,
+      minWidth: 0,
+    },
+    miniMapVetName: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: theme.textDark,
+    },
+    miniMapVetMeta: {
+      fontSize: 11,
+      color: theme.textMuted,
+      marginTop: 1,
+    },
+    miniMapCallBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: theme.primary,
+      borderRadius: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+    },
+    miniMapCallBtnText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    miniMapDirectionsBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    miniMapDirectionsBtnText: {
+      fontSize: 11,
       fontWeight: '700',
       color: theme.primary,
     },
