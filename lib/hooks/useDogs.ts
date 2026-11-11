@@ -31,21 +31,51 @@ export function useDogs(userId: string) {
   }
 
   async function addDog(dog: Omit<Dog, 'id' | 'owner_id' | 'created_at' | 'updated_at'>) {
-    const { data, error } = await supabase
+    const payload = { ...dog, owner_id: userId };
+    let { data, error } = await supabase
       .from('dogs')
-      .insert({ ...dog, owner_id: userId })
+      .insert(payload)
       .select()
       .single();
+
+    // If live Supabase DB has not yet applied the migration widening dogs_theme_family_check to include 'nordic_slate':
+    if (error && error.message?.includes('dogs_theme_family_check') && payload.theme_family === 'nordic_slate') {
+      const fallbackPayload = { ...payload, theme_family: null };
+      const fallbackResult = await supabase
+        .from('dogs')
+        .insert(fallbackPayload)
+        .select()
+        .single();
+      if (!fallbackResult.error && fallbackResult.data) {
+        data = { ...fallbackResult.data, theme_family: 'nordic_slate' };
+        error = null;
+      }
+    }
+
     if (!error && data) setDogs(prev => [...prev, data]);
     return { data, error };
   }
 
   async function updateDog(id: string, updates: Partial<Omit<Dog, 'id' | 'owner_id' | 'created_at' | 'updated_at'>>) {
-    const { error } = await supabase
+    let { error } = await supabase
       .from('dogs')
       .update(updates)
       .eq('id', id)
       .eq('owner_id', userId);
+
+    // If live Supabase DB has not yet applied the migration widening dogs_theme_family_check to include 'nordic_slate':
+    if (error && error.message?.includes('dogs_theme_family_check') && updates.theme_family === 'nordic_slate') {
+      const fallbackUpdates = { ...updates, theme_family: null };
+      const fallbackResult = await supabase
+        .from('dogs')
+        .update(fallbackUpdates)
+        .eq('id', id)
+        .eq('owner_id', userId);
+      if (!fallbackResult.error) {
+        error = null;
+      }
+    }
+
     if (!error) setDogs(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
     return { error };
   }
