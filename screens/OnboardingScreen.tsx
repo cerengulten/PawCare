@@ -940,7 +940,7 @@ export default function OnboardingScreen({
   if (step === 'kickstart_habits') {
     return (
       <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.stepProgressRow}>
             <Text style={styles.stepProgressText}>{t('onboarding.step3Title')}</Text>
           </View>
@@ -1062,7 +1062,7 @@ export default function OnboardingScreen({
   if (step === 'priming') {
     return (
       <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <Text style={styles.title}>{t('onboarding.allSetTitle')}</Text>
           <Text style={styles.subtitle}>
             {t('onboarding.allSetSubtitle')}

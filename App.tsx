@@ -69,7 +69,9 @@ function AuthedApp({ session }: { session: Session }) {
     : null;
 
   useEffect(() => {
-    setTheme(selectedDog?.theme_family ?? 'nordic_slate');
+    if (selectedDog?.theme_family) {
+      setTheme(selectedDog.theme_family);
+    }
   }, [selectedDog?.id, selectedDog?.theme_family]);
 
   useEffect(() => {

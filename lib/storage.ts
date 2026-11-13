@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import { readAsStringAsync } from 'expo-file-system/legacy';
 import type { ImagePickerOptions } from 'expo-image-picker';
 import { supabase } from './supabase';
 
@@ -119,18 +119,22 @@ export async function uploadImage(
     const safeFileName = sanitizeStoragePath(fileName);
     const filePath = `${safeFileName}.${compressed.ext}`;
 
-    const base64 = await FileSystem.readAsStringAsync(compressed.uri, {
+    const base64 = await readAsStringAsync(compressed.uri, {
       encoding: 'base64',
     });
 
     const fileData = base64ToUint8Array(base64);
 
-    const { error: uploadError } = await supabase.storage
+    const uploadPromise = supabase.storage
       .from(bucket)
       .upload(filePath, fileData, {
         contentType: compressed.mimeType,
         upsert: true,
       });
+    const timeoutPromise = new Promise<{ error: Error }>((resolve) =>
+      setTimeout(() => resolve({ error: new Error('Image upload timed out') }), 15000)
+    );
+    const { error: uploadError } = await Promise.race([uploadPromise, timeoutPromise]);
 
     if (uploadError) {
       console.warn('Storage upload error, using local uri fallback:', uploadError);

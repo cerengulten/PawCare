@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
   Text,
@@ -65,6 +66,7 @@ export default function VetAppointmentModal({
   const [notes, setNotes] = useState<string>('');
   const [reminderEnabled, setReminderEnabled] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
+  const [primaryVetName, setPrimaryVetName] = useState<string | null>(null);
 
   // iOS picker state
   const [showIosDatePicker, setShowIosDatePicker] = useState(false);
@@ -98,6 +100,31 @@ export default function VetAppointmentModal({
   }, [appointment, visible, selectedDogId, dogs]);
 
   const selectedDog = dogs.find((d) => d.id === petId) || dogs[0];
+
+  useEffect(() => {
+    const targetDogId = selectedDog?.id;
+    if (!visible || !targetDogId) {
+      setPrimaryVetName(null);
+      return;
+    }
+    let cancelled = false;
+    AsyncStorage.getItem(`@bisco_primary_vet_${targetDogId}`)
+      .then((raw) => {
+        if (cancelled) return;
+        if (raw) {
+          const parsed = JSON.parse(raw) as { name?: string };
+          setPrimaryVetName(parsed?.name?.trim() || null);
+        } else {
+          setPrimaryVetName(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPrimaryVetName(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, selectedDog?.id]);
 
   const openDatePicker = () => {
     const current = dateStr ? new Date(dateStr) : new Date();
@@ -312,6 +339,33 @@ export default function VetAppointmentModal({
                 placeholderTextColor={theme.textMuted}
                 style={styles.textInput}
               />
+              {primaryVetName ? (
+                <View style={[styles.chipsWrap, { marginTop: 8, marginBottom: 0 }]}>
+                  <TouchableOpacity
+                    onPress={() => setClinicName(primaryVetName)}
+                    style={[
+                      styles.typeChip,
+                      clinicName.trim() === primaryVetName && styles.typeChipSelected,
+                    ]}
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons
+                      name="star"
+                      size={12}
+                      color={clinicName.trim() === primaryVetName ? theme.primary : theme.textMuted}
+                    />
+                    <Text
+                      style={[
+                        styles.typeChipText,
+                        clinicName.trim() === primaryVetName && styles.typeChipTextSelected,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {t('vetFinder.isPrimaryVetBadge') || 'Primary Vet'}: {primaryVetName}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
             </View>
 
             {/* Date & Time Row */}

@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { THEMES, DARK_THEMES, ThemeFamily, ThemeTokens } from './themes';
 
 const DARK_MODE_STORAGE_KEY = '@pawcare_dark_mode';
+const THEME_FAMILY_STORAGE_KEY = '@pawcare_theme_family';
 
 type ThemeContextValue = {
   activeTheme: ThemeTokens;
@@ -31,7 +32,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       .catch((err) => {
         console.warn('Failed to load dark mode preference:', err);
       });
+
+    AsyncStorage.getItem(THEME_FAMILY_STORAGE_KEY)
+      .then((val) => {
+        if (val && val in THEMES) {
+          setActiveFamily(val as ThemeFamily);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load theme preference:', err);
+      });
   }, []);
+
+  const setTheme = (family: ThemeFamily) => {
+    setActiveFamily(family);
+    AsyncStorage.setItem(THEME_FAMILY_STORAGE_KEY, family).catch(() => {});
+  };
 
   const setIsDarkMode = async (val: boolean) => {
     setIsDarkModeState(val);
@@ -57,7 +73,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     () => ({
       activeTheme,
       activeFamily,
-      setTheme: setActiveFamily,
+      setTheme,
       theme: activeTheme,
       isDarkMode,
       setIsDarkMode,

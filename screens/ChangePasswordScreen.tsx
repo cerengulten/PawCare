@@ -64,35 +64,37 @@ export default function ChangePasswordScreen({ onDone, onCancel }: Props) {
     setLoading(true);
     setError('');
 
-    if (hasPassword) {
-      if (!currentPassword) {
-        setLoading(false);
-        setError(t('changePassword.enterCurrentPassword'));
-        return;
+    try {
+      if (hasPassword) {
+        if (!currentPassword) {
+          setError(t('changePassword.enterCurrentPassword'));
+          return;
+        }
+        if (!email) {
+          setError(t('changePassword.couldNotVerify'));
+          return;
+        }
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password: currentPassword,
+        });
+        if (signInError) {
+          setError(t('changePassword.currentPasswordIncorrect'));
+          return;
+        }
       }
-      if (!email) {
-        setLoading(false);
-        setError(t('changePassword.couldNotVerify'));
-        return;
-      }
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password: currentPassword,
-      });
-      if (signInError) {
-        setLoading(false);
-        setError(t('changePassword.currentPasswordIncorrect'));
-        return;
-      }
-    }
 
-    const { error } = await supabase.auth.updateUser({ password });
-    setLoading(false);
-    if (error) {
-      setError(error.message);
-      return;
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      onDone();
+    } catch (err: any) {
+      setError(err?.message || 'Could not update password');
+    } finally {
+      setLoading(false);
     }
-    onDone();
   }
 
   return (
@@ -177,8 +179,8 @@ export default function ChangePasswordScreen({ onDone, onCancel }: Props) {
             </>
           )}
 
-          <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
-            <Text style={styles.switchLink}>{t('common.cancel')}</Text>
+          <TouchableOpacity onPress={onCancel} style={styles.secondaryButton} activeOpacity={0.8}>
+            <Text style={styles.secondaryButtonText}>{t('common.cancel')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -254,13 +256,20 @@ function makeStyles(theme: ThemeTokens) {
       fontSize: 16,
       fontWeight: '600',
     },
-    switchRow: {
-      flexDirection: 'row',
-      marginTop: 20,
+    secondaryButton: {
+      width: '100%',
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: theme.radiiCard,
+      paddingVertical: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 10,
+      borderWidth: 1,
+      borderColor: theme.border,
     },
-    switchLink: {
-      color: theme.primary,
-      fontSize: 14,
+    secondaryButtonText: {
+      color: theme.textDark,
+      fontSize: 16,
       fontWeight: '600',
     },
   });

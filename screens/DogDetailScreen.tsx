@@ -54,7 +54,7 @@ type Props = {
   updateDog: ReturnType<typeof useDogs>['updateDog'];
   onEdit: () => void;
   onDelete: () => void;
-  initialAction?: 'parasite' | 'vaccine' | null;
+  initialAction?: 'parasite' | 'vaccine' | 'parasite-list' | 'vaccine-list' | 'habit' | null;
   onClearInitialAction?: () => void;
   tourRefs?: {
     switcherRef: RefObject<View | null>;
@@ -241,6 +241,21 @@ export default function DogDetailScreen({
       setTreatmentSegment('vaccines');
       setEditingVaccine(null);
       setMode('vaccine-form');
+      onClearInitialAction?.();
+    } else if (initialAction === 'parasite-list') {
+      setActiveSubTab('immunity');
+      setTreatmentSegment('parasites');
+      setMode('vaccine-list');
+      onClearInitialAction?.();
+    } else if (initialAction === 'vaccine-list') {
+      setActiveSubTab('immunity');
+      setTreatmentSegment('vaccines');
+      setMode('vaccine-list');
+      onClearInitialAction?.();
+    } else if (initialAction === 'habit') {
+      setActiveSubTab('daily');
+      setEditingHabit(null);
+      setMode('habit-quick-add');
       onClearInitialAction?.();
     }
   }, [initialAction]);

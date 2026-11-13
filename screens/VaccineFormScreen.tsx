@@ -227,38 +227,48 @@ export default function VaccineFormScreen({
     setLoading(true);
     setError('');
 
-    const encodedNotes = encodeTreatmentMeta(treatmentType, cadenceMonths, userNotes);
+    try {
+      const encodedNotes = encodeTreatmentMeta(treatmentType, cadenceMonths, userNotes);
 
-    const payload = {
-      vaccine_name: trimmedName,
-      date_given: dateGiven ? toDateOnlyString(dateGiven) : null,
-      next_due_date: toDateOnlyString(parsedNextDueDate),
-      notes: encodedNotes || null,
-      reminder_enabled: reminderEnabled,
-    };
+      const payload = {
+        vaccine_name: trimmedName,
+        date_given: dateGiven ? toDateOnlyString(dateGiven) : null,
+        next_due_date: toDateOnlyString(parsedNextDueDate),
+        notes: encodedNotes || null,
+        reminder_enabled: reminderEnabled,
+      };
 
-    const { error: saveError } = vaccine
-      ? await updateVaccine(vaccine.id, payload)
-      : await addVaccine(payload);
+      const { error: saveError } = vaccine
+        ? await updateVaccine(vaccine.id, payload)
+        : await addVaccine(payload);
 
-    setLoading(false);
-    if (saveError) {
-      setError(saveError.message);
-      return;
+      if (saveError) {
+        setError(saveError.message);
+        return;
+      }
+      onDone();
+    } catch (err: any) {
+      setError(err?.message || 'Could not save treatment');
+    } finally {
+      setLoading(false);
     }
-    onDone();
   }
 
   async function handleDelete() {
     if (!vaccine) return;
     setLoading(true);
-    const { error: delError } = await deleteVaccine(vaccine.id);
-    setLoading(false);
-    if (delError) {
-      setError(delError.message);
-      return;
+    try {
+      const { error: delError } = await deleteVaccine(vaccine.id);
+      if (delError) {
+        setError(delError.message);
+        return;
+      }
+      onDone();
+    } catch (err: any) {
+      setError(err?.message || 'Could not delete treatment');
+    } finally {
+      setLoading(false);
     }
-    onDone();
   }
 
   const presetsForCategory = TREATMENT_PRESETS[treatmentType] || [];

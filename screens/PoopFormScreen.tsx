@@ -10,6 +10,8 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 import { HealthLog, PoopConsistency, PoopColor } from '../types';
 import { useHealthLogs } from '../lib/hooks/useHealthLogs';
 import { useTheme } from '../lib/ThemeContext';
@@ -82,45 +84,61 @@ export default function PoopFormScreen({
     setLoading(true);
     setError('');
 
-    const payload = {
-      details: { consistency, color, frequency },
-      notes: notes.trim() || null,
-    };
+    try {
+      const payload = {
+        details: { consistency, color, frequency },
+        notes: notes.trim() || null,
+      };
 
-    const { error: saveErr } = log
-      ? await updateLog(log.id, payload)
-      : await addLog(payload);
+      const { error: saveErr } = log
+        ? await updateLog(log.id, payload)
+        : await addLog(payload);
 
-    setLoading(false);
-    if (saveErr) {
-      setError(saveErr.message);
-      return;
+      if (saveErr) {
+        setError(saveErr.message);
+        return;
+      }
+      onDone();
+    } catch (err: any) {
+      setError(err?.message || 'Could not save log');
+    } finally {
+      setLoading(false);
     }
-    onDone();
   }
 
   async function handleDelete() {
     if (!log) return;
     setLoading(true);
-    const { error: delErr } = await deleteLog(log.id);
-    setLoading(false);
-    if (delErr) {
-      setError(delErr.message);
-      return;
+    try {
+      const { error: delErr } = await deleteLog(log.id);
+      if (delErr) {
+        setError(delErr.message);
+        return;
+      }
+      onDone();
+    } catch (err: any) {
+      setError(err?.message || 'Could not delete log');
+    } finally {
+      setLoading(false);
     }
-    onDone();
   }
 
   return (
     <SwipeBackWrapper onBack={onCancel}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <TouchableOpacity onPress={onCancel} style={styles.backRow} activeOpacity={0.7}>
-            <Text style={styles.backText}>‹ {t('common.back')}</Text>
-          </TouchableOpacity>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
+          style={styles.container}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+            <TouchableOpacity
+              onPress={onCancel}
+              style={styles.backRow}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.backText}>‹ {t('common.back')}</Text>
+            </TouchableOpacity>
 
           <Text style={styles.title}>{log ? t('poop.editTitle') : t('poop.addTitle')}</Text>
           <Text style={styles.subtitle}>{t('poop.subtitle')}</Text>
@@ -255,8 +273,14 @@ export default function PoopFormScreen({
           />
 
           {log ? (
-            <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn} disabled={loading}>
-              <Text style={styles.deleteLink}>🗑️ {t('tracker.deleteEntry')}</Text>
+            <TouchableOpacity
+              onPress={handleDelete}
+              style={styles.deleteBtn}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              <Feather name="trash-2" size={16} color={theme.allergenText} />
+              <Text style={styles.deleteLink}>{t('tracker.deleteEntry')}</Text>
             </TouchableOpacity>
           ) : null}
         </ScrollView>
@@ -272,6 +296,7 @@ export default function PoopFormScreen({
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+      </SafeAreaView>
     </SwipeBackWrapper>
   );
 }
@@ -283,7 +308,8 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       backgroundColor: theme.background,
     },
     scrollContent: {
-      padding: 20,
+      paddingHorizontal: 20,
+      paddingTop: 8,
       paddingBottom: 32,
     },
     backRow: {
@@ -562,13 +588,22 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       textAlignVertical: 'top',
     },
     deleteBtn: {
-      alignSelf: 'center',
-      marginTop: 8,
-      paddingVertical: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: theme.allergenBg,
+      borderWidth: 1.5,
+      borderColor: theme.alertBorder,
+      borderRadius: 16,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      marginTop: 12,
+      marginBottom: 8,
     },
     deleteLink: {
       color: theme.allergenText,
-      fontSize: 14,
+      fontSize: 14.5,
       fontWeight: '700',
     },
     stickyFooter: {

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, BackHandler, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Dog, CycleIntensity } from '../types';
 import { useCycleTracking } from '../lib/hooks/useCycleTracking';
 import { useTheme } from '../lib/ThemeContext';
@@ -264,10 +265,16 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
 
   return (
     <SwipeBackWrapper onBack={onBack}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <TouchableOpacity onPress={onBack} style={styles.backRow}>
-          <Text style={styles.backText}>‹ {t('common.back')}</Text>
-        </TouchableOpacity>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+          <TouchableOpacity
+            onPress={onBack}
+            style={styles.backRow}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.backText}>‹ {t('common.back')}</Text>
+          </TouchableOpacity>
 
         <View style={styles.header}>
           <Text style={styles.headerDogName}>{dog.name}</Text>
@@ -427,6 +434,7 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
           </View>
         ) : null}
       </ScrollView>
+      </SafeAreaView>
       <CycleEditSheet
         visible={editSheetVisible}
         cycle={selectedCycle}
@@ -505,13 +513,17 @@ export default function CycleHistoryScreen({ dog, tracking, onBack, onStartCycle
 
 function makeStyles(theme: ThemeTokens, isDarkMode = false) {
   return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
     container: {
       flex: 1,
       backgroundColor: theme.background,
     },
     content: {
       padding: 16,
-      paddingTop: 20,
+      paddingTop: 8,
     },
     backRow: {
       marginBottom: 16,

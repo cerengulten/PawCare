@@ -55,13 +55,18 @@ export default function ChangeEmailScreen({ onDone, onCancel }: Props) {
 
     setLoading(true);
     setError('');
-    const { error } = await supabase.auth.updateUser({ email: trimmed });
-    setLoading(false);
-    if (error) {
-      setError(error.message);
-      return;
+    try {
+      const { error } = await supabase.auth.updateUser({ email: trimmed });
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      setSent(true);
+    } catch (err: any) {
+      setError(err?.message || 'Could not update email');
+    } finally {
+      setLoading(false);
     }
-    setSent(true);
   }
 
   if (sent) {
@@ -130,8 +135,8 @@ export default function ChangeEmailScreen({ onDone, onCancel }: Props) {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={onCancel} style={styles.switchRow}>
-            <Text style={styles.switchLink}>{t('common.cancel')}</Text>
+          <TouchableOpacity onPress={onCancel} style={styles.secondaryButton} activeOpacity={0.8}>
+            <Text style={styles.secondaryButtonText}>{t('common.cancel')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -234,13 +239,20 @@ function makeStyles(theme: ThemeTokens) {
       fontSize: 16,
       fontWeight: '600',
     },
-    switchRow: {
-      flexDirection: 'row',
-      marginTop: 20,
+    secondaryButton: {
+      width: '100%',
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: theme.radiiCard,
+      paddingVertical: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 10,
+      borderWidth: 1,
+      borderColor: theme.border,
     },
-    switchLink: {
-      color: theme.primary,
-      fontSize: 14,
+    secondaryButtonText: {
+      color: theme.textDark,
+      fontSize: 16,
       fontWeight: '600',
     },
   });

@@ -9,10 +9,12 @@ import {
   StyleSheet,
   ActivityIndicator,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { Profile } from '../types';
 import { useProfile } from '../lib/hooks/useProfile';
@@ -52,6 +54,30 @@ export default function ProfileScreen({ profile, updateProfile, checkUsernameAva
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [subScreen, setSubScreen] = useState<SubScreen>(null);
+  const [authUser, setAuthUser] = useState<any>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) setAuthUser(session.user);
+    });
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) setAuthUser(data.user);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const hasEmailProvider =
+    authUser?.app_metadata?.provider === 'email' ||
+    (authUser?.identities ?? []).some((i: any) => i.provider === 'email');
+  const oauthProvider =
+    authUser?.app_metadata?.provider && authUser.app_metadata.provider !== 'email'
+      ? authUser.app_metadata.provider
+      : (authUser?.identities ?? []).find((i: any) => i.provider !== 'email')?.provider ?? 'OAuth';
+  const providerLabel =
+    oauthProvider === 'google' ? 'Google' : oauthProvider === 'apple' ? 'Apple' : oauthProvider;
 
   const { active: cooldownActive, unlockDate } = usernameCooldown(profile?.username_changed_at ?? null);
 
@@ -103,6 +129,7 @@ export default function ProfileScreen({ profile, updateProfile, checkUsernameAva
   }
 
   async function handleSave() {
+    Keyboard.dismiss();
     const trimmedName = fullName.trim();
     const trimmedUsername = username.trim();
     if (!trimmedName) {
@@ -130,30 +157,44 @@ export default function ProfileScreen({ profile, updateProfile, checkUsernameAva
     setLoading(true);
     setError('');
 
-    let finalAvatarUrl = photoUri;
-    if (photoUri && !photoUri.startsWith('http://') && !photoUri.startsWith('https://')) {
-      const fileId = profile ? `avatar_${profile.id}_${Date.now()}` : `avatar_${Date.now()}`;
-      finalAvatarUrl = await uploadImage(photoUri, 'avatars', fileId, profile?.avatar_url);
-    }
+    try {
+      if (usernameChanged && usernameStatus !== 'available') {
+        const { available, error: checkErr } = await checkUsernameAvailable(trimmedUsername);
+        if (!checkErr && !available) {
+          setUsernameStatus('taken');
+          setError(t('profile.usernameAlreadyTaken'));
+          return;
+        }
+      }
 
-    const { error } = await updateProfile({
-      full_name: trimmedName,
-      username: trimmedUsername,
-      avatar_url: finalAvatarUrl,
-    });
-    setLoading(false);
-    if (error) {
-      // Defense in depth: the DB trigger (profiles_username_cooldown) rejects
-      // a change the client-side cooldownActive check somehow missed (e.g.
-      // stale profile prop) with this error code.
-      setError(
-        error.message.includes('username_cooldown_active')
-          ? t('profile.changedTooRecently')
-          : error.message
-      );
-      return;
+      let finalAvatarUrl = photoUri;
+      if (photoUri && !photoUri.startsWith('http://') && !photoUri.startsWith('https://')) {
+        const fileId = profile ? `avatar_${profile.id}_${Date.now()}` : `avatar_${Date.now()}`;
+        finalAvatarUrl = await uploadImage(photoUri, 'avatars', fileId, profile?.avatar_url);
+      }
+
+      const { error } = await updateProfile({
+        full_name: trimmedName,
+        username: trimmedUsername,
+        avatar_url: finalAvatarUrl,
+      });
+      if (error) {
+        // Defense in depth: the DB trigger (profiles_username_cooldown) rejects
+        // a change the client-side cooldownActive check somehow missed (e.g.
+        // stale profile prop) with this error code.
+        setError(
+          error.message.includes('username_cooldown_active')
+            ? t('profile.changedTooRecently')
+            : error.message
+        );
+        return;
+      }
+      onDone();
+    } catch (err: any) {
+      setError(err?.message || 'Could not save profile');
+    } finally {
+      setLoading(false);
     }
-    onDone();
   }
 
   async function handleSignOut() {
@@ -178,7 +219,7 @@ export default function ProfileScreen({ profile, updateProfile, checkUsernameAva
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>{t('profile.title')}</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -248,16 +289,37 @@ export default function ProfileScreen({ profile, updateProfile, checkUsernameAva
 
         <Text style={styles.accountSectionLabel}>{t('profile.account')}</Text>
         <View style={styles.card}>
-          <TouchableOpacity style={styles.row} onPress={() => setSubScreen('password')}>
-            <Text style={styles.rowTitle}>{t('settings.changePassword')}</Text>
-            <Text style={styles.chevron}>›</Text>
-          </TouchableOpacity>
-          <View style={styles.divider} />
-          <TouchableOpacity style={styles.row} onPress={() => setSubScreen('email')}>
-            <Text style={styles.rowTitle}>{t('settings.changeEmail')}</Text>
-            <Text style={styles.chevron}>›</Text>
-          </TouchableOpacity>
-          <View style={styles.divider} />
+          {!hasEmailProvider && authUser ? (
+            <>
+              <View style={[styles.row, { paddingVertical: 14 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                  <Ionicons
+                    name={oauthProvider === 'apple' ? 'logo-apple' : 'logo-google'}
+                    size={19}
+                    color={theme.textDark}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.rowTitle}>Signed in with {providerLabel}</Text>
+                    <Text style={styles.rowSubtitle}>{authUser.email ?? ''}</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.divider} />
+            </>
+          ) : (
+            <>
+              <TouchableOpacity style={styles.row} onPress={() => setSubScreen('password')}>
+                <Text style={styles.rowTitle}>{t('settings.changePassword')}</Text>
+                <Text style={styles.chevron}>›</Text>
+              </TouchableOpacity>
+              <View style={styles.divider} />
+              <TouchableOpacity style={styles.row} onPress={() => setSubScreen('email')}>
+                <Text style={styles.rowTitle}>{t('settings.changeEmail')}</Text>
+                <Text style={styles.chevron}>›</Text>
+              </TouchableOpacity>
+              <View style={styles.divider} />
+            </>
+          )}
           <TouchableOpacity style={styles.row} onPress={() => setSubScreen('delete')}>
             <Text style={styles.rowTitleDanger}>{t('settings.deleteAccount')}</Text>
             <Text style={styles.chevron}>›</Text>
@@ -413,6 +475,11 @@ function makeStyles(theme: ThemeTokens) {
       fontSize: 15,
       color: theme.textDark,
       fontWeight: '500',
+    },
+    rowSubtitle: {
+      fontSize: 12.5,
+      color: theme.textMuted,
+      marginTop: 2,
     },
     rowTitleDanger: {
       fontSize: 15,

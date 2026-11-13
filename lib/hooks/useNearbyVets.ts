@@ -1,7 +1,11 @@
 import { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { VetResult } from '../../types';
 import { i18n } from '../i18n';
+
+const VET_CACHE_KEY = '@pawcare/vet_results_cache';
+const VET_CACHE_TTL_MS = 10 * 60 * 1000;
 
 const OVERPASS_ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter',
@@ -10,7 +14,7 @@ const OVERPASS_ENDPOINTS = [
 ];
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 const SEARCH_RADIUS_METERS = 5000;
-const OVERPASS_TIMEOUT_MS = 7000;
+const OVERPASS_TIMEOUT_MS = 4500;
 const USER_AGENT = 'BiscoPetCare/1.0 (https://bisco.app; contact@bisco.app)';
 
 export type Coords = { lat: number; lon: number };
@@ -248,36 +252,93 @@ export function useNearbyVets() {
   const [permissionDenied, setPermissionDenied] = useState(false);
 
   async function searchNearMe() {
-    setLoading(true);
     setError(null);
     setPermissionDenied(false);
+
+    // 1. Instant render from cached vet preview if fresh (< 10 min)
+    let usedCache = false;
+    try {
+      const cachedRaw = await AsyncStorage.getItem(VET_CACHE_KEY);
+      if (cachedRaw) {
+        const cached = JSON.parse(cachedRaw) as {
+          timestamp: number;
+          userLocation: Coords;
+          vets: VetResult[];
+        };
+        if (Date.now() - cached.timestamp < VET_CACHE_TTL_MS && cached.userLocation) {
+          setUserLocation(cached.userLocation);
+          setVets(cached.vets ?? []);
+          setLoading(false);
+          usedCache = true;
+        }
+      }
+    } catch {
+      // ignore corrupt cache
+    }
+
+    if (!usedCache) {
+      setLoading(true);
+    }
+
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        setPermissionDenied(true);
-        setLoading(false);
+        if (!usedCache) {
+          setPermissionDenied(true);
+          setLoading(false);
+        }
         return;
       }
 
-      // Fast initial check: use last known position immediately if available
-      const lastKnown = await Location.getLastKnownPositionAsync().catch(() => null);
-      if (lastKnown) {
-        const center = { lat: lastKnown.coords.latitude, lon: lastKnown.coords.longitude };
-        setUserLocation(center);
-        fetchVetsNear(center)
-          .then(results => {
-            if (results.length > 0) setVets(results);
-          })
-          .catch(() => {});
-      }
+      // 2. If no cache yet, resolve lastKnown immediately so map appears fast
+      if (!usedCache) {
+        const lastKnown = await Location.getLastKnownPositionAsync().catch(() => null);
+        if (lastKnown) {
+          const fastCenter = { lat: lastKnown.coords.latitude, lon: lastKnown.coords.longitude };
+          setUserLocation(fastCenter);
+          try {
+            const fastResults = await fetchVetsNear(fastCenter);
+            setVets(fastResults);
+            setLoading(false);
+            AsyncStorage.setItem(
+              VET_CACHE_KEY,
+              JSON.stringify({ timestamp: Date.now(), userLocation: fastCenter, vets: fastResults })
+            ).catch(() => {});
+            // Quietly refine GPS in background without blocking UI
+            Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+              .then(async (pos) => {
+                const exact = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+                if (haversineKm(fastCenter, exact) > 0.4) {
+                  setUserLocation(exact);
+                  const fresh = await fetchVetsNear(exact);
+                  setVets(fresh);
+                  AsyncStorage.setItem(
+                    VET_CACHE_KEY,
+                    JSON.stringify({ timestamp: Date.now(), userLocation: exact, vets: fresh })
+                  ).catch(() => {});
+                }
+              })
+              .catch(() => {});
+            return;
+          } catch {
+            // Fall through to fresh GPS position
+          }
+        }
 
-      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const center = { lat: position.coords.latitude, lon: position.coords.longitude };
-      setUserLocation(center);
-      const results = await fetchVetsNear(center);
-      setVets(results);
+        const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const center = { lat: position.coords.latitude, lon: position.coords.longitude };
+        setUserLocation(center);
+        const results = await fetchVetsNear(center);
+        setVets(results);
+        AsyncStorage.setItem(
+          VET_CACHE_KEY,
+          JSON.stringify({ timestamp: Date.now(), userLocation: center, vets: results })
+        ).catch(() => {});
+      }
     } catch {
-      setError(i18n.t('vetFinder.loadFailed'));
+      if (!usedCache) {
+        setError(i18n.t('vetFinder.loadFailed'));
+      }
     } finally {
       setLoading(false);
     }

@@ -20,7 +20,16 @@ import LegalDocScreen from './LegalDocScreen';
 
 export type RootTabParamList = {
   Home: undefined;
-  Pets: { dogId?: string; openAddParasite?: boolean; openAddVaccine?: boolean } | undefined;
+  Pets:
+    | {
+        dogId?: string;
+        openAddParasite?: boolean;
+        openAddVaccine?: boolean;
+        openVaccineList?: boolean;
+        openParasiteList?: boolean;
+        openAddHabit?: boolean;
+      }
+    | undefined;
   Chat: { fromLink?: boolean } | undefined;
   More: { openVetFinder?: boolean } | undefined;
 };

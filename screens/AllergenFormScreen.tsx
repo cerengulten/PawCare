@@ -53,28 +53,38 @@ export default function AllergenFormScreen({
     setLoading(true);
     setError('');
 
-    const { error } = allergen
-      ? await updateAllergen(allergen.id, trimmed)
-      : await addAllergen(trimmed);
+    try {
+      const { error } = allergen
+        ? await updateAllergen(allergen.id, trimmed)
+        : await addAllergen(trimmed);
 
-    setLoading(false);
-    if (error) {
-      setError(error.message);
-      return;
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      onDone();
+    } catch (err: any) {
+      setError(err?.message || 'Could not save sensitivity');
+    } finally {
+      setLoading(false);
     }
-    onDone();
   }
 
   async function handleDelete() {
     if (!allergen) return;
     setLoading(true);
-    const { error } = await deleteAllergen(allergen.id);
-    setLoading(false);
-    if (error) {
-      setError(error.message);
-      return;
+    try {
+      const { error } = await deleteAllergen(allergen.id);
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      onDone();
+    } catch (err: any) {
+      setError(err?.message || 'Could not delete sensitivity');
+    } finally {
+      setLoading(false);
     }
-    onDone();
   }
 
   return (
@@ -83,7 +93,7 @@ export default function AllergenFormScreen({
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>{allergen ? t('allergens.editTitle') : t('allergens.addTitle')}</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}

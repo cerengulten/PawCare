@@ -10,6 +10,7 @@
 
 export type ThemeFamily =
   | 'nordic_slate'
+  | 'bisco_classic' // Signature warm biscuit & terracotta palette
   | 'sage_clay'
   | 'warm_honey'
   | 'cool_ash'
@@ -76,6 +77,7 @@ export type ThemeTokens = {
 
   // structural constant
   radiiCard: number;
+  radiiPill?: number;
 };
 
 const SEMANTIC: Pick<
@@ -191,6 +193,33 @@ export const THEMES: Record<ThemeFamily, ThemeTokens> = {
     done: '#16A34A',
     pending: '#F59E0B',
     ...SEMANTIC,
+  },
+
+  // Bisco Classic: Signature warm biscuit & terracotta palette
+  bisco_classic: {
+    background: '#FAF9F7',    // Clean warm porcelain (crisp, zero muddy undertones)
+    surface: '#FFFFFF',       // Pure white cards
+    surfaceAlt: '#F5F3EF',    // Soft biscuit warm wash
+    border: '#EBE8E2',        // Delicate hairline warm border
+    divider: '#F5F3EF',
+    primary: '#D96B47',       // Signature warm biscuit terracotta accent
+    primaryLight: '#FDF1EB',  // Gentle terracotta wash for active chips
+    primaryMid: '#E88C68',
+    primaryDark: '#9E4426',
+    textDark: '#18181B',      // Obsidian charcoal (sharp, high WCAG AAA contrast)
+    textMuted: '#71717A',     // Refined neutral secondary text
+    chipText: '#52525B',
+    streakBg: '#FEF4DC',
+    streakBorder: '#E8D8B8',
+    alertBg: '#FDF0E8',
+    alertBorder: '#D96B47',
+    moodSelBg: '#FDF1EB',
+    moodSelBorder: '#D96B47',
+    done: '#2D8A4E',
+    pending: '#D96B47',
+    ...SEMANTIC,
+    radiiCard: 18,
+    radiiPill: 999,
   },
 
   // Crisp Botanical Wellness: vibrant forest sage (#2A7A4C) primary, fresh pure crisp background (#F9FAF9),
@@ -423,6 +452,33 @@ export const DARK_THEMES: Record<ThemeFamily, ThemeTokens> = {
     ...SEMANTIC_DARK,
   },
 
+  // Bisco Classic: Signature warm biscuit & terracotta palette (Dark Mode)
+  bisco_classic: {
+    background: '#141210',    // Deep espresso obsidian
+    surface: '#1F1C19',       // Elevated warm charcoal card
+    surfaceAlt: '#2A2622',    // Dark biscuit wash
+    border: '#36302B',        // Subdued warm border
+    divider: '#24201C',
+    primary: '#E57E5D',       // Luminous terracotta accent
+    primaryLight: '#38241B',
+    primaryMid: '#D96B47',
+    primaryDark: '#FFAB8F',
+    textDark: '#FDFBF7',      // Warm crisp white
+    textMuted: '#A39E96',
+    chipText: '#D6CEC5',
+    streakBg: '#2D231B',
+    streakBorder: '#4E3E22',
+    alertBg: '#36211C',
+    alertBorder: '#E57E5D',
+    moodSelBg: '#38241B',
+    moodSelBorder: '#E57E5D',
+    done: '#4ADE80',
+    pending: '#FBBF24',
+    ...SEMANTIC_DARK,
+    radiiCard: 18,
+    radiiPill: 999,
+  },
+
   sage_clay: {
     background: '#181614',
     surface: '#24201D',
@@ -618,6 +674,7 @@ export const DARK_THEMES: Record<ThemeFamily, ThemeTokens> = {
 
 export const THEME_LABELS: Record<ThemeFamily, string> = {
   nordic_slate: 'Nordic Slate',
+  bisco_classic: 'Bisco Classic',
   sage_clay: 'Sage & Clay',
   warm_honey: 'Warm Honey',
   cool_ash: 'Cool Ash',
@@ -630,6 +687,7 @@ export const THEME_LABELS: Record<ThemeFamily, string> = {
 
 export const THEME_DESCRIPTIONS: Record<ThemeFamily, string> = {
   nordic_slate: 'crisp porcelain · deep slate navy · minimal',
+  bisco_classic: 'porcelain · warm biscuit terracotta · signature',
   sage_clay: 'meadow sage · warm oat · honey terracotta',
   warm_honey: 'golden retriever · apricot · labrador',
   cool_ash: 'grey · silver · Weimaraner',

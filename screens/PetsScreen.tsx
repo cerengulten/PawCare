@@ -61,10 +61,25 @@ export default function PetsScreen({
     }, [mode])
   );
 
-  const [initialOpenAction, setInitialOpenAction] = useState<'parasite' | 'vaccine' | null>(null);
+  const [initialOpenAction, setInitialOpenAction] = useState<
+    'parasite' | 'vaccine' | 'parasite-list' | 'vaccine-list' | 'habit' | null
+  >(null);
 
   useEffect(() => {
     const paramDogId = route.params?.dogId;
+    const hasAction = Boolean(
+      paramDogId ||
+        route.params?.openAddParasite ||
+        route.params?.openAddVaccine ||
+        route.params?.openParasiteList ||
+        route.params?.openVaccineList ||
+        route.params?.openAddHabit
+    );
+    if (hasAction) {
+      // Ensure we exit any previously opened Add/Edit Pet form so deep links land on the pet's detail view.
+      setMode('switch');
+      setEditingDog(null);
+    }
     if (paramDogId) {
       selectDog(paramDogId);
     }
@@ -72,11 +87,31 @@ export default function PetsScreen({
       setInitialOpenAction('parasite');
     } else if (route.params?.openAddVaccine) {
       setInitialOpenAction('vaccine');
+    } else if (route.params?.openParasiteList) {
+      setInitialOpenAction('parasite-list');
+    } else if (route.params?.openVaccineList) {
+      setInitialOpenAction('vaccine-list');
+    } else if (route.params?.openAddHabit) {
+      setInitialOpenAction('habit');
     }
-    if (paramDogId || route.params?.openAddParasite || route.params?.openAddVaccine) {
-      navigation.setParams({ dogId: undefined, openAddParasite: undefined, openAddVaccine: undefined });
+    if (hasAction) {
+      navigation.setParams({
+        dogId: undefined,
+        openAddParasite: undefined,
+        openAddVaccine: undefined,
+        openParasiteList: undefined,
+        openVaccineList: undefined,
+        openAddHabit: undefined,
+      });
     }
-  }, [route.params?.dogId, route.params?.openAddParasite, route.params?.openAddVaccine]);
+  }, [
+    route.params?.dogId,
+    route.params?.openAddParasite,
+    route.params?.openAddVaccine,
+    route.params?.openParasiteList,
+    route.params?.openVaccineList,
+    route.params?.openAddHabit,
+  ]);
 
   const selectedDog = selectedDogId ? dogs.find(d => d.id === selectedDogId) ?? null : null;
 

@@ -135,37 +135,42 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
     setLoading(true);
     setError('');
 
-    const species =
-      selectedSpecies === 'Other' ? customSpeciesText.trim() || null : selectedSpecies;
+    try {
+      const species =
+        selectedSpecies === 'Other' ? customSpeciesText.trim() || null : selectedSpecies;
 
-    let finalPhotoUrl = photoUri;
-    if (photoUri && !photoUri.startsWith('http://') && !photoUri.startsWith('https://')) {
-      const fileId = dog ? `pet_${dog.id}_${Date.now()}` : `pet_${Date.now()}`;
-      finalPhotoUrl = await uploadImage(photoUri, 'pet-photos', fileId, dog?.photo_url);
+      let finalPhotoUrl = photoUri;
+      if (photoUri && !photoUri.startsWith('http://') && !photoUri.startsWith('https://')) {
+        const fileId = dog ? `pet_${dog.id}_${Date.now()}` : `pet_${Date.now()}`;
+        finalPhotoUrl = await uploadImage(photoUri, 'pet-photos', fileId, dog?.photo_url);
+      }
+
+      const payload = {
+        name: trimmedName,
+        species,
+        breed: breed.trim() || null,
+        birth_date: birthDate ? toDateOnlyString(birthDate) : null,
+        weight_kg: weightValue,
+        photo_url: finalPhotoUrl,
+        theme_family: selectedTheme,
+        sex,
+        is_sterilized: isSterilized,
+      };
+
+      const { error } = dog
+        ? await updateDog(dog.id, payload)
+        : await addDog({ ...payload, notes: null });
+
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      onDone();
+    } catch (err: any) {
+      setError(err?.message || 'Could not save pet');
+    } finally {
+      setLoading(false);
     }
-
-    const payload = {
-      name: trimmedName,
-      species,
-      breed: breed.trim() || null,
-      birth_date: birthDate ? toDateOnlyString(birthDate) : null,
-      weight_kg: weightValue,
-      photo_url: finalPhotoUrl,
-      theme_family: selectedTheme,
-      sex,
-      is_sterilized: isSterilized,
-    };
-
-    const { error } = dog
-      ? await updateDog(dog.id, payload)
-      : await addDog({ ...payload, notes: null });
-
-    setLoading(false);
-    if (error) {
-      setError(error.message);
-      return;
-    }
-    onDone();
   }
 
   return (
@@ -272,30 +277,26 @@ export default function PetFormScreen({ dog, addDog, updateDog, onDone, onCancel
           />
         </View>
 
-        {dog !== null ? (
-          <>
-            <Text style={styles.sectionLabel}>{t('petForm.theme')}</Text>
-            <View style={styles.chipGrid}>
-              {(Object.keys(THEMES) as ThemeFamily[]).map(family => {
-                const selected = family === selectedTheme;
-                const isSuggested = family === suggested && !themeManuallyPicked;
-                return (
-                  <TouchableOpacity
-                    key={family}
-                    style={[styles.chipBtn, selected && styles.chipBtnSelected]}
-                    onPress={() => { setSelectedTheme(family); setThemeManuallyPicked(true); }}
-                  >
-                    <View style={styles.chipRow}>
-                      <View style={[styles.swatchDot, { backgroundColor: THEMES[family].primary }]} />
-                      <Text style={styles.chipBtnLabel}>{THEME_LABELS[family]}</Text>
-                    </View>
-                    {isSuggested ? <Text style={styles.suggestedLabel}>{t('petForm.suggested')}</Text> : null}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </>
-        ) : null}
+        <Text style={styles.sectionLabel}>{t('petForm.theme')}</Text>
+        <View style={styles.chipGrid}>
+          {(Object.keys(THEMES) as ThemeFamily[]).map(family => {
+            const selected = family === selectedTheme;
+            const isSuggested = family === suggested && !themeManuallyPicked;
+            return (
+              <TouchableOpacity
+                key={family}
+                style={[styles.chipBtn, selected && styles.chipBtnSelected]}
+                onPress={() => { setSelectedTheme(family); setThemeManuallyPicked(true); }}
+              >
+                <View style={styles.chipRow}>
+                  <View style={[styles.swatchDot, { backgroundColor: THEMES[family].primary }]} />
+                  <Text style={styles.chipBtnLabel}>{THEME_LABELS[family]}</Text>
+                </View>
+                {isSuggested ? <Text style={styles.suggestedLabel}>{t('petForm.suggested')}</Text> : null}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
         <TextInput
           style={styles.input}

@@ -282,7 +282,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       borderTopLeftRadius: 24,
       borderTopRightRadius: 24,
       padding: 20,
-      paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+      paddingBottom: Platform.OS === 'ios' ? 36 : 40,
       borderTopWidth: 1,
       borderColor: theme.border,
       maxHeight: Dimensions.get('window').height * 0.85,
@@ -431,9 +431,10 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
     button: {
       backgroundColor: theme.primary,
       borderRadius: 14,
-      paddingVertical: 16,
+      paddingVertical: 13,
       alignItems: 'center',
       justifyContent: 'center',
+      marginBottom: 4,
     },
     buttonText: {
       color: '#FFFFFF',

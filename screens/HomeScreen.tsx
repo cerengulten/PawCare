@@ -40,6 +40,8 @@ import VetAppointmentModal from '../components/VetAppointmentModal';
 import TabTour from '../components/TabTour';
 import { checkAndCreateStreakAlert } from '../lib/notificationService';
 import ProfileScreen from './ProfileScreen';
+import { useNotifications } from '../lib/hooks/useNotifications';
+import NotificationsScreen from './NotificationsScreen';
 import { RootTabParamList } from './AppTabs';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
@@ -70,6 +72,9 @@ export default function HomeScreen({
   const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
   const { streak } = useOverallStreak();
   const [showProfile, setShowProfile] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notificationsState = useNotifications(profile?.id ?? null);
+  const { unreadCount } = notificationsState;
   const [showVetModal, setShowVetModal] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<VetAppointment | null>(null);
   const [tipOffset, setTipOffset] = useState(0);
@@ -156,38 +161,72 @@ export default function HomeScreen({
     resetWaterToday,
   } = useHabits(activeDog?.id ?? '');
   const { upcoming: upcomingVaccines, overdue: overdueVaccines } = useAllVaccines();
-  const { mood } = useDogMood(activeDog?.id ?? '');
+  const { mood, refetch: refetchMood } = useDogMood(activeDog?.id ?? '');
   const moodStatus = getMoodStatus(mood?.mood, theme, t);
   const age = computeAge(activeDog?.birth_date ?? null);
 
-  const nextPreventiveTreatment = useMemo(() => {
-    const activeOverdue = overdueVaccines.find((v) => v.dog_id === activeDog?.id);
-    if (activeOverdue) return activeOverdue;
-    const anyOverdue = overdueVaccines[0];
-    if (anyOverdue) return anyOverdue;
-    const activeUpcoming = upcomingVaccines.find((v) => v.dog_id === activeDog?.id);
-    if (activeUpcoming) return activeUpcoming;
-    return upcomingVaccines[0] ?? null;
+  const { nextVaccine, nextParasite } = useMemo(() => {
+    const allOverdueVaccines = overdueVaccines.filter(
+      (v) => detectTreatmentType(v.vaccine_name, v.notes) === 'vaccine'
+    );
+    const allUpcomingVaccines = upcomingVaccines.filter(
+      (v) => detectTreatmentType(v.vaccine_name, v.notes) === 'vaccine'
+    );
+    const allOverdueParasites = overdueVaccines.filter(
+      (v) => detectTreatmentType(v.vaccine_name, v.notes) !== 'vaccine'
+    );
+    const allUpcomingParasites = upcomingVaccines.filter(
+      (v) => detectTreatmentType(v.vaccine_name, v.notes) !== 'vaccine'
+    );
+
+    const activeOverdueVac = allOverdueVaccines.find((v) => v.dog_id === activeDog?.id);
+    const anyOverdueVac = allOverdueVaccines[0];
+    const activeUpcomingVac = allUpcomingVaccines.find((v) => v.dog_id === activeDog?.id);
+    const resolvedVaccine =
+      activeOverdueVac ?? anyOverdueVac ?? activeUpcomingVac ?? allUpcomingVaccines[0] ?? null;
+
+    const activeOverduePar = allOverdueParasites.find((v) => v.dog_id === activeDog?.id);
+    const anyOverduePar = allOverdueParasites[0];
+    const activeUpcomingPar = allUpcomingParasites.find((v) => v.dog_id === activeDog?.id);
+    const resolvedParasite =
+      activeOverduePar ?? anyOverduePar ?? activeUpcomingPar ?? allUpcomingParasites[0] ?? null;
+
+    return { nextVaccine: resolvedVaccine, nextParasite: resolvedParasite };
   }, [overdueVaccines, upcomingVaccines, activeDog?.id]);
 
-  const preventiveStatusInfo = useMemo(() => {
-    if (!nextPreventiveTreatment) return null;
-    const dueMs = new Date(`${nextPreventiveTreatment.next_due_date}T00:00:00`).getTime();
+  const vaccineStatusInfo = useMemo(() => {
+    if (!nextVaccine) return null;
+    const dueMs = new Date(`${nextVaccine.next_due_date}T00:00:00`).getTime();
     const todayMs = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00').getTime();
     const diffDays = Math.round((dueMs - todayMs) / (1000 * 60 * 60 * 24));
     const isOverdue = diffDays < 0;
-    const kind = detectTreatmentType(nextPreventiveTreatment.vaccine_name, nextPreventiveTreatment.notes);
     return {
       diffDays,
       isOverdue,
-      kind,
       label: isOverdue
         ? `${Math.abs(diffDays)}d overdue`
         : diffDays === 0
           ? t('home.today') || 'Due today'
           : `Due in ${diffDays}d`,
     };
-  }, [nextPreventiveTreatment, t]);
+  }, [nextVaccine, t]);
+
+  const parasiteStatusInfo = useMemo(() => {
+    if (!nextParasite) return null;
+    const dueMs = new Date(`${nextParasite.next_due_date}T00:00:00`).getTime();
+    const todayMs = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00').getTime();
+    const diffDays = Math.round((dueMs - todayMs) / (1000 * 60 * 60 * 24));
+    const isOverdue = diffDays < 0;
+    return {
+      diffDays,
+      isOverdue,
+      label: isOverdue
+        ? `${Math.abs(diffDays)}d overdue`
+        : diffDays === 0
+          ? t('home.today') || 'Due today'
+          : `Due in ${diffDays}d`,
+    };
+  }, [nextParasite, t]);
 
   const formattedDate = useMemo(() => {
     try {
@@ -260,7 +299,12 @@ export default function HomeScreen({
 
   useFocusEffect(
     useCallback(() => {
+      refetchMood();
       const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (showNotifications) {
+          setShowNotifications(false);
+          return true;
+        }
         if (showVetModal) {
           setShowVetModal(false);
           setEditingAppointment(null);
@@ -273,7 +317,7 @@ export default function HomeScreen({
         return false;
       });
       return () => sub.remove();
-    }, [showProfile, showVetModal])
+    }, [showNotifications, showProfile, showVetModal, refetchMood])
   );
 
   useEffect(() => {
@@ -284,6 +328,23 @@ export default function HomeScreen({
   const greeting =
     hour < 12 ? t('home.goodMorning') : hour < 18 ? t('home.goodAfternoon') : t('home.goodEvening');
   const firstName = profile?.full_name?.split(' ')[0] ?? t('home.there');
+
+  if (showNotifications) {
+    return (
+      <NotificationsScreen
+        notificationsState={notificationsState}
+        onBack={() => setShowNotifications(false)}
+        onNavigateToPet={(dogId) => {
+          setShowNotifications(false);
+          navigation.navigate('Pets', { dogId });
+        }}
+        onOpenVetFinder={() => {
+          setShowNotifications(false);
+          navigation.navigate('More', { openVetFinder: true });
+        }}
+      />
+    );
+  }
 
   if (showProfile) {
     return (
@@ -310,15 +371,33 @@ export default function HomeScreen({
               {greeting}, {firstName}
             </Text>
           </View>
-          <TouchableOpacity onPress={() => setShowProfile(true)} activeOpacity={0.8}>
-            {profile?.avatar_url ? (
-              <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Feather name="user" size={20} color={theme.primary} />
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={styles.headerActionsRow}>
+            <TouchableOpacity
+              onPress={() => setShowNotifications(true)}
+              style={styles.notifBellBtn}
+              activeOpacity={0.75}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Feather name="bell" size={21} color={theme.textDark} />
+              {unreadCount > 0 ? (
+                <View style={styles.notifBadge}>
+                  <Text style={styles.notifBadgeText}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </Text>
+                </View>
+              ) : null}
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => setShowProfile(true)} activeOpacity={0.8}>
+              {profile?.avatar_url ? (
+                <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Feather name="user" size={20} color={theme.primary} />
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Multi-Pet Selector Strip (when > 1 pet) */}
@@ -418,10 +497,17 @@ export default function HomeScreen({
 
             {/* Daily Care Rhythm Inside the Passport Card */}
             <View ref={rhythmRef} collapsable={false} style={styles.rhythmContainer}>
-              <View style={styles.rhythmHeader}>
-                <Text style={styles.rhythmTitle}>
-                  {t('home.careRhythmTitle') || "TODAY'S CARE RHYTHM"}
-                </Text>
+              <TouchableOpacity
+                style={styles.rhythmHeader}
+                onPress={() => navigation.navigate('Pets', { dogId: activeDog.id, openAddHabit: true })}
+                activeOpacity={0.7}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.rhythmTitle}>
+                    {t('home.careRhythmTitle') || "TODAY'S CARE RHYTHM"}
+                  </Text>
+                  <Feather name="chevron-right" size={13} color={theme.textMuted} />
+                </View>
                 <Text style={styles.rhythmCount}>
                   {rhythmHabits.length > 0
                     ? t('home.careRhythmCompleted', {
@@ -433,7 +519,7 @@ export default function HomeScreen({
                       })
                     : t('home.careRhythmEmpty')}
                 </Text>
-              </View>
+              </TouchableOpacity>
 
               {rhythmHabits.length > 0 ? (
                 <View style={styles.rhythmProgressBar}>
@@ -554,7 +640,7 @@ export default function HomeScreen({
                   <>
                     <TouchableOpacity
                       style={styles.habitToken}
-                      onPress={() => navigation.navigate('Pets', { dogId: activeDog.id })}
+                      onPress={() => navigation.navigate('Pets', { dogId: activeDog.id, openAddHabit: true })}
                       activeOpacity={0.7}
                     >
                       <View style={styles.habitTokenIconBox}>
@@ -572,7 +658,7 @@ export default function HomeScreen({
 
                     <TouchableOpacity
                       style={styles.habitToken}
-                      onPress={() => navigation.navigate('Pets', { dogId: activeDog.id })}
+                      onPress={() => navigation.navigate('Pets', { dogId: activeDog.id, openAddHabit: true })}
                       activeOpacity={0.7}
                     >
                       <View style={styles.habitTokenIconBox}>
@@ -590,7 +676,7 @@ export default function HomeScreen({
 
                     <TouchableOpacity
                       style={styles.habitToken}
-                      onPress={() => navigation.navigate('Pets', { dogId: activeDog.id })}
+                      onPress={() => navigation.navigate('Pets', { dogId: activeDog.id, openAddHabit: true })}
                       activeOpacity={0.7}
                     >
                       <View style={styles.habitTokenIconBox}>
@@ -743,22 +829,19 @@ export default function HomeScreen({
                 </Text>
               </View>
             </View>
-            <TouchableOpacity
-              style={styles.findVetsPill}
-              onPress={() => navigation.navigate('More', { openVetFinder: true })}
-              activeOpacity={0.75}
-            >
-              <Feather name="navigation" size={13} color={theme.primary} />
-              <Text style={styles.findVetsPillText} numberOfLines={1}>
-                {t('nearbyVets.findVets') || 'Vet Finder'}
-              </Text>
-            </TouchableOpacity>
           </View>
 
-          {/* Two-Column Care Schedule Grid: Next Vet Visit + Parasite Shield */}
+          {/* Two-Column Care Schedule Grid: Next Vet Visit + Next Vaccine */}
           <View style={styles.agendaTwoColGrid}>
             {/* Column 1: Next Vet Visit */}
-            <View style={styles.agendaColCard}>
+            <TouchableOpacity
+              style={styles.agendaColCard}
+              onPress={() => {
+                setEditingAppointment(nextAppointment ?? null);
+                setShowVetModal(true);
+              }}
+              activeOpacity={0.8}
+            >
               <View style={styles.agendaColTopRow}>
                 <View style={styles.agendaItemIconCircle}>
                   <Ionicons name="medkit-outline" size={16} color={theme.primary} />
@@ -830,16 +913,20 @@ export default function HomeScreen({
                   </Text>
                 </TouchableOpacity>
               )}
-            </View>
+            </TouchableOpacity>
 
-            {/* Column 2: Vaccine & Parasite Shield */}
+            {/* Column 2: Next Vaccine */}
             <TouchableOpacity
-              style={styles.agendaColCard}
+              style={[
+                styles.agendaColCard,
+                vaccineStatusInfo?.isOverdue && { borderColor: theme.alertBorder, backgroundColor: theme.alertBg },
+              ]}
               onPress={() => {
-                if (activeDog) {
-                  navigation.navigate('Pets', { dogId: activeDog.id, openAddParasite: true });
+                const targetDogId = nextVaccine?.dog_id ?? activeDog?.id;
+                if (nextVaccine) {
+                  navigation.navigate('Pets', { dogId: targetDogId, openVaccineList: true });
                 } else {
-                  navigation.navigate('Pets', { openAddParasite: true });
+                  navigation.navigate('Pets', { dogId: targetDogId, openAddVaccine: true });
                 }
               }}
               activeOpacity={0.8}
@@ -848,54 +935,132 @@ export default function HomeScreen({
                 <View
                   style={[
                     styles.agendaItemIconCircle,
-                    preventiveStatusInfo?.isOverdue && { backgroundColor: theme.allergenBg },
+                    vaccineStatusInfo?.isOverdue && { backgroundColor: theme.allergenBg, borderColor: theme.alertBorder },
                   ]}
                 >
-                  {preventiveStatusInfo?.kind === 'vaccine' ? (
-                    <Ionicons
-                      name="shield-checkmark-outline"
-                      size={16}
-                      color={preventiveStatusInfo?.isOverdue ? theme.allergenText : theme.primary}
-                    />
-                  ) : (
-                    <Feather
-                      name="shield"
-                      size={15}
-                      color={preventiveStatusInfo?.isOverdue ? theme.allergenText : theme.primary}
-                    />
-                  )}
+                  <Ionicons
+                    name="shield-checkmark-outline"
+                    size={16}
+                    color={vaccineStatusInfo?.isOverdue ? theme.allergenText : theme.primary}
+                  />
                 </View>
+                {vaccineStatusInfo?.isOverdue ? (
+                  <View
+                    style={{
+                      backgroundColor: theme.allergenBg,
+                      paddingHorizontal: 6,
+                      paddingVertical: 1.5,
+                      borderRadius: 6,
+                    }}
+                  >
+                    <Text style={{ fontSize: 9.5, fontWeight: '700', color: theme.allergenText }}>
+                      OVERDUE
+                    </Text>
+                  </View>
+                ) : null}
               </View>
 
               <Text style={styles.agendaItemTitle} numberOfLines={1}>
-                {nextPreventiveTreatment
-                  ? nextPreventiveTreatment.vaccine_name
-                  : t('treatments.tabs.parasiteShield') || 'Parasite Shield'}
+                {nextVaccine
+                  ? nextVaccine.vaccine_name
+                  : t('treatments.tabs.vaccines') || 'Next Vaccine'}
               </Text>
               <Text
                 style={[
                   styles.agendaItemMeta,
-                  preventiveStatusInfo?.isOverdue && {
+                  vaccineStatusInfo?.isOverdue && {
                     color: theme.allergenText,
                     fontWeight: '700',
                   },
                 ]}
                 numberOfLines={2}
               >
-                {nextPreventiveTreatment && preventiveStatusInfo
-                  ? `${preventiveStatusInfo.label} · ${nextPreventiveTreatment.next_due_date}`
-                  : t('treatments.noParasiteTracked') || 'Flea, tick & vaccine log'}
+                {nextVaccine && vaccineStatusInfo
+                  ? `${vaccineStatusInfo.label} · ${nextVaccine.next_due_date}`
+                  : t('treatments.noVaccinesTracked') || 'Rabies, DHPP log'}
               </Text>
 
               <View style={[styles.agendaOutlineBtn, { marginTop: 10, justifyContent: 'center' }]}>
                 <Text style={styles.agendaOutlineBtnText} numberOfLines={1}>
-                  {nextPreventiveTreatment
+                  {nextVaccine
                     ? t('common.edit') || 'Manage'
-                    : `+ ${t('common.add') || 'Add'}`}
+                    : `+ ${t('common.add') || 'Add vaccine'}`}
                 </Text>
               </View>
             </TouchableOpacity>
           </View>
+
+          {/* Parasite Shield Compact Full-Width Row */}
+          <TouchableOpacity
+            style={[
+              styles.agendaItemBox,
+              { marginTop: 10 },
+              parasiteStatusInfo?.isOverdue && { borderColor: theme.alertBorder, backgroundColor: theme.alertBg },
+            ]}
+            onPress={() => {
+              const targetDogId = nextParasite?.dog_id ?? activeDog?.id;
+              if (nextParasite) {
+                navigation.navigate('Pets', { dogId: targetDogId, openParasiteList: true });
+              } else {
+                navigation.navigate('Pets', { dogId: targetDogId, openAddParasite: true });
+              }
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={styles.agendaItemTop}>
+              <View
+                style={[
+                  styles.agendaItemIconCircle,
+                  parasiteStatusInfo?.isOverdue && { backgroundColor: theme.allergenBg, borderColor: theme.alertBorder },
+                ]}
+              >
+                <Feather
+                  name="shield"
+                  size={15}
+                  color={parasiteStatusInfo?.isOverdue ? theme.allergenText : theme.primary}
+                />
+              </View>
+
+              <View style={styles.agendaItemTextCol}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.agendaItemTitle} numberOfLines={1}>
+                    {t('treatments.tabs.parasiteShield') || 'Parasite Shield'}
+                  </Text>
+                  {parasiteStatusInfo?.isOverdue ? (
+                    <View
+                      style={{
+                        backgroundColor: theme.allergenBg,
+                        paddingHorizontal: 6,
+                        paddingVertical: 1.5,
+                        borderRadius: 6,
+                      }}
+                    >
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: theme.allergenText }}>
+                        OVERDUE
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text
+                  style={[
+                    styles.agendaItemMeta,
+                    parasiteStatusInfo?.isOverdue && { color: theme.allergenText, fontWeight: '600' },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {nextParasite && parasiteStatusInfo
+                    ? `${nextParasite.vaccine_name} · ${parasiteStatusInfo.label} (${nextParasite.next_due_date})`
+                    : t('treatments.noParasiteTracked') || '+ Add parasite protection (flea, tick, heartworm)'}
+                </Text>
+              </View>
+
+              <View style={[styles.agendaOutlineBtn, { paddingHorizontal: 10, paddingVertical: 5 }]}>
+                <Text style={styles.agendaOutlineBtnText}>
+                  {nextParasite ? (t('common.edit') || 'Manage') : `+ ${t('common.add') || 'Add'}`}
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
 
           {/* Compact 140px Visual Mini-Map Preview Card */}
           <View style={styles.agendaMapSection}>
@@ -1222,6 +1387,39 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
     headerTextGroup: {
       flex: 1,
       paddingRight: 12,
+    },
+    headerActionsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    notifBellBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: theme.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      position: 'relative',
+    },
+    notifBadge: {
+      position: 'absolute',
+      top: -3,
+      right: -3,
+      minWidth: 18,
+      height: 18,
+      borderRadius: 9,
+      backgroundColor: theme.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 4,
+    },
+    notifBadgeText: {
+      color: '#FFFFFF',
+      fontSize: 10,
+      fontWeight: '800',
     },
     dateLabel: {
       fontSize: 11,

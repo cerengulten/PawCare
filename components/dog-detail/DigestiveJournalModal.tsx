@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { Dog, HealthLog } from '../../types';
 import PoopLogCard from '../PoopLogCard';
@@ -64,9 +65,9 @@ export default function DigestiveJournalModal({
 
   return (
     <SwipeBackWrapper onBack={onBack}>
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-          <TouchableOpacity onPress={onBack} style={styles.backRow} activeOpacity={0.7}>
+          <TouchableOpacity onPress={onBack} style={styles.backRow} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Feather name="chevron-left" size={20} color={theme.primary} />
             <Text style={styles.backText}>{t('common.back')}</Text>
           </TouchableOpacity>
@@ -195,15 +196,15 @@ export default function DigestiveJournalModal({
         {/* Bottom Dual Quick-Add Bar */}
         <View style={styles.journalBottomBar}>
           <TouchableOpacity style={styles.journalPrimaryBtn} onPress={onAddStool} activeOpacity={0.85}>
-            <Feather name="plus-circle" size={15} color="#FFFFFF" />
+            <Feather name="check-circle" size={15} color="#FFFFFF" />
             <Text style={styles.journalPrimaryBtnText}>{t('dogDetail.digestiveHub.logStoolBtn')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.journalSecondaryBtn} onPress={onAddVomit} activeOpacity={0.85}>
-            <Feather name="alert-circle" size={15} color={theme.primary} />
+            <Feather name="activity" size={15} color={theme.primary} />
             <Text style={styles.journalSecondaryBtnText}>{t('dogDetail.digestiveHub.logIncidentBtn')}</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </SafeAreaView>
     </SwipeBackWrapper>
   );
 }
@@ -216,7 +217,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
     },
     content: {
       padding: 16,
-      paddingTop: 56,
+      paddingTop: 8,
       paddingBottom: 36,
     },
     backRow: {

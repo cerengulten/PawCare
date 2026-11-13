@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { HabitType } from '../types';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
@@ -28,9 +29,14 @@ export default function HabitQuickAddScreen({ onSelect, onCancel, existingTypes 
   const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
     <SwipeBackWrapper onBack={onCancel}>
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>{t('habits.addTitle')}</Text>
-      <Text style={styles.subtitle}>{t('habits.addSubtitle')}</Text>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+          <TouchableOpacity onPress={onCancel} style={styles.backRow} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={styles.backText}>‹ {t('common.back')}</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.title}>{t('habits.addTitle')}</Text>
+          <Text style={styles.subtitle}>{t('habits.addSubtitle')}</Text>
 
       {PRESETS.map((preset) => {
         const taken = preset.type !== 'custom' && existingTypes.includes(preset.type);
@@ -52,10 +58,11 @@ export default function HabitQuickAddScreen({ onSelect, onCancel, existingTypes 
         );
       })}
 
-      <TouchableOpacity onPress={onCancel} style={styles.cancelRow}>
-        <Text style={styles.cancelLink}>{t('common.cancel')}</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <TouchableOpacity onPress={onCancel} style={styles.cancelRow}>
+          <Text style={styles.cancelLink}>{t('common.cancel')}</Text>
+        </TouchableOpacity>
+      </ScrollView>
+      </SafeAreaView>
     </SwipeBackWrapper>
   );
 }
@@ -67,8 +74,17 @@ function makeStyles(theme: ThemeTokens) {
       backgroundColor: theme.background,
     },
     content: {
-      padding: 24,
-      paddingTop: 60,
+      padding: 20,
+      paddingTop: 10,
+      paddingBottom: 28,
+    },
+    backRow: {
+      marginBottom: 12,
+    },
+    backText: {
+      color: theme.primary,
+      fontSize: 16,
+      fontWeight: '600',
     },
     title: {
       fontSize: 26,

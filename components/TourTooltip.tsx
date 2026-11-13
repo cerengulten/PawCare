@@ -62,13 +62,24 @@ export default function TourTooltip({
     let attempts = 0;
     let timer: ReturnType<typeof setTimeout>;
 
+    let fallbackTimer: ReturnType<typeof setTimeout>;
     const tryMeasure = () => {
       const node = targetRef.current;
       if (!node) {
         retry();
         return;
       }
+      let settled = false;
+      fallbackTimer = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          retry();
+        }
+      }, 250);
       node.measureInWindow((x, y, w, h) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(fallbackTimer);
         if (w > 0 && h > 0 && y + h > 24 && y < win.height - 24) {
           setRect({ x, y, w, h });
         } else {
@@ -89,7 +100,10 @@ export default function TourTooltip({
     };
 
     timer = setTimeout(tryMeasure, ensureVisible ? 380 : 80);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(fallbackTimer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, targetRef]);
 
@@ -100,11 +114,7 @@ export default function TourTooltip({
   }, [rect, opacity]);
 
   if (!rect) {
-    return (
-      <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onSkip}>
-        <View style={styles.fullDim} />
-      </Modal>
-    );
+    return null;
   }
 
   const holeX = Math.max(0, rect.x - PAD);

@@ -56,13 +56,21 @@ export function useProfile(userId: string) {
   async function updateProfile(updates: Partial<Pick<Profile, 'full_name' | 'username' | 'avatar_url'>>) {
     // Upsert, not update: a `profiles` row always exists via the signup trigger,
     // but upsert keeps this consistent with completeOnboarding above.
-    const { data, error } = await supabase
-      .from('profiles')
-      .upsert({ id: userId, ...updates })
-      .select()
-      .single();
-    if (!error && data) setProfile(data);
-    return { error };
+    try {
+      const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) =>
+        setTimeout(() => resolve({ data: null, error: { message: 'Request timed out. Please try again.' } }), 15000)
+      );
+      const queryPromise = supabase
+        .from('profiles')
+        .upsert({ id: userId, ...updates })
+        .select()
+        .single();
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
+      if (!error && data) setProfile(data);
+      return { error };
+    } catch (err: any) {
+      return { error: { message: err?.message || 'Could not update profile.' } };
+    }
   }
 
   return { profile, loading, completeOnboarding, checkUsernameAvailable, updateProfile, refetch: fetchProfile };

@@ -7,6 +7,19 @@ function todayDateString(): string {
   return toLocalDateString();
 }
 
+type MoodListener = (dogId: string, mood: DogMood | null) => void;
+const moodListeners = new Set<MoodListener>();
+
+export function notifyMoodChange(dogId: string, mood: DogMood | null) {
+  moodListeners.forEach((fn) => {
+    try {
+      fn(dogId, mood);
+    } catch {
+      // ignore
+    }
+  });
+}
+
 export function useDogMood(dogId: string | null) {
   const [mood, setMood] = useState<DogMood | null>(null);
   const [loading, setLoading] = useState(false);
@@ -14,6 +27,16 @@ export function useDogMood(dogId: string | null) {
   useEffect(() => {
     if (!dogId) { setMood(null); return; }
     refetch();
+
+    const listener: MoodListener = (changedDogId, newMood) => {
+      if (changedDogId === dogId) {
+        setMood(newMood);
+      }
+    };
+    moodListeners.add(listener);
+    return () => {
+      moodListeners.delete(listener);
+    };
   }, [dogId]);
 
   async function refetch() {
@@ -48,7 +71,10 @@ export function useDogMood(dogId: string | null) {
       )
       .select()
       .single();
-    if (!error && data) setMood(data);
+    if (!error && data) {
+      setMood(data);
+      notifyMoodChange(dogId, data);
+    }
     return { error };
   }
 

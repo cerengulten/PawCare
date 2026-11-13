@@ -111,7 +111,7 @@ export default function MarkdownText({ children }: Props) {
           return (
             <View key={index} style={styles.bulletRow}>
               <Text style={styles.bulletDot}>•</Text>
-              <Text style={styles.bodyText}>{renderInline(bulletMatch[2])}</Text>
+              <Text style={[styles.bodyText, styles.bulletBodyText]}>{renderInline(bulletMatch[2])}</Text>
             </View>
           );
         }
@@ -122,7 +122,7 @@ export default function MarkdownText({ children }: Props) {
           return (
             <View key={index} style={styles.bulletRow}>
               <Text style={styles.bulletNumber}>{numberedMatch[1]}</Text>
-              <Text style={styles.bodyText}>{renderInline(numberedMatch[2])}</Text>
+              <Text style={[styles.bodyText, styles.bulletBodyText]}>{renderInline(numberedMatch[2])}</Text>
             </View>
           );
         }
@@ -155,10 +155,12 @@ function makeStyles(theme: ThemeTokens) {
       marginBottom: 2,
     },
     bodyText: {
-      flex: 1,
       fontSize: 14.5,
       lineHeight: 21,
       color: theme.textDark,
+    },
+    bulletBodyText: {
+      flex: 1,
     },
     boldText: {
       fontWeight: '700',

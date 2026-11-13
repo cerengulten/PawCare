@@ -40,14 +40,19 @@ export default function DeleteAccountScreen({ onCancel }: Props) {
 
     setLoading(true);
     setError('');
-    const { error } = await supabase.rpc('delete_own_account');
-    if (error) {
+    try {
+      const { error } = await supabase.rpc('delete_own_account');
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      await cancelAllLocalNotifications();
+      await supabase.auth.signOut();
+    } catch (err: any) {
+      setError(err?.message || 'Could not delete account');
+    } finally {
       setLoading(false);
-      setError(error.message);
-      return;
     }
-    await cancelAllLocalNotifications();
-    await supabase.auth.signOut();
     // No onDone/navigation call needed past this point — App.tsx's
     // onAuthStateChange listener sees the cleared session and routes back
     // to Login on its own, same as a normal sign-out.
@@ -60,7 +65,7 @@ export default function DeleteAccountScreen({ onCancel }: Props) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>{t('deleteAccount.title')}</Text>
 
         <View style={styles.warningCard}>

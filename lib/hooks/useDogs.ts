@@ -38,8 +38,9 @@ export function useDogs(userId: string) {
       .select()
       .single();
 
-    // If live Supabase DB has not yet applied the migration widening dogs_theme_family_check to include 'nordic_slate':
-    if (error && error.message?.includes('dogs_theme_family_check') && payload.theme_family === 'nordic_slate') {
+    // If live Supabase DB has not yet applied the migration widening dogs_theme_family_check:
+    if (error && error.message?.includes('dogs_theme_family_check')) {
+      const requestedTheme = payload.theme_family;
       const fallbackPayload = { ...payload, theme_family: null };
       const fallbackResult = await supabase
         .from('dogs')
@@ -47,7 +48,7 @@ export function useDogs(userId: string) {
         .select()
         .single();
       if (!fallbackResult.error && fallbackResult.data) {
-        data = { ...fallbackResult.data, theme_family: 'nordic_slate' };
+        data = { ...fallbackResult.data, theme_family: requestedTheme };
         error = null;
       }
     }
@@ -63,8 +64,8 @@ export function useDogs(userId: string) {
       .eq('id', id)
       .eq('owner_id', userId);
 
-    // If live Supabase DB has not yet applied the migration widening dogs_theme_family_check to include 'nordic_slate':
-    if (error && error.message?.includes('dogs_theme_family_check') && updates.theme_family === 'nordic_slate') {
+    // If live Supabase DB has not yet applied the migration widening dogs_theme_family_check:
+    if (error && error.message?.includes('dogs_theme_family_check')) {
       const fallbackUpdates = { ...updates, theme_family: null };
       const fallbackResult = await supabase
         .from('dogs')

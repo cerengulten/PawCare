@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker, {
   DateTimePickerAndroid,
   DateTimePickerEvent,
@@ -327,79 +328,94 @@ export default function HabitFormScreen({
     setLoading(true);
     setError('');
 
-    const resolvedScheduleType: HabitScheduleType =
-      scheduleMode === 'interval'
-        ? intervalSubMode === 'monthly'
-          ? 'monthly'
-          : 'interval_days'
-        : scheduleMode;
+    try {
+      const resolvedScheduleType: HabitScheduleType =
+        scheduleMode === 'interval'
+          ? intervalSubMode === 'monthly'
+            ? 'monthly'
+            : 'interval_days'
+          : scheduleMode;
 
-    const resolvedFrequency: Habit['frequency'] =
-      resolvedScheduleType === 'daily'
-        ? 'daily'
-        : resolvedScheduleType === 'specific_days'
-        ? 'weekly'
-        : 'custom';
+      const resolvedFrequency: Habit['frequency'] =
+        resolvedScheduleType === 'daily'
+          ? 'daily'
+          : resolvedScheduleType === 'specific_days'
+          ? 'weekly'
+          : 'custom';
 
-    const payload = {
-      title: trimmedTitle,
-      category: HABIT_TYPE_CATEGORY[habitType],
-      habit_type: habitType,
-      frequency: resolvedFrequency,
-      schedule_type: resolvedScheduleType,
-      target_days_of_week: resolvedScheduleType === 'specific_days' ? targetDaysOfWeek : null,
-      weekly_target_count: resolvedScheduleType === 'weekly_target' ? weeklyTargetCount : null,
-      interval_days:
-        resolvedScheduleType === 'interval_days'
-          ? intervalDays
-          : resolvedScheduleType === 'monthly'
-          ? 30
-          : null,
-      reminder_times: activeReminderTimes.length > 0 ? activeReminderTimes : null,
-      reminder_weekday: resolvedScheduleType === 'specific_days' ? (targetDaysOfWeek[0] ?? null) : null,
-      is_active: true,
-      times_per_day: usesTimesPerDay ? timesPerDay : null,
-      portion_grams: habitType === 'feeding' ? parseNumber(portionGrams) : null,
-      food_brand: habitType === 'feeding' ? foodBrand.trim() || null : null,
-      wet_dry_ratio: habitType === 'feeding' ? wetDryRatio : null,
-      water_goal_ml: habitType === 'water' ? parseNumber(waterGoalMl) : null,
-      walk_duration_minutes: habitType === 'walking' ? parseNumber(walkDuration) : null,
-      dosage_amount: usesAmount ? parseNumber(dosageAmount) : null,
-      dosage_unit: usesAmount ? resolvedDosageUnit : null,
-    };
+      const payload = {
+        title: trimmedTitle,
+        category: HABIT_TYPE_CATEGORY[habitType],
+        habit_type: habitType,
+        frequency: resolvedFrequency,
+        schedule_type: resolvedScheduleType,
+        target_days_of_week: resolvedScheduleType === 'specific_days' ? targetDaysOfWeek : null,
+        weekly_target_count: resolvedScheduleType === 'weekly_target' ? weeklyTargetCount : null,
+        interval_days:
+          resolvedScheduleType === 'interval_days'
+            ? intervalDays
+            : resolvedScheduleType === 'monthly'
+            ? 30
+            : null,
+        reminder_times: activeReminderTimes.length > 0 ? activeReminderTimes : null,
+        reminder_weekday: resolvedScheduleType === 'specific_days' ? (targetDaysOfWeek[0] ?? null) : null,
+        is_active: true,
+        times_per_day: usesTimesPerDay ? timesPerDay : null,
+        portion_grams: habitType === 'feeding' ? parseNumber(portionGrams) : null,
+        food_brand: habitType === 'feeding' ? foodBrand.trim() || null : null,
+        wet_dry_ratio: habitType === 'feeding' ? wetDryRatio : null,
+        water_goal_ml: habitType === 'water' ? parseNumber(waterGoalMl) : null,
+        walk_duration_minutes: habitType === 'walking' ? parseNumber(walkDuration) : null,
+        dosage_amount: usesAmount ? parseNumber(dosageAmount) : null,
+        dosage_unit: usesAmount ? resolvedDosageUnit : null,
+      };
 
-    const { error } = habit
-      ? await updateHabit(habit.id, payload)
-      : await addHabit(payload);
+      const { error } = habit
+        ? await updateHabit(habit.id, payload)
+        : await addHabit(payload);
 
-    setLoading(false);
-    if (error) {
-      setError(error.message);
-      return;
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      onDone();
+    } catch (err: any) {
+      setError(err?.message || 'Could not save habit');
+    } finally {
+      setLoading(false);
     }
-    onDone();
   }
 
   async function handleDelete() {
     if (!habit) return;
     setLoading(true);
-    const { error } = await deleteHabit(habit.id);
-    setLoading(false);
-    if (error) {
-      setError(error.message);
-      return;
+    try {
+      const { error } = await deleteHabit(habit.id);
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      onDone();
+    } catch (err: any) {
+      setError(err?.message || 'Could not delete habit');
+    } finally {
+      setLoading(false);
     }
-    onDone();
   }
 
   return (
     <SwipeBackWrapper onBack={onCancel}>
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>{habit ? t('habits.editTitle') : t('habits.addHabit')}</Text>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
+          style={styles.container}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+            <TouchableOpacity onPress={onCancel} style={styles.backRow} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.backText}>‹ {t('common.back')}</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.title}>{habit ? t('habits.editTitle') : t('habits.addHabit')}</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -594,6 +610,12 @@ export default function HabitFormScreen({
             </TouchableOpacity>
           ))}
         </View>
+
+        {scheduleMode === 'daily' && (
+          <Text style={[styles.helperText, { marginTop: -4, marginBottom: 14 }]}>
+            ✨ {t('habits.dailyHelp') || 'Renews automatically every day. Progress resets each midnight.'}
+          </Text>
+        )}
 
         {scheduleMode === 'specific_days' && (
           <>
@@ -796,6 +818,7 @@ export default function HabitFormScreen({
         ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
+    </SafeAreaView>
     </SwipeBackWrapper>
   );
 }
@@ -808,7 +831,17 @@ function makeStyles(theme: ThemeTokens) {
     },
     scrollContent: {
       padding: 24,
+      paddingTop: 10,
       alignItems: 'center',
+    },
+    backRow: {
+      alignSelf: 'flex-start',
+      marginBottom: 12,
+    },
+    backText: {
+      color: theme.primary,
+      fontSize: 16,
+      fontWeight: '600',
     },
     title: {
       fontSize: 26,

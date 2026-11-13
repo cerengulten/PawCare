@@ -13,6 +13,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { Dog } from '../types';
 import { useProfile } from '../lib/hooks/useProfile';
@@ -34,7 +35,7 @@ import { useT } from '../lib/LanguageContext';
 import { useSubscription } from '../lib/SubscriptionContext';
 import { useRegionalPricing } from '../lib/pricing';
 import { SUPPORTED_LANGS, LANG_LABELS } from '../lib/i18n';
-import { ThemeTokens } from '../lib/themes';
+import { THEMES, THEME_LABELS, THEME_DESCRIPTIONS, ThemeFamily, ThemeTokens } from '../lib/themes';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 import TabTour from '../components/TabTour';
 import { resetAllTours } from '../lib/hooks/useTourState';
@@ -60,7 +61,7 @@ export default function MoreScreen({
   checkUsernameAvailable,
   notificationsState: passedNotifications,
 }: Props) {
-  const { theme, isDarkMode, toggleDarkMode } = useTheme();
+  const { theme, isDarkMode, toggleDarkMode, activeFamily, setTheme } = useTheme();
   const { isPro, plan, openPaywall } = useSubscription();
   const pricing = useRegionalPricing();
   const { t, lang, setLang } = useT();
@@ -72,6 +73,7 @@ export default function MoreScreen({
   const [showProfile, setShowProfile] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showLanguage, setShowLanguage] = useState(false);
+  const [showTheme, setShowTheme] = useState(false);
   const [reportDog, setReportDog] = useState<Dog | null>(null);
   const [showVetFinder, setShowVetFinder] = useState(false);
   const [vetFinderFromHome, setVetFinderFromHome] = useState(false);
@@ -80,6 +82,27 @@ export default function MoreScreen({
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const [legalDoc, setLegalDoc] = useState<'terms' | 'privacy' | null>(null);
   const [userVotes, setUserVotes] = useState<Record<string, boolean>>({});
+  const [authUser, setAuthUser] = useState<any>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) setAuthUser(data.user);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const hasEmailProvider =
+    authUser?.app_metadata?.provider === 'email' ||
+    (authUser?.identities ?? []).some((i: any) => i.provider === 'email');
+  const oauthProvider =
+    authUser?.app_metadata?.provider && authUser.app_metadata.provider !== 'email'
+      ? authUser.app_metadata.provider
+      : (authUser?.identities ?? []).find((i: any) => i.provider !== 'email')?.provider ?? 'OAuth';
+  const providerLabel =
+    oauthProvider === 'google' ? 'Google' : oauthProvider === 'apple' ? 'Apple' : oauthProvider;
 
   const wishlistItems = useMemo(() => [
     {
@@ -148,6 +171,10 @@ export default function MoreScreen({
   useFocusEffect(
     useCallback(() => {
       const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (showTheme) {
+          setShowTheme(false);
+          return true;
+        }
         if (showProfile) {
           setShowProfile(false);
           return true;
@@ -184,6 +211,10 @@ export default function MoreScreen({
           setShowNotifications(false);
           return true;
         }
+        if (showTheme) {
+          setShowTheme(false);
+          return true;
+        }
         if (showLanguage) {
           setShowLanguage(false);
           return true;
@@ -191,7 +222,7 @@ export default function MoreScreen({
         return false;
       });
       return () => sub.remove();
-    }, [showProfile, legalDoc, reportDog, showVetFinder, vetFinderFromHome, showChangePassword, showChangeEmail, showDeleteAccount, showNotifications, showLanguage, navigation])
+    }, [showProfile, showTheme, legalDoc, reportDog, showVetFinder, vetFinderFromHome, showChangePassword, showChangeEmail, showDeleteAccount, showNotifications, showLanguage, navigation])
   );
 
   useEffect(() => {
@@ -199,6 +230,7 @@ export default function MoreScreen({
       setReportDog(null);
       setShowNotifications(false);
       setShowLanguage(false);
+      setShowTheme(false);
       setShowChangePassword(false);
       setShowChangeEmail(false);
       setShowDeleteAccount(false);
@@ -256,6 +288,50 @@ export default function MoreScreen({
         onNavigateToPet={(dogId) => { setShowNotifications(false); navigation.navigate('Pets', { dogId }); }}
         onOpenVetFinder={() => { setShowNotifications(false); setShowVetFinder(true); }}
       />
+    );
+  }
+
+  if (showTheme) {
+    return (
+      <SwipeBackWrapper onBack={() => setShowTheme(false)}>
+        <View style={styles.container}>
+          <TouchableOpacity onPress={() => setShowTheme(false)} style={styles.backRow}>
+            <Text style={styles.backText}>‹ {t('common.back')}</Text>
+          </TouchableOpacity>
+          <ScrollView contentContainerStyle={styles.content}>
+            <Text style={styles.title}>{t('petForm.theme')}</Text>
+            <Text style={styles.sectionTitle}>Select App Aesthetic</Text>
+            <View style={styles.card}>
+              {(Object.keys(THEMES) as ThemeFamily[]).map((family, idx) => {
+                const isSelected = activeFamily === family;
+                const palette = THEMES[family];
+                return (
+                  <View key={family}>
+                    <TouchableOpacity
+                      style={styles.row}
+                      onPress={() => {
+                        setTheme(family);
+                      }}
+                    >
+                      <View style={[styles.iconBox, { backgroundColor: palette.primaryLight }]}>
+                        <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: palette.primary }} />
+                      </View>
+                      <View style={styles.rowInfo}>
+                        <Text style={[styles.rowTitle, isSelected && { color: theme.primary, fontWeight: '700' }]}>
+                          {THEME_LABELS[family]}
+                        </Text>
+                        <Text style={styles.rowSubtitle}>{THEME_DESCRIPTIONS[family]}</Text>
+                      </View>
+                      {isSelected ? <Text style={styles.langCheck}>✓</Text> : null}
+                    </TouchableOpacity>
+                    {idx < Object.keys(THEMES).length - 1 ? <View style={styles.divider} /> : null}
+                  </View>
+                );
+              })}
+            </View>
+          </ScrollView>
+        </View>
+      </SwipeBackWrapper>
     );
   }
 
@@ -511,6 +587,22 @@ export default function MoreScreen({
 
         <View style={styles.divider} />
 
+        {/* App Theme Selector */}
+        <TouchableOpacity style={styles.row} onPress={() => setShowTheme(true)}>
+          <View style={styles.iconBox}><Text style={styles.iconText}>🎨</Text></View>
+          <View style={styles.rowInfo}>
+            <Text style={styles.rowTitle}>{t('petForm.theme')}</Text>
+            <Text style={styles.rowSubtitle}>{THEME_DESCRIPTIONS[activeFamily] ?? ''}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginRight: 4 }}>
+            <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: theme.primary }} />
+            <Text style={styles.rowValue}>{THEME_LABELS[activeFamily]}</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
+
+        <View style={styles.divider} />
+
         <TouchableOpacity style={styles.row} onPress={() => setShowNotifications(true)}>
           <View style={styles.iconBox}><Text style={styles.iconText}>🔔</Text></View>
           <View style={styles.rowInfo}>
@@ -548,22 +640,43 @@ export default function MoreScreen({
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
         <View style={styles.divider} />
-        <TouchableOpacity style={styles.row} onPress={() => setShowChangePassword(true)}>
-          <View style={styles.iconBox}><Text style={styles.iconText}>🔒</Text></View>
-          <View style={styles.rowInfo}>
-            <Text style={styles.rowTitle}>{t('settings.changePassword')}</Text>
-          </View>
-          <Text style={styles.chevron}>›</Text>
-        </TouchableOpacity>
-        <View style={styles.divider} />
-        <TouchableOpacity style={styles.row} onPress={() => setShowChangeEmail(true)}>
-          <View style={styles.iconBox}><Text style={styles.iconText}>✉️</Text></View>
-          <View style={styles.rowInfo}>
-            <Text style={styles.rowTitle}>{t('settings.changeEmail')}</Text>
-          </View>
-          <Text style={styles.chevron}>›</Text>
-        </TouchableOpacity>
-        <View style={styles.divider} />
+        {!hasEmailProvider && authUser ? (
+          <>
+            <View style={styles.row}>
+              <View style={styles.iconBox}>
+                <Ionicons
+                  name={oauthProvider === 'apple' ? 'logo-apple' : 'logo-google'}
+                  size={19}
+                  color={theme.textDark}
+                />
+              </View>
+              <View style={styles.rowInfo}>
+                <Text style={styles.rowTitle}>Signed in with {providerLabel}</Text>
+                <Text style={styles.rowSubtitle}>{authUser.email ?? ''}</Text>
+              </View>
+            </View>
+            <View style={styles.divider} />
+          </>
+        ) : (
+          <>
+            <TouchableOpacity style={styles.row} onPress={() => setShowChangePassword(true)}>
+              <View style={styles.iconBox}><Text style={styles.iconText}>🔒</Text></View>
+              <View style={styles.rowInfo}>
+                <Text style={styles.rowTitle}>{t('settings.changePassword')}</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+            <View style={styles.divider} />
+            <TouchableOpacity style={styles.row} onPress={() => setShowChangeEmail(true)}>
+              <View style={styles.iconBox}><Text style={styles.iconText}>✉️</Text></View>
+              <View style={styles.rowInfo}>
+                <Text style={styles.rowTitle}>{t('settings.changeEmail')}</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+            <View style={styles.divider} />
+          </>
+        )}
         <TouchableOpacity style={styles.row} onPress={() => setLegalDoc('privacy')}>
           <View style={styles.iconBox}><Text style={styles.iconText}>🛡️</Text></View>
           <View style={styles.rowInfo}>
