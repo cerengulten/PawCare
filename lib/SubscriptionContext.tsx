@@ -95,8 +95,13 @@ async function getRevenueCatModule() {
   }
 }
 
+// Set to true for your friends & family / beta testing APK build!
+// Grants full PRO features (unlimited AI chat, multi-pet profiles, Vet PDF dossiers) without payment.
+// (Set back to false when releasing to Google Play Store / App Store)
+const IS_BETA_APK = true;
+
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
-  const [tier, setTier] = useState<SubscriptionTier>('free');
+  const [tier, setTier] = useState<SubscriptionTier>(IS_BETA_APK ? 'pro' : 'free');
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [dailyChatCount, setDailyChatCount] = useState<number>(0);
@@ -226,7 +231,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
-  const isPro = tier === 'pro';
+  const isPro = IS_BETA_APK || tier === 'pro';
 
   const remainingDailyChats = isPro
     ? Infinity
