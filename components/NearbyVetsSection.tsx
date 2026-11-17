@@ -108,8 +108,11 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
                       variant: 'alert',
                       highlightVetId: nearest.id,
                     }),
+                    baseUrl: 'https://bisco.app',
                   }}
                   style={styles.map}
+                  javaScriptEnabled
+                  domStorageEnabled
                   onError={() => setMapFailed(true)}
                   onHttpError={() => setMapFailed(true)}
                 />
@@ -170,8 +173,13 @@ export default function NearbyVetsSection({ dog, onOpenVetFinder }: Props) {
             ) : (
               <WebView
                 originWhitelist={['https://*', 'about:blank']}
-                source={{ html: buildVetMapHtml(userLocation, vets, { interactive: false }) }}
+                source={{
+                  html: buildVetMapHtml(userLocation, vets, { interactive: false }),
+                  baseUrl: 'https://bisco.app',
+                }}
                 style={styles.map}
+                javaScriptEnabled
+                domStorageEnabled
                 onError={() => setMapFailed(true)}
                 onHttpError={() => setMapFailed(true)}
               />

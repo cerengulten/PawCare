@@ -77,10 +77,12 @@ export function useHomeVetPreview() {
           setVets(results);
           setAvailable(true);
           setLoading(false);
-          await AsyncStorage.setItem(
-            CACHE_KEY,
-            JSON.stringify({ timestamp: Date.now(), userLocation: center, vets: results })
-          );
+          if (results.length > 0) {
+            await AsyncStorage.setItem(
+              CACHE_KEY,
+              JSON.stringify({ timestamp: Date.now(), userLocation: center, vets: results })
+            ).catch(() => {});
+          }
           return;
         } catch {
           if (attempt < MAX_ATTEMPTS - 1) await delay(RETRY_DELAYS_MS[attempt]);

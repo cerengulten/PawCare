@@ -13,8 +13,11 @@ const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
 ];
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
-const SEARCH_RADIUS_METERS = 5000;
-const OVERPASS_TIMEOUT_MS = 4500;
+const PHOTON_URL = 'https://photon.komoot.io/api/';
+const PRIMARY_RADIUS_METERS = 5000;
+const EXPANDED_RADIUS_METERS = 15000;
+const OVERPASS_RACE_TIMEOUT_MS = 8000;
+const GENERAL_TIMEOUT_MS = 6000;
 const USER_AGENT = 'BiscoPetCare/1.0 (https://bisco.app; contact@bisco.app)';
 
 export type Coords = { lat: number; lon: number };
@@ -22,7 +25,7 @@ export type Coords = { lat: number; lon: number };
 async function fetchWithTimeout(
   url: string,
   options: RequestInit = {},
-  timeoutMs: number = OVERPASS_TIMEOUT_MS
+  timeoutMs: number = GENERAL_TIMEOUT_MS
 ): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -79,7 +82,7 @@ function addressFromTags(tags: Record<string, string> | undefined): string | nul
 export async function reverseGeocodeAddress(coords: Coords): Promise<string | null> {
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?lat=${coords.lat}&lon=${coords.lon}&format=json&zoom=18&addressdetails=1`;
-    const res = await fetchWithTimeout(url, { headers: { 'User-Agent': USER_AGENT } }, OVERPASS_TIMEOUT_MS);
+    const res = await fetchWithTimeout(url, { headers: { 'User-Agent': USER_AGENT } }, GENERAL_TIMEOUT_MS);
     if (!res.ok) return null;
     const data = await res.json();
     if (!data) return null;
@@ -97,129 +100,248 @@ export async function reverseGeocodeAddress(coords: Coords): Promise<string | nu
   }
 }
 
-export async function fetchVetsNear(center: Coords): Promise<VetResult[]> {
-  const query = `[out:json][timeout:6];(
-    node["amenity"="veterinary"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon});
-    way["amenity"="veterinary"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon});
-    node["healthcare"="veterinary"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon});
-    way["healthcare"="veterinary"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon});
-    node["amenity"="animal_hospital"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon});
-    way["amenity"="animal_hospital"](around:${SEARCH_RADIUS_METERS},${center.lat},${center.lon});
-  );out center 40;`;
+function parseOverpassElements(elements: OverpassElement[], center: Coords): VetResult[] {
+  return elements
+    .map(el => {
+      const lat = el.lat ?? el.center?.lat ?? center.lat;
+      const lon = el.lon ?? el.center?.lon ?? center.lon;
+      const isEmergency =
+        el.tags?.emergency === 'yes' ||
+        el.tags?.['veterinary:emergency'] === 'yes' ||
+        el.tags?.amenity === 'animal_rescue' ||
+        (el.tags?.opening_hours && el.tags.opening_hours.toLowerCase().includes('24/7'));
 
-  let anyEndpointRespondedOk = false;
+      const phone =
+        el.tags?.phone ??
+        el.tags?.['contact:phone'] ??
+        el.tags?.telephone ??
+        el.tags?.mobile ??
+        el.tags?.['contact:mobile'] ??
+        null;
 
-  for (const endpoint of OVERPASS_ENDPOINTS) {
-    try {
-      const response = await fetchWithTimeout(
-        endpoint,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'User-Agent': USER_AGENT,
-          },
-          body: `data=${encodeURIComponent(query)}`,
-        },
-        OVERPASS_TIMEOUT_MS
-      );
+      const website =
+        el.tags?.website ??
+        el.tags?.['contact:website'] ??
+        el.tags?.url ??
+        el.tags?.facebook ??
+        el.tags?.['contact:facebook'] ??
+        el.tags?.instagram ??
+        el.tags?.['contact:instagram'] ??
+        null;
 
-      if (response.ok) {
-        anyEndpointRespondedOk = true;
-        const json = await response.json();
-        const elements: OverpassElement[] = json.elements ?? [];
-        if (elements.length > 0) {
-          return elements
-            .map(el => {
-              const lat = el.lat ?? el.center?.lat ?? center.lat;
-              const lon = el.lon ?? el.center?.lon ?? center.lon;
-              const isEmergency =
-                el.tags?.emergency === 'yes' ||
-                el.tags?.['veterinary:emergency'] === 'yes' ||
-                el.tags?.amenity === 'animal_rescue' ||
-                (el.tags?.opening_hours && el.tags.opening_hours.toLowerCase().includes('24/7'));
+      const email =
+        el.tags?.email ??
+        el.tags?.['contact:email'] ??
+        null;
 
-              const phone =
-                el.tags?.phone ??
-                el.tags?.['contact:phone'] ??
-                el.tags?.telephone ??
-                el.tags?.mobile ??
-                el.tags?.['contact:mobile'] ??
-                null;
+      return {
+        id: String(el.id),
+        name: el.tags?.name ?? String(i18n.t('vetFinder.defaultName')),
+        lat,
+        lon,
+        address: addressFromTags(el.tags),
+        phone,
+        openingHours: el.tags?.opening_hours ?? null,
+        website,
+        email,
+        isEmergency: !!isEmergency,
+        distanceKm: haversineKm(center, { lat, lon }),
+      };
+    })
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+}
 
-              const website =
-                el.tags?.website ??
-                el.tags?.['contact:website'] ??
-                el.tags?.url ??
-                el.tags?.facebook ??
-                el.tags?.['contact:facebook'] ??
-                el.tags?.instagram ??
-                el.tags?.['contact:instagram'] ??
-                null;
+async function queryOverpassMirror(
+  endpoint: string,
+  query: string,
+  signal: AbortSignal
+): Promise<OverpassElement[]> {
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': USER_AGENT,
+    },
+    body: `data=${encodeURIComponent(query)}`,
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Overpass error: ${response.status}`);
+  }
+  const json = await response.json();
+  return (json.elements ?? []) as OverpassElement[];
+}
 
-              const email =
-                el.tags?.email ??
-                el.tags?.['contact:email'] ??
-                null;
+async function queryOverpassFast(center: Coords, radius: number): Promise<VetResult[]> {
+  const query = `[out:json][timeout:6];nwr["amenity"="veterinary"](around:${radius},${center.lat},${center.lon});out center 40;`;
 
-              return {
-                id: String(el.id),
-                name: el.tags?.name ?? String(i18n.t('vetFinder.defaultName')),
-                lat,
-                lon,
-                address: addressFromTags(el.tags),
-                phone,
-                openingHours: el.tags?.opening_hours ?? null,
-                website,
-                email,
-                isEmergency: !!isEmergency,
-                distanceKm: haversineKm(center, { lat, lon }),
-              };
-            })
-            .sort((a, b) => a.distanceKm - b.distanceKm);
-        }
-      }
-    } catch {
-      // Abort timeout or HTTP/network error -> try next mirror immediately
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), OVERPASS_RACE_TIMEOUT_MS);
+
+  try {
+    const elements = await Promise.any(
+      OVERPASS_ENDPOINTS.map(ep => queryOverpassMirror(ep, query, controller.signal))
+    );
+    return parseOverpassElements(elements, center);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function getLocalizedVetKeywords(): string[] {
+  const currentLang = (i18n.locale || '').toLowerCase();
+  if (currentLang.startsWith('tr')) {
+    return ['veteriner', 'veterinary'];
+  }
+  if (currentLang.startsWith('it')) {
+    return ['veterinario', 'veterinary'];
+  }
+  return ['veterinary', 'veterinario', 'veteriner'];
+}
+
+function normalizeVetName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function deduplicateVets(list: VetResult[]): VetResult[] {
+  const seen = new Set<string>();
+  const out: VetResult[] = [];
+  for (const v of list) {
+    const key = `${v.lat.toFixed(4)}_${v.lon.toFixed(4)}`;
+    const nameKey = normalizeVetName(v.name);
+    const compositeKey = nameKey ? `${key}_${nameKey.slice(0, 8)}` : key;
+    if (!seen.has(compositeKey)) {
+      seen.add(compositeKey);
+      out.push(v);
     }
   }
+  return out;
+}
 
-  // Resilient fallback to Nominatim search around the center if Overpass is temporarily busy
+async function queryPhotonFallback(center: Coords, keyword: string): Promise<VetResult[]> {
   try {
-    const delta = 0.08;
+    const url = `${PHOTON_URL}?q=${encodeURIComponent(keyword)}&lat=${center.lat}&lon=${center.lon}&limit=15`;
+    const res = await fetchWithTimeout(url, { headers: { 'User-Agent': USER_AGENT } }, GENERAL_TIMEOUT_MS);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const features: any[] = data.features ?? [];
+    const results: VetResult[] = [];
+
+    for (const f of features) {
+      const coords = f.geometry?.coordinates;
+      if (!Array.isArray(coords) || coords.length < 2) continue;
+      const lon = coords[0];
+      const lat = coords[1];
+      const dist = haversineKm(center, { lat, lon });
+      if (dist > 25) continue;
+
+      const p = f.properties || {};
+      const street = [p.street, p.housenumber].filter(Boolean).join(' ');
+      const neighborhood = p.locality || p.district;
+      const city = p.city || p.state;
+      const addressParts = [street, neighborhood, city, p.country].filter(Boolean);
+      const address = addressParts.length > 0 ? addressParts.join(', ') : null;
+
+      results.push({
+        id: `photon_${p.osm_id || Math.random().toString(36).slice(2)}`,
+        name: p.name || String(i18n.t('vetFinder.defaultName')),
+        lat,
+        lon,
+        address,
+        phone: null,
+        openingHours: null,
+        website: null,
+        email: null,
+        isEmergency: false,
+        distanceKm: dist,
+      });
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+async function queryNominatimFallback(center: Coords, keyword: string): Promise<VetResult[]> {
+  try {
+    const delta = 0.22; // ~24 km box
     const minLon = center.lon - delta;
     const maxLon = center.lon + delta;
     const minLat = center.lat - delta;
     const maxLat = center.lat + delta;
-    const nomUrl = `${NOMINATIM_URL}?amenity=veterinary&viewbox=${minLon},${maxLat},${maxLon},${minLat}&bounded=1&format=json&limit=15`;
-    const res = await fetchWithTimeout(nomUrl, { headers: { 'User-Agent': USER_AGENT } }, OVERPASS_TIMEOUT_MS);
-    if (res.ok) {
-      anyEndpointRespondedOk = true;
-      const items = await res.json();
-      if (Array.isArray(items) && items.length > 0) {
-        return items
-          .map((item: any) => {
-            const lat = parseFloat(item.lat);
-            const lon = parseFloat(item.lon);
-            return {
-              id: String(item.place_id || item.osm_id),
-              name: item.name || item.display_name?.split(',')[0] || String(i18n.t('vetFinder.defaultName')),
-              lat,
-              lon,
-              address: item.display_name ?? null,
-              phone: null,
-              openingHours: null,
-              website: null,
-              email: null,
-              isEmergency: false,
-              distanceKm: haversineKm(center, { lat, lon }),
-            };
-          })
-          .sort((a, b) => a.distanceKm - b.distanceKm);
-      }
+    const nomUrl = `${NOMINATIM_URL}?q=${encodeURIComponent(keyword)}&viewbox=${minLon},${maxLat},${maxLon},${minLat}&bounded=1&format=json&limit=15`;
+    const res = await fetchWithTimeout(nomUrl, { headers: { 'User-Agent': USER_AGENT } }, GENERAL_TIMEOUT_MS);
+    if (!res.ok) return [];
+    const items = await res.json();
+    if (!Array.isArray(items)) return [];
+
+    const results: VetResult[] = [];
+    for (const item of items) {
+      const lat = parseFloat(item.lat);
+      const lon = parseFloat(item.lon);
+      if (isNaN(lat) || isNaN(lon)) continue;
+      const dist = haversineKm(center, { lat, lon });
+      if (dist > 25) continue;
+
+      results.push({
+        id: String(item.place_id || item.osm_id),
+        name: item.name || item.display_name?.split(',')[0] || String(i18n.t('vetFinder.defaultName')),
+        lat,
+        lon,
+        address: item.display_name ?? null,
+        phone: null,
+        openingHours: null,
+        website: null,
+        email: null,
+        isEmergency: false,
+        distanceKm: dist,
+      });
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchVetsNear(center: Coords): Promise<VetResult[]> {
+  let anyEndpointRespondedOk = false;
+
+  // 1. Fast Overpass in parallel (5 km radius)
+  try {
+    const vets5km = await queryOverpassFast(center, PRIMARY_RADIUS_METERS);
+    anyEndpointRespondedOk = true;
+    if (vets5km.length > 0) {
+      return vets5km;
+    }
+
+    // Radius expansion to 15 km if 5 km returned 0
+    const vets15km = await queryOverpassFast(center, EXPANDED_RADIUS_METERS);
+    if (vets15km.length > 0) {
+      return vets15km;
     }
   } catch {
-    // fallback failed
+    // Overpass failed / timed out across all mirrors -> proceed to fallback
+  }
+
+  // 2. Fallback: Fast Photon Geocoder + Localized Nominatim
+  const keywords = getLocalizedVetKeywords();
+  const fallbackPromises: Promise<VetResult[]>[] = [];
+
+  for (const kw of keywords) {
+    fallbackPromises.push(queryPhotonFallback(center, kw));
+    fallbackPromises.push(queryNominatimFallback(center, kw));
+  }
+
+  const fallbackResults = await Promise.all(fallbackPromises);
+  const combined = fallbackResults.flat();
+
+  if (combined.length > 0) {
+    anyEndpointRespondedOk = true;
+    const deduplicated = deduplicateVets(combined).filter(v => v.distanceKm <= 25);
+    deduplicated.sort((a, b) => a.distanceKm - b.distanceKm);
+    if (deduplicated.length > 0) {
+      return deduplicated;
+    }
   }
 
   if (!anyEndpointRespondedOk) {
@@ -236,7 +358,7 @@ async function geocodeAddress(query: string): Promise<Coords | null> {
     {
       headers: { 'User-Agent': USER_AGENT },
     },
-    OVERPASS_TIMEOUT_MS
+    GENERAL_TIMEOUT_MS
   );
   if (!response.ok) throw new Error('Address lookup failed');
   const json = await response.json();
@@ -300,10 +422,12 @@ export function useNearbyVets() {
             const fastResults = await fetchVetsNear(fastCenter);
             setVets(fastResults);
             setLoading(false);
-            AsyncStorage.setItem(
-              VET_CACHE_KEY,
-              JSON.stringify({ timestamp: Date.now(), userLocation: fastCenter, vets: fastResults })
-            ).catch(() => {});
+            if (fastResults.length > 0) {
+              AsyncStorage.setItem(
+                VET_CACHE_KEY,
+                JSON.stringify({ timestamp: Date.now(), userLocation: fastCenter, vets: fastResults })
+              ).catch(() => {});
+            }
             // Quietly refine GPS in background without blocking UI
             Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
               .then(async (pos) => {
@@ -312,10 +436,12 @@ export function useNearbyVets() {
                   setUserLocation(exact);
                   const fresh = await fetchVetsNear(exact);
                   setVets(fresh);
-                  AsyncStorage.setItem(
-                    VET_CACHE_KEY,
-                    JSON.stringify({ timestamp: Date.now(), userLocation: exact, vets: fresh })
-                  ).catch(() => {});
+                  if (fresh.length > 0) {
+                    AsyncStorage.setItem(
+                      VET_CACHE_KEY,
+                      JSON.stringify({ timestamp: Date.now(), userLocation: exact, vets: fresh })
+                    ).catch(() => {});
+                  }
                 }
               })
               .catch(() => {});
@@ -330,10 +456,12 @@ export function useNearbyVets() {
         setUserLocation(center);
         const results = await fetchVetsNear(center);
         setVets(results);
-        AsyncStorage.setItem(
-          VET_CACHE_KEY,
-          JSON.stringify({ timestamp: Date.now(), userLocation: center, vets: results })
-        ).catch(() => {});
+        if (results.length > 0) {
+          AsyncStorage.setItem(
+            VET_CACHE_KEY,
+            JSON.stringify({ timestamp: Date.now(), userLocation: center, vets: results })
+          ).catch(() => {});
+        }
       }
     } catch {
       if (!usedCache) {

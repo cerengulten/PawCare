@@ -150,8 +150,10 @@ export default function VetFinderScreen({ onBack, activeDog, onOpenDossier }: Pr
                 <WebView
                   ref={webViewRef}
                   originWhitelist={['https://*', 'about:blank']}
-                  source={{ html: mapHtml }}
+                  source={{ html: mapHtml, baseUrl: 'https://bisco.app' }}
                   style={styles.map}
+                  javaScriptEnabled
+                  domStorageEnabled
                   onMessage={handleMapMessage}
                 />
               </View>

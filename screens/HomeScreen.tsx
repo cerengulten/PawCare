@@ -1083,8 +1083,11 @@ export default function HomeScreen({
                       originWhitelist={['https://*', 'about:blank']}
                       source={{
                         html: buildVetMapHtml(mapCenter, mapVets, { interactive: false }),
+                        baseUrl: 'https://bisco.app',
                       }}
                       style={styles.miniMapWebView}
+                      javaScriptEnabled
+                      domStorageEnabled
                       scrollEnabled={false}
                       onError={() => setMapFailed(true)}
                       onHttpError={() => setMapFailed(true)}
