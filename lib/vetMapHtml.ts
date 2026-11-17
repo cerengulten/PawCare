@@ -23,9 +23,7 @@ export type VetMapOptions = {
   highlightVetId?: string;
 };
 
-const CARTO_API_KEY =
-  process.env.EXPO_PUBLIC_CARTO_API_KEY ||
-  'cb1_5axj_1_dc1ff6ca47f19eb308ef0fa2';
+const CARTO_API_KEY = process.env.EXPO_PUBLIC_CARTO_API_KEY ?? '';
 
 export function buildVetMapHtml(
   userLocation: { lat: number; lon: number },
