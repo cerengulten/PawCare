@@ -23,6 +23,10 @@ export type VetMapOptions = {
   highlightVetId?: string;
 };
 
+const CARTO_API_KEY =
+  process.env.EXPO_PUBLIC_CARTO_API_KEY ||
+  'cb1_5axj_1_dc1ff6ca47f19eb308ef0fa2';
+
 export function buildVetMapHtml(
   userLocation: { lat: number; lon: number },
   vets: VetResult[],
@@ -91,9 +95,14 @@ export function buildVetMapHtml(
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     const map = L.map('map', { ${interactionOptions} attributionControl: true }).setView([${userLat}, ${userLon}], 13);
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+    const cartoKey = ${JSON.stringify(CARTO_API_KEY)};
+    const tileUrl = cartoKey
+      ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png?key=' + encodeURIComponent(cartoKey)
+      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png';
+    L.tileLayer(tileUrl, {
       maxZoom: 19,
-      attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community',
+      subdomains: 'abcd',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
     }).addTo(map);
 
     const userIcon = L.divIcon({
