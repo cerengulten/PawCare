@@ -1,6 +1,6 @@
 import { parseLocalDate } from './dateUtils';
 
-export function computeAge(birthDate: string | null): string {
+export function computeAge(birthDate: string | null | undefined): string {
   if (!birthDate) return '';
   const dob = parseLocalDate(birthDate);
   const now = new Date();
@@ -8,6 +8,11 @@ export function computeAge(birthDate: string | null): string {
   let months = now.getMonth() - dob.getMonth();
   if (now.getDate() < dob.getDate()) months -= 1;
   if (months < 0) { years -= 1; months += 12; }
+  if (years < 0) return '';
+  if (years === 0 && months <= 0) {
+    const diffDays = Math.floor((now.getTime() - dob.getTime()) / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? `${diffDays}d` : '<1m';
+  }
   if (years <= 0) return `${Math.max(months, 0)}m`;
   return months > 0 ? `${years}y ${months}m` : `${years}y`;
 }

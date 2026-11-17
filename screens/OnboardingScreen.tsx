@@ -75,6 +75,25 @@ function toDateOnlyString(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+function calculateApproximateDob(years: number, months: number): string {
+  const now = new Date();
+  const estDate = new Date(now.getFullYear() - years, now.getMonth() - months, 1);
+  return toDateOnlyString(estDate);
+}
+
+function formatEstimatedDobPreview(years: number, months: number): string {
+  const now = new Date();
+  const estDate = new Date(now.getFullYear() - years, now.getMonth() - months, 1);
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const monthName = monthNames[estDate.getMonth()];
+  const yr = estDate.getFullYear();
+  const ageStr = years > 0 ? (months > 0 ? `${years}y ${months}m` : `${years}y`) : `${months}m`;
+  return `~${monthName} ${yr} (~${ageStr} old)`;
+}
+
 export default function OnboardingScreen({
   session,
   profile,
@@ -163,6 +182,9 @@ export default function OnboardingScreen({
   const [petSex, setPetSex] = useState<'male' | 'female' | 'unknown'>('male');
   const [petSterilized, setPetSterilized] = useState(false);
   const [petWeightText, setPetWeightText] = useState('');
+  const [petDobMode, setPetDobMode] = useState<'exact' | 'approximate' | 'unknown'>('exact');
+  const [petApproxYears, setPetApproxYears] = useState<number>(1);
+  const [petApproxMonths, setPetApproxMonths] = useState<number>(0);
   const [petBirthDate, setPetBirthDate] = useState<Date | null>(null);
   const [petLoading, setPetLoading] = useState(false);
   const [petError, setPetError] = useState('');
@@ -362,7 +384,14 @@ export default function OnboardingScreen({
       finalPhotoUrl = await uploadImage(petPhotoUri, 'pet-photos', fileId);
     }
 
-    const dobString = petBirthDate ? toDateOnlyString(petBirthDate) : null;
+    let dobString: string | null = null;
+    if (petDobMode === 'exact') {
+      dobString = petBirthDate ? toDateOnlyString(petBirthDate) : null;
+    } else if (petDobMode === 'approximate') {
+      dobString = calculateApproximateDob(petApproxYears, petApproxMonths);
+    } else {
+      dobString = null;
+    }
 
     const { data: newDog, error } = await addDog({
       name: petName.trim(),
@@ -884,32 +913,133 @@ export default function OnboardingScreen({
             onSubmitEditing={Keyboard.dismiss}
           />
 
-          <Text style={styles.sectionLabel}>{t('onboarding.dobOptional')}</Text>
-          {Platform.OS === 'ios' ? (
-            <View style={styles.iosDateRow}>
-              <Text style={styles.iosDateLabel}>
-                {petBirthDate ? toDateOnlyString(petBirthDate) : t('petForm.dobOptional')}
-              </Text>
-              <DateTimePicker
-                value={petBirthDate ?? new Date()}
-                mode="date"
-                themeVariant={isDarkMode ? 'dark' : 'light'}
-                maximumDate={new Date()}
-                display="compact"
-                onChange={(_e, d) => {
-                  if (d) setPetBirthDate(d);
-                }}
-              />
-            </View>
-          ) : (
+          <Text style={styles.sectionLabel}>{t('petForm.dobSectionTitle') || 'Age & Birthday'}</Text>
+          <View style={styles.dobSegmentContainer}>
             <TouchableOpacity
-              style={styles.input}
-              onPress={openAndroidPetDatePicker}
+              style={[styles.dobSegmentBtn, petDobMode === 'exact' && styles.dobSegmentBtnActive]}
+              onPress={() => setPetDobMode('exact')}
+              activeOpacity={0.8}
             >
-              <Text style={petBirthDate ? styles.dateTextActive : styles.dateTextPlaceholder}>
-                {petBirthDate ? toDateOnlyString(petBirthDate) : t('petForm.dobOptional')}
+              <Text style={[styles.dobSegmentText, petDobMode === 'exact' && styles.dobSegmentTextActive]}>
+                {t('petForm.dobModeExact')}
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.dobSegmentBtn, petDobMode === 'approximate' && styles.dobSegmentBtnActive]}
+              onPress={() => setPetDobMode('approximate')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.dobSegmentText, petDobMode === 'approximate' && styles.dobSegmentTextActive]}>
+                {t('petForm.dobModeApprox')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.dobSegmentBtn, petDobMode === 'unknown' && styles.dobSegmentBtnActive]}
+              onPress={() => setPetDobMode('unknown')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.dobSegmentText, petDobMode === 'unknown' && styles.dobSegmentTextActive]}>
+                {t('petForm.dobModeUnknown')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {petDobMode === 'exact' && (
+            Platform.OS === 'ios' ? (
+              <View style={styles.iosDateRow}>
+                <Text style={styles.iosDateLabel}>
+                  {petBirthDate ? toDateOnlyString(petBirthDate) : t('petForm.selectBirthDate')}
+                </Text>
+                <DateTimePicker
+                  value={petBirthDate ?? new Date()}
+                  mode="date"
+                  themeVariant={isDarkMode ? 'dark' : 'light'}
+                  maximumDate={new Date()}
+                  display="compact"
+                  onChange={(_e, d) => {
+                    if (d) setPetBirthDate(d);
+                  }}
+                />
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.input}
+                onPress={openAndroidPetDatePicker}
+              >
+                <Text style={petBirthDate ? styles.dateTextActive : styles.dateTextPlaceholder}>
+                  {petBirthDate ? toDateOnlyString(petBirthDate) : t('petForm.selectBirthDate')}
+                </Text>
+              </TouchableOpacity>
+            )
+          )}
+
+          {petDobMode === 'approximate' && (
+            <View style={styles.approxCard}>
+              <View style={styles.approxSteppersRow}>
+                {/* Years Stepper */}
+                <View style={styles.stepperBox}>
+                  <Text style={styles.stepperLabel}>{t('petForm.approxYears')}</Text>
+                  <View style={styles.stepperControls}>
+                    <TouchableOpacity
+                      style={styles.stepperBtn}
+                      onPress={() => setPetApproxYears(y => Math.max(0, y - 1))}
+                      disabled={petApproxYears <= 0}
+                    >
+                      <Text style={styles.stepperBtnText}>−</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.stepperValText}>{petApproxYears} yrs</Text>
+                    <TouchableOpacity
+                      style={styles.stepperBtn}
+                      onPress={() => setPetApproxYears(y => Math.min(25, y + 1))}
+                      disabled={petApproxYears >= 25}
+                    >
+                      <Text style={styles.stepperBtnText}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Months Stepper */}
+                <View style={styles.stepperBox}>
+                  <Text style={styles.stepperLabel}>{t('petForm.approxMonths')}</Text>
+                  <View style={styles.stepperControls}>
+                    <TouchableOpacity
+                      style={styles.stepperBtn}
+                      onPress={() => setPetApproxMonths(m => Math.max(0, m - 1))}
+                      disabled={petApproxMonths <= 0}
+                    >
+                      <Text style={styles.stepperBtnText}>−</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.stepperValText}>{petApproxMonths} mos</Text>
+                    <TouchableOpacity
+                      style={styles.stepperBtn}
+                      onPress={() => setPetApproxMonths(m => Math.min(11, m + 1))}
+                      disabled={petApproxMonths >= 11}
+                    >
+                      <Text style={styles.stepperBtnText}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+
+              {/* Live estimated birthday preview */}
+              <View style={styles.approxPreviewBox}>
+                <Feather name="calendar" size={13} color={theme.primary} />
+                <Text style={styles.approxPreviewText}>
+                  {t('petForm.approxCalculatedNote', {
+                    date: formatEstimatedDobPreview(petApproxYears, petApproxMonths),
+                  })}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {petDobMode === 'unknown' && (
+            <View style={styles.unknownAgeCard}>
+              <Feather name="info" size={16} color={theme.primary} />
+              <Text style={styles.unknownAgeCardText}>
+                {t('petForm.unknownAgeHelper')}
+              </Text>
+            </View>
           )}
 
           <TouchableOpacity
@@ -1516,6 +1646,132 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false, insets = { top: 0, b
       borderWidth: 1,
       borderColor: theme.border,
       marginBottom: 14,
+    },
+    dobSegmentContainer: {
+      width: '100%',
+      flexDirection: 'row',
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 14,
+      padding: 4,
+      marginBottom: 14,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    dobSegmentBtn: {
+      flex: 1,
+      paddingVertical: 9,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 10,
+    },
+    dobSegmentBtnActive: {
+      backgroundColor: theme.surface,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.12,
+      shadowRadius: 3,
+      elevation: 2,
+    },
+    dobSegmentText: {
+      fontSize: 12.5,
+      fontWeight: '600',
+      color: theme.textMuted,
+    },
+    dobSegmentTextActive: {
+      color: theme.textDark,
+      fontWeight: '700',
+    },
+    approxCard: {
+      width: '100%',
+      backgroundColor: theme.surface,
+      borderRadius: 16,
+      padding: 14,
+      marginBottom: 14,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    approxSteppersRow: {
+      flexDirection: 'row',
+      gap: 12,
+      marginBottom: 10,
+    },
+    stepperBox: {
+      flex: 1,
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 12,
+      padding: 10,
+      alignItems: 'center',
+      borderWidth: 0.5,
+      borderColor: theme.border,
+    },
+    stepperLabel: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: theme.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 6,
+    },
+    stepperControls: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      width: '100%',
+      paddingHorizontal: 4,
+    },
+    stepperBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    stepperBtnText: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: theme.textDark,
+      lineHeight: 20,
+    },
+    stepperValText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: theme.textDark,
+    },
+    approxPreviewBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: theme.surfaceAlt,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      borderRadius: 10,
+    },
+    approxPreviewText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.primary,
+      flex: 1,
+    },
+    unknownAgeCard: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: theme.surfaceAlt,
+      borderRadius: 16,
+      padding: 14,
+      marginBottom: 14,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    unknownAgeCardText: {
+      fontSize: 13,
+      color: theme.textDark,
+      flex: 1,
+      lineHeight: 18,
     },
     iosDateLabel: {
       fontSize: 14,
