@@ -8,7 +8,20 @@ let configuredNativeGoogle = false;
 
 function tryConfigureNativeGoogle() {
   if (configuredNativeGoogle) return true;
-  if (Platform.OS === 'web' || !NativeModules?.RNGoogleSignin) {
+  if (Platform.OS === 'web') {
+    return false;
+  }
+  if (!NativeModules?.RNGoogleSignin) {
+    console.warn(
+      '[google-signin] NativeModules.RNGoogleSignin is missing. Native Google Sign-In requires a custom dev client or production/preview APK with native code compiled.'
+    );
+    return false;
+  }
+  const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+  if (!webClientId) {
+    console.warn(
+      '[google-signin] EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is unset in environment/EAS secrets! Native Google Sign-In cannot configure without webClientId.'
+    );
     return false;
   }
   try {
@@ -16,17 +29,17 @@ function tryConfigureNativeGoogle() {
     // RNGoogleSignin compiled in do not crash at module load time.
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { GoogleSignin } = require('@react-native-google-signin/google-signin');
-    const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
     const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
     GoogleSignin.configure({
-      ...(webClientId ? { webClientId } : {}),
+      webClientId,
       ...(iosClientId ? { iosClientId } : {}),
       offlineAccess: false,
     });
     configuredNativeGoogle = true;
+    console.log('[google-signin] Native GoogleSignin configured successfully with webClientId:', webClientId);
     return true;
   } catch (err) {
-    console.warn('[google-signin] Native module not available, using OAuth fallback:', err);
+    console.warn('[google-signin] Native module configure failed, falling back to browser OAuth:', err);
     return false;
   }
 }
@@ -37,7 +50,7 @@ export function useGoogleSignIn() {
     if (tryConfigureNativeGoogle()) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { GoogleSignin, statusCodes } = require('@react-native-google-signin/google-signin');
+        const { GoogleSignin } = require('@react-native-google-signin/google-signin');
         if (Platform.OS === 'android') {
           await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
         }
@@ -47,11 +60,17 @@ export function useGoogleSignIn() {
           return { error: null };
         }
         const idToken: string | undefined = response?.data?.idToken ?? response?.idToken;
-        if (idToken) {
+        if (!idToken) {
+          console.warn('[google-signin] Native sign-in response did not contain an idToken:', response);
+        } else {
+          console.log('[google-signin] Native idToken received, authenticating with Supabase signInWithIdToken');
           const { error: idTokenError } = await supabase.auth.signInWithIdToken({
             provider: 'google',
             token: idToken,
           });
+          if (idTokenError) {
+            console.warn('[google-signin] Supabase signInWithIdToken error:', idTokenError);
+          }
           return { error: idTokenError };
         }
       } catch (nativeErr: any) {
@@ -65,6 +84,8 @@ export function useGoogleSignIn() {
         }
         console.warn('[google-signin] Native sign-in error, falling back to browser OAuth:', nativeErr);
       }
+    } else {
+      console.warn('[google-signin] Native Google Sign-In unavailable, falling back to browser OAuth flow');
     }
 
     // 2. Fallback: Browser OAuth flow via AUTH_BRIDGE_URL

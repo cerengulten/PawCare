@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Delete Account & Data · Bisco</title>
+  <meta name="description" content="Account and Data Deletion Instructions for Bisco - Dog Care & Wellness Journal" />
+  <link rel="icon" type="image/png" href="https://img.icons8.com/color/96/dog.png" />
+  <style>
+    :root {
+      --bg: #FBF8F1;
+      --card: #FFFFFF;
+      --text: #2B2B26;
+      --muted: #6B685B;
+      --primary: #C85A32;
+      --danger: #DC2626;
+      --border: #E8E2D2;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #181714;
+        --card: #22201B;
+        --text: #F2EFE9;
+        --muted: #A8A495;
+        --primary: #E06D44;
+        --danger: #EF4444;
+        --border: #35322A;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      padding: 0 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 40px auto 80px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px;
+    }
+    .back {
+      display: inline-block;
+      margin-bottom: 24px;
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    h1 {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 30px;
+    }
+    h2 {
+      font-size: 20px;
+      margin: 28px 0 12px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+    }
+    p, ul, ol {
+      color: var(--text);
+      margin-bottom: 16px;
+    }
+    ul, ol {
+      padding-left: 24px;
+    }
+    li {
+      margin-bottom: 8px;
+    }
+    .card-alert {
+      background: rgba(220, 38, 38, 0.08);
+      border-left: 4px solid var(--danger);
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+    .card-alert strong {
+      color: var(--danger);
+    }
+    .email-btn {
+      display: inline-block;
+      margin-top: 10px;
+      background: var(--primary);
+      color: #FFFFFF;
+      padding: 12px 24px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    footer {
+      text-align: center;
+      padding: 24px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <a href="./index.html" class="back">← Back to Bisco</a>
+    <h1>Account & Data Deletion</h1>
+    <div class="subtitle">Bisco — Dog Care & Wellness Journal</div>
+
+    <div class="card-alert">
+      <strong>Important:</strong> Account deletion is permanent and cannot be undone. All your pet profiles, health logs, vaccine certificates, photos, and journal entries will be immediately and irrevocably erased from our servers.
+    </div>
+
+    <h2>Option 1: In-App Instant Deletion (Recommended)</h2>
+    <p>You can permanently delete your account and all associated data directly inside the Bisco mobile app at any time:</p>
+    <ol>
+      <li>Open the <strong>Bisco</strong> app on your iOS or Android device.</li>
+      <li>Tap on the <strong>More</strong> tab (profile icon) in the bottom navigation bar.</li>
+      <li>Scroll down to the <strong>Account Settings</strong> section.</li>
+      <li>Tap <strong>Delete Account</strong> (marked in red).</li>
+      <li>Confirm your decision in the confirmation dialog.</li>
+    </ol>
+    <p>Your session will be closed immediately and all your data deleted from our Supabase database.</p>
+
+    <h2>Option 2: Web Request for Account Deletion</h2>
+    <p>If you have uninstalled the app or cannot log in, you can request manual account and data deletion by emailing our developer support team directly from the email address associated with your Bisco account:</p>
+    <p><strong>Support Email:</strong> <a href="mailto:cerengulten.dev@gmail.com?subject=Bisco%20Account%20Deletion%20Request" style="color: var(--primary);">cerengulten.dev@gmail.com</a></p>
+    <p>Please include the subject line: <code>Bisco Account Deletion Request</code> and confirm the registered email address.</p>
+    <a class="email-btn" href="mailto:cerengulten.dev@gmail.com?subject=Bisco%20Account%20Deletion%20Request">Send Account Deletion Email</a>
+
+    <h2>What Data Is Deleted?</h2>
+    <p>Upon account deletion, the following data is permanently purged:</p>
+    <ul>
+      <li><strong>User Profile:</strong> Name, email address, password hash, authentication identifiers, and notification tokens.</li>
+      <li><strong>Pet Profiles:</strong> Names, breeds, dates of birth, weights, genders, and sterilization details.</li>
+      <li><strong>Pet Photos:</strong> Profile pictures and uploaded vaccine/certificate image files stored in cloud storage.</li>
+      <li><strong>Health & Care Logs:</strong> Daily nutrition, water intake, poop records, symptom logs, medication reminders, and parasite treatment history.</li>
+      <li><strong>Custom Preferences:</strong> Language settings, theme choices, and reminder schedules.</li>
+    </ul>
+
+    <h2>Data Retention Policy</h2>
+    <p>We do not retain personal pet care data or user credentials after account deletion. Financial transaction histories (such as subscription purchase receipts) are processed and maintained directly by Apple App Store or Google Play and RevenueCat pursuant to statutory accounting standards.</p>
+
+    <h2>Questions?</h2>
+    <p>For any questions regarding your data privacy, review our <a href="./privacy.html" style="color: var(--primary);">Privacy Policy</a> or contact us at <a href="mailto:cerengulten.dev@gmail.com" style="color: var(--primary);">cerengulten.dev@gmail.com</a>.</p>
+  </div>
+
+  <footer>
+    &copy; 2026 Bisco. All rights reserved.
+  </footer>
+
+</body>
+</html>

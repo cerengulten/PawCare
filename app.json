@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "platforms": ["ios", "android"],
     "splash": {
-      "image": "./assets/bisco_logo_v1.png",
+      "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -25,7 +25,7 @@
     "android": {
       "package": "com.pawcare.bisco",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/bisco_logo_v1.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -42,6 +42,12 @@
     },
     "plugins": [
       [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.664063473262-houlcs4vcvnctvhrl4p6n2l3d0hf5vkm"
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "Bisco uses your location to find veterinary clinics near you."
@@ -57,7 +63,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/bisco_logo_v1.png",
+          "icon": "./assets/notification-icon.png",
           "color": "#ffffff"
         }
       ]
