@@ -301,9 +301,9 @@ export default function UnifiedAuthScreen({ initialMode = 'signin', onSwitch }: 
           <View style={styles.brandHero}>
             <View style={styles.logoBadge}>
               <Image
-                source={require('../assets/bisco_logo_v1.png')}
+                source={require('../assets/adaptive-icon.png')}
                 style={styles.logoImage}
-                resizeMode="cover"
+                resizeMode="contain"
               />
             </View>
             <Text style={styles.brandTitle}>BISCO</Text>
@@ -579,9 +579,9 @@ function makeStyles(theme: ThemeTokens, insets = { top: 0, bottom: 0 }, isDarkMo
       marginBottom: 20,
     },
     logoBadge: {
-      width: 72,
-      height: 72,
-      borderRadius: 22,
+      width: 88,
+      height: 88,
+      borderRadius: 26,
       overflow: 'hidden',
       backgroundColor: isDarkMode ? '#28231D' : '#FFF9F0',
       borderWidth: 1.5,
@@ -596,8 +596,8 @@ function makeStyles(theme: ThemeTokens, insets = { top: 0, bottom: 0 }, isDarkMo
       elevation: 3,
     },
     logoImage: {
-      width: 72,
-      height: 72,
+      width: 84,
+      height: 84,
     },
     brandTitle: {
       fontSize: 22,
