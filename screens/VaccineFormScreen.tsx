@@ -124,6 +124,8 @@ export default function VaccineFormScreen({
   const [error, setError] = useState('');
 
   const scrollRef = useRef<ScrollView>(null);
+  const step4YRef = useRef(0);
+  const notesYRef = useRef(0);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
@@ -300,13 +302,13 @@ export default function VaccineFormScreen({
     <SwipeBackWrapper onBack={onCancel}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
           ref={scrollRef}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 40 : 40 },
+            { paddingBottom: Platform.OS === 'android' && keyboardHeight > 0 ? keyboardHeight + 24 : 40 },
           ]}
           keyboardShouldPersistTaps="handled"
         >
@@ -401,7 +403,12 @@ export default function VaccineFormScreen({
           </View>
 
           {/* STEP 4: SCHEDULE & REMINDERS */}
-          <View style={styles.sectionCard}>
+          <View
+            style={styles.sectionCard}
+            onLayout={(e) => {
+              step4YRef.current = e.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.stepBadge}>STEP 4 · SCHEDULE & REMINDER</Text>
             <Text style={styles.sectionHeader}>{t('treatments.datesAndReminders') || 'Schedule'}</Text>
 
@@ -495,9 +502,13 @@ export default function VaccineFormScreen({
               placeholderTextColor={theme.textMuted}
               value={userNotes}
               onChangeText={setUserNotes}
+              onLayout={(e) => {
+                notesYRef.current = e.nativeEvent.layout.y;
+              }}
               onFocus={() => {
+                const targetY = step4YRef.current + notesYRef.current - 24;
                 setTimeout(() => {
-                  scrollRef.current?.scrollToEnd({ animated: true });
+                  scrollRef.current?.scrollTo({ y: Math.max(0, targetY), animated: true });
                 }, 150);
               }}
               multiline
