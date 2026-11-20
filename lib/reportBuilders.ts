@@ -6,6 +6,7 @@ import { ReportKeyValue, escapeHtml } from './pdfReport';
 import { i18n } from './i18n';
 import { longDate, weekdayShort } from './i18n/calendar';
 import { parseLocalDate, toLocalDateString } from './dateUtils';
+import { cleanTreatmentNotes } from './treatmentLogic';
 import {
   Dog,
   Profile,
@@ -282,7 +283,7 @@ export function buildVaccineReport(
         <td>${escapeHtml(v.date_given ? formatDueDate(v.date_given) : '—')}</td>
         <td>${escapeHtml(formatDueDate(v.next_due_date))}</td>
         <td style="color:${status.color};font-weight:600;">${escapeHtml(status.label)}</td>
-        <td>${escapeHtml(v.notes ?? '—')}</td>
+        <td>${escapeHtml(cleanTreatmentNotes(v.notes) || '—')}</td>
       </tr>
     `;
   }).join('');

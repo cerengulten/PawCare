@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { VaccineWithDog } from '../lib/hooks/useAllVaccines';
-import { detectTreatmentType, treatmentCategoryVisuals } from '../lib/treatmentLogic';
+import { detectTreatmentType, treatmentCategoryVisuals, cleanTreatmentNotes } from '../lib/treatmentLogic';
 import { daysAway } from '../lib/vaccineDisplay';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
@@ -66,6 +66,7 @@ export default function PreventiveCareCard({
 
   const treatmentType = detectTreatmentType(treatment.vaccine_name, treatment.notes);
   const visual = treatmentCategoryVisuals(treatmentType, isDarkMode);
+  const cleanNotes = cleanTreatmentNotes(treatment.notes);
 
   return (
     <View style={styles.card}>
@@ -94,9 +95,9 @@ export default function PreventiveCareCard({
           <Text style={styles.detailsText}>
             {visual.emoji} {t(visual.labelKey) || visual.defaultLabel} · Due: {treatment.next_due_date}
           </Text>
-          {treatment.notes ? (
+          {cleanNotes ? (
             <Text style={styles.notesText} numberOfLines={1}>
-              "{treatment.notes}"
+              "{cleanNotes}"
             </Text>
           ) : null}
         </View>

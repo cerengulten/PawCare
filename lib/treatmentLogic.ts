@@ -52,7 +52,7 @@ export function encodeTreatmentMeta(type: TreatmentType, cadenceMonths: number, 
 
 export function cleanTreatmentNotes(notes?: string | null): string {
   if (!notes) return '';
-  return notes.replace(/__bisco_meta:[^_\n]+__\n?/g, '').trim();
+  return notes.replace(/__bisco_meta:.*?__\n?/g, '').trim();
 }
 
 export function detectTreatmentType(name: string, notes?: string | null): TreatmentType {

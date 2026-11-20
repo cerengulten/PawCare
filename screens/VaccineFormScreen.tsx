@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Switch,
+  Keyboard,
 } from 'react-native';
 import DateTimePicker, {
   DateTimePickerAndroid,
@@ -121,6 +122,28 @@ export default function VaccineFormScreen({
   const [reminderEnabled, setReminderEnabled] = useState(vaccine?.reminder_enabled ?? true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const scrollRef = useRef<ScrollView>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const minNextDueDate = getMinNextDueDate();
   const parsedNextDueDate = parseUserDateInput(nextDueDateText);
@@ -277,9 +300,16 @@ export default function VaccineFormScreen({
     <SwipeBackWrapper onBack={onCancel}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 40 : 40 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.topBar}>
             <TouchableOpacity onPress={onCancel} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Text style={styles.backBtnText}>‹ {t('common.cancel') || 'Cancel'}</Text>
@@ -465,6 +495,11 @@ export default function VaccineFormScreen({
               placeholderTextColor={theme.textMuted}
               value={userNotes}
               onChangeText={setUserNotes}
+              onFocus={() => {
+                setTimeout(() => {
+                  scrollRef.current?.scrollToEnd({ animated: true });
+                }, 150);
+              }}
               multiline
             />
           </View>
