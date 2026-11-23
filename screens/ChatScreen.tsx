@@ -92,25 +92,16 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
   const prevMessagesCountRef = useRef(messages.length);
   const bottomTabBarHeight = useBottomTabBarHeight();
   const keyboardHeight = useKeyboardHeight();
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const isKeyboardVisible = keyboardHeight > 0;
 
   useEffect(() => {
-    const showSub = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      () => {
-        setIsKeyboardVisible(true);
-        requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
-      }
-    );
-    const hideSub = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => setIsKeyboardVisible(false)
-    );
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
+    if (keyboardHeight > 0) {
+      const timer = setTimeout(() => {
+        scrollRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [keyboardHeight]);
 
   const starterPrompts = useMemo(
     () => [
@@ -252,7 +243,7 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
         style={[
           styles.container,
           Platform.OS === 'android' && keyboardHeight > 0 && {
-            paddingBottom: Math.max(0, keyboardHeight - bottomTabBarHeight),
+            paddingBottom: keyboardHeight,
           },
         ]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
