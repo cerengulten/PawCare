@@ -23,6 +23,7 @@ import { VetAppointment } from '../lib/vetAppointments';
 import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
+import { useKeyboardHeight } from '../lib/hooks/useKeyboardHeight';
 
 type Props = {
   visible: boolean;
@@ -56,6 +57,7 @@ export default function VetAppointmentModal({
 }: Props) {
   const { theme, isDarkMode } = useTheme();
   const { t } = useT();
+  const keyboardHeight = useKeyboardHeight();
   const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
 
   const [petId, setPetId] = useState<string>(selectedDogId || dogs[0]?.id || '');
@@ -229,7 +231,10 @@ export default function VetAppointmentModal({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.overlay}
+        style={[
+          styles.overlay,
+          Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+        ]}
       >
         <View style={styles.sheet}>
           <View style={styles.handleBar} />

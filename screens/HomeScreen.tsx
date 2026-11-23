@@ -47,6 +47,7 @@ import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { localeTag } from '../lib/i18n';
 import { ThemeTokens } from '../lib/themes';
+import { useKeyboardHeight } from '../lib/hooks/useKeyboardHeight';
 
 type ProfileState = ReturnType<typeof useProfile>;
 type SelectedPetState = ReturnType<typeof useSelectedPet>;
@@ -69,6 +70,7 @@ export default function HomeScreen({
 }: Props) {
   const { theme, isDarkMode } = useTheme();
   const { t, lang } = useT();
+  const keyboardHeight = useKeyboardHeight();
   const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
   const { streak } = useOverallStreak();
   const [showProfile, setShowProfile] = useState(false);
@@ -1289,60 +1291,68 @@ export default function HomeScreen({
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.completeModalBackdrop}
+          style={[
+            styles.completeModalBackdrop,
+            Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+          ]}
         >
-          <View style={styles.completeModalCard}>
-            <View style={styles.completeModalTitleRow}>
-              <View style={styles.agendaIconBadge}>
-                <Ionicons name="medkit-outline" size={18} color={theme.primary} />
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', width: '100%' }}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.completeModalCard}>
+              <View style={styles.completeModalTitleRow}>
+                <View style={styles.agendaIconBadge}>
+                  <Ionicons name="medkit-outline" size={18} color={theme.primary} />
+                </View>
+                <Text style={styles.completeModalTitle}>
+                  {t('vetAppointments.completeVisitTitle') || 'Complete Vet Visit & Add Notes'}
+                </Text>
               </View>
-              <Text style={styles.completeModalTitle}>
-                {t('vetAppointments.completeVisitTitle') || 'Complete Vet Visit & Add Notes'}
+              <Text style={styles.completeModalSub}>
+                {completingAppt?.clinicName ? `${completingAppt.clinicName} · ` : ''}
+                {completingAppt?.title}
               </Text>
-            </View>
-            <Text style={styles.completeModalSub}>
-              {completingAppt?.clinicName ? `${completingAppt.clinicName} · ` : ''}
-              {completingAppt?.title}
-            </Text>
 
-            <Text style={styles.completeModalLabel}>
-              {t('vetAppointments.clinicalNotesLabel')}
-            </Text>
-            <TextInput
-              style={styles.completeModalInput}
-              placeholder={t('vetAppointments.notesPlaceholder')}
-              placeholderTextColor={theme.textMuted}
-              value={completeNotes}
-              onChangeText={setCompleteNotes}
-              multiline
-            />
-
-            <View style={styles.completeModalNoticeRow}>
-              <Feather name="file-text" size={14} color={theme.textMuted} />
-              <Text style={styles.completeModalNoticeText}>
-                {t('vetAppointments.savedToReportNotice')}
+              <Text style={styles.completeModalLabel}>
+                {t('vetAppointments.clinicalNotesLabel')}
               </Text>
-            </View>
+              <TextInput
+                style={styles.completeModalInput}
+                placeholder={t('vetAppointments.notesPlaceholder')}
+                placeholderTextColor={theme.textMuted}
+                value={completeNotes}
+                onChangeText={setCompleteNotes}
+                multiline
+              />
 
-            <View style={styles.completeModalActions}>
-              <TouchableOpacity
-                onPress={() => setShowCompleteModal(false)}
-                style={styles.completeModalCancelBtn}
-              >
-                <Text style={{ color: theme.textMuted, fontWeight: '600' }}>
-                  {t('common.cancel') || 'Cancel'}
+              <View style={styles.completeModalNoticeRow}>
+                <Feather name="file-text" size={14} color={theme.textMuted} />
+                <Text style={styles.completeModalNoticeText}>
+                  {t('vetAppointments.savedToReportNotice')}
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleSaveCompletion}
-                style={styles.completeModalSaveBtn}
-              >
-                <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
-                  {t('vetAppointments.saveAndComplete')}
-                </Text>
-              </TouchableOpacity>
+              </View>
+
+              <View style={styles.completeModalActions}>
+                <TouchableOpacity
+                  onPress={() => setShowCompleteModal(false)}
+                  style={styles.completeModalCancelBtn}
+                >
+                  <Text style={{ color: theme.textMuted, fontWeight: '600' }}>
+                    {t('common.cancel') || 'Cancel'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleSaveCompletion}
+                  style={styles.completeModalSaveBtn}
+                >
+                  <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
+                    {t('vetAppointments.saveAndComplete')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
 

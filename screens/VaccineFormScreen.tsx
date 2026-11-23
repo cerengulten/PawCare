@@ -127,13 +127,11 @@ export default function VaccineFormScreen({
   const step4YRef = useRef(0);
   const notesYRef = useRef(0);
   const notesFocusedRef = useRef(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
     const showSub = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => {
-        setKeyboardHeight(e.endCoordinates.height);
+      () => {
         if (notesFocusedRef.current) {
           requestAnimationFrame(() => {
             scrollRef.current?.scrollTo({
@@ -144,15 +142,8 @@ export default function VaccineFormScreen({
         }
       }
     );
-    const hideSub = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        setKeyboardHeight(0);
-      }
-    );
     return () => {
       showSub.remove();
-      hideSub.remove();
     };
   }, []);
 
@@ -310,7 +301,7 @@ export default function VaccineFormScreen({
   return (
     <SwipeBackWrapper onBack={onCancel}>
       <KeyboardAvoidingView
-        style={[styles.container, Platform.OS === 'android' && { paddingBottom: keyboardHeight }]}
+        style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView

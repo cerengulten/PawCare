@@ -20,6 +20,7 @@ import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import { triggerLightHaptic } from '../lib/haptics';
+import { useKeyboardHeight } from '../lib/hooks/useKeyboardHeight';
 
 type SavePayload = {
   food_type: FoodType;
@@ -58,6 +59,7 @@ function parseAmount(text: string, errorMsg: string): { value: number | null; er
 export default function MealDetailSheet({ visible, initial, onClose, onSave }: Props) {
   const { theme, isDarkMode } = useTheme();
   const { t } = useT();
+  const keyboardHeight = useKeyboardHeight();
   const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
   const [foodType, setFoodType] = useState<FoodType | null>(initial?.food_type ?? null);
   const [wetAmountText, setWetAmountText] = useState(amountText(initial?.wet_amount_grams ?? null));
@@ -168,7 +170,10 @@ export default function MealDetailSheet({ visible, initial, onClose, onSave }: P
       </TouchableWithoutFeedback>
 
       <KeyboardAvoidingView
-        style={styles.sheetWrapper}
+        style={[
+          styles.sheetWrapper,
+          Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+        ]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         pointerEvents="box-none"
       >

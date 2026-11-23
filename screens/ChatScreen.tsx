@@ -34,6 +34,7 @@ import { useT } from '../lib/LanguageContext';
 import { useSubscription } from '../lib/SubscriptionContext';
 import { LANG_LABELS } from '../lib/i18n';
 import { ThemeTokens } from '../lib/themes';
+import { useKeyboardHeight } from '../lib/hooks/useKeyboardHeight';
 
 type Props = BottomTabScreenProps<RootTabParamList, 'Chat'> & {
   dogs: Dog[];
@@ -90,12 +91,16 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
   const scrollRef = useRef<ScrollView>(null);
   const prevMessagesCountRef = useRef(messages.length);
   const bottomTabBarHeight = useBottomTabBarHeight();
+  const keyboardHeight = useKeyboardHeight();
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   useEffect(() => {
     const showSub = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      () => setIsKeyboardVisible(true)
+      () => {
+        setIsKeyboardVisible(true);
+        requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+      }
     );
     const hideSub = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
@@ -244,7 +249,12 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
   } else {
     content = (
       <KeyboardAvoidingView
-        style={styles.container}
+        style={[
+          styles.container,
+          Platform.OS === 'android' && keyboardHeight > 0 && {
+            paddingBottom: Math.max(0, keyboardHeight - bottomTabBarHeight),
+          },
+        ]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? bottomTabBarHeight : 0}
       >

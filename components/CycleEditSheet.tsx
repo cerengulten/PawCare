@@ -23,6 +23,7 @@ import { useTheme } from '../lib/ThemeContext';
 import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import { CycleRecord } from '../types';
+import { useKeyboardHeight } from '../lib/hooks/useKeyboardHeight';
 
 type Props = {
   visible: boolean;
@@ -55,6 +56,7 @@ function parseDateOnly(s: string): Date {
 export default function CycleEditSheet({ visible, cycle, allowEndDate = true, onClose, onSave, onDelete }: Props) {
   const { theme, isDarkMode } = useTheme();
   const { t } = useT();
+  const keyboardHeight = useKeyboardHeight();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
@@ -132,7 +134,10 @@ export default function CycleEditSheet({ visible, cycle, allowEndDate = true, on
       </TouchableWithoutFeedback>
 
       <KeyboardAvoidingView
-        style={styles.sheetWrapper}
+        style={[
+          styles.sheetWrapper,
+          Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+        ]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         pointerEvents="box-none"
       >

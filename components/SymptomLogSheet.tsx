@@ -20,6 +20,7 @@ import { useT } from '../lib/LanguageContext';
 import { ThemeTokens } from '../lib/themes';
 import { CycleSpecies, CycleIntensity, CycleSymptom } from '../types';
 import { SYMPTOMS_BY_SPECIES, symptomLabel } from '../lib/cycleLogic';
+import { useKeyboardHeight } from '../lib/hooks/useKeyboardHeight';
 
 type Props = {
   visible: boolean;
@@ -39,6 +40,7 @@ const DISMISS_THRESHOLD = 100;
 export default function SymptomLogSheet({ visible, species, dogName, dayOfCycle, initial, onClose, onSave }: Props) {
   const { theme } = useTheme();
   const { t } = useT();
+  const keyboardHeight = useKeyboardHeight();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>(initial?.symptoms ?? []);
   const [intensity, setIntensity] = useState<CycleIntensity | null>(initial?.intensity ?? null);
@@ -101,7 +103,10 @@ export default function SymptomLogSheet({ visible, species, dogName, dayOfCycle,
       </TouchableWithoutFeedback>
 
       <KeyboardAvoidingView
-        style={styles.sheetWrapper}
+        style={[
+          styles.sheetWrapper,
+          Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+        ]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         pointerEvents="box-none"
       >

@@ -27,6 +27,7 @@ import { cycleStartTip } from '../lib/cycleLogic';
 import { longDate } from '../lib/i18n/calendar';
 import { toLocalDateString } from '../lib/dateUtils';
 import { triggerLightHaptic } from '../lib/haptics';
+import { useKeyboardHeight } from '../lib/hooks/useKeyboardHeight';
 
 type Props = {
   visible: boolean;
@@ -48,6 +49,7 @@ function toDateOnlyString(d: Date): string {
 export default function CycleStartSheet({ visible, species, onClose, onSave }: Props) {
   const { theme, isDarkMode } = useTheme();
   const { t } = useT();
+  const keyboardHeight = useKeyboardHeight();
   const styles = useMemo(() => makeStyles(theme, isDarkMode), [theme, isDarkMode]);
   const [startDate, setStartDate] = useState(new Date());
   const [notes, setNotes] = useState('');
@@ -139,7 +141,10 @@ export default function CycleStartSheet({ visible, species, onClose, onSave }: P
       </TouchableWithoutFeedback>
 
       <KeyboardAvoidingView
-        style={styles.sheetWrapper}
+        style={[
+          styles.sheetWrapper,
+          Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+        ]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         pointerEvents="box-none"
       >
