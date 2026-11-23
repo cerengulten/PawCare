@@ -126,6 +126,7 @@ export default function VaccineFormScreen({
   const scrollRef = useRef<ScrollView>(null);
   const step4YRef = useRef(0);
   const notesYRef = useRef(0);
+  const notesFocusedRef = useRef(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
@@ -133,6 +134,14 @@ export default function VaccineFormScreen({
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
       (e) => {
         setKeyboardHeight(e.endCoordinates.height);
+        if (notesFocusedRef.current) {
+          requestAnimationFrame(() => {
+            scrollRef.current?.scrollTo({
+              y: Math.max(0, step4YRef.current + notesYRef.current - 24),
+              animated: true,
+            });
+          });
+        }
       }
     );
     const hideSub = Keyboard.addListener(
@@ -301,15 +310,12 @@ export default function VaccineFormScreen({
   return (
     <SwipeBackWrapper onBack={onCancel}>
       <KeyboardAvoidingView
-        style={styles.container}
+        style={[styles.container, Platform.OS === 'android' && { paddingBottom: keyboardHeight }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
           ref={scrollRef}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: Platform.OS === 'android' && keyboardHeight > 0 ? keyboardHeight + 24 : 40 },
-          ]}
+          contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.topBar}>
@@ -506,10 +512,14 @@ export default function VaccineFormScreen({
                 notesYRef.current = e.nativeEvent.layout.y;
               }}
               onFocus={() => {
-                const targetY = step4YRef.current + notesYRef.current - 24;
-                setTimeout(() => {
-                  scrollRef.current?.scrollTo({ y: Math.max(0, targetY), animated: true });
-                }, 150);
+                notesFocusedRef.current = true;
+                const targetY = Math.max(0, step4YRef.current + notesYRef.current - 24);
+                requestAnimationFrame(() => {
+                  scrollRef.current?.scrollTo({ y: targetY, animated: true });
+                });
+              }}
+              onBlur={() => {
+                notesFocusedRef.current = false;
               }}
               multiline
             />
