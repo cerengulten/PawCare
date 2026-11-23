@@ -12,6 +12,7 @@ import {
   StyleSheet,
   Keyboard,
   StatusBar,
+  LayoutChangeEvent,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { BottomTabScreenProps, useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -94,7 +95,37 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
   const keyboardHeight = useKeyboardHeight();
   const isKeyboardVisible = keyboardHeight > 0;
 
+  const closedHeightRef = useRef<number>(0);
+  const currentHeightRef = useRef<number>(0);
+  const [needsAndroidPadding, setNeedsAndroidPadding] = useState(false);
+
+  const handleContainerLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      const layoutHeight = e.nativeEvent.layout.height;
+      currentHeightRef.current = layoutHeight;
+      if (keyboardHeight === 0) {
+        closedHeightRef.current = layoutHeight;
+        setNeedsAndroidPadding(false);
+      } else if (Platform.OS === 'android') {
+        const osResized =
+          closedHeightRef.current > 0 &&
+          closedHeightRef.current - layoutHeight > keyboardHeight * 0.4;
+        setNeedsAndroidPadding(!osResized);
+      }
+    },
+    [keyboardHeight]
+  );
+
   useEffect(() => {
+    if (keyboardHeight === 0) {
+      setNeedsAndroidPadding(false);
+    } else if (Platform.OS === 'android') {
+      const osResized =
+        closedHeightRef.current > 0 &&
+        closedHeightRef.current - currentHeightRef.current > keyboardHeight * 0.4;
+      setNeedsAndroidPadding(!osResized);
+    }
+
     if (keyboardHeight > 0) {
       const timer = setTimeout(() => {
         scrollRef.current?.scrollToEnd({ animated: true });
@@ -242,10 +273,11 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
       <KeyboardAvoidingView
         style={[
           styles.container,
-          Platform.OS === 'android' && keyboardHeight > 0 && {
+          Platform.OS === 'android' && needsAndroidPadding && keyboardHeight > 0 && {
             paddingBottom: keyboardHeight,
           },
         ]}
+        onLayout={handleContainerLayout}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? bottomTabBarHeight : 0}
       >
@@ -551,6 +583,7 @@ function makeStyles(theme: ThemeTokens, isDarkMode = false) {
       backgroundColor: theme.surface,
       borderTopWidth: 1,
       borderTopColor: theme.border,
+      flexShrink: 0,
     },
     input: {
       flex: 1,
