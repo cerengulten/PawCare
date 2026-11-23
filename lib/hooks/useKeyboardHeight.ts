@@ -1,25 +1,33 @@
 import { useEffect, useState } from 'react';
 import { Keyboard, Platform, KeyboardEvent } from 'react-native';
 
+export type KeyboardFrame = {
+  keyboardHeight: number;
+  keyboardScreenY: number;
+};
+
 /**
- * Shared hook to track active keyboard height across iOS and Android.
+ * Shared hook to track active keyboard height and screenY across iOS and Android.
  * Handles the distinction between willShow/willHide (iOS) and didShow/didHide (Android).
  * Automatically resets to 0 when the keyboard is dismissed.
  */
-export function useKeyboardHeight(): number {
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+export function useKeyboardFrame(): KeyboardFrame {
+  const [frame, setFrame] = useState<KeyboardFrame>({ keyboardHeight: 0, keyboardScreenY: 0 });
 
   useEffect(() => {
     const showSub = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
       (e: KeyboardEvent) => {
-        setKeyboardHeight(e.endCoordinates.height);
+        setFrame({
+          keyboardHeight: e.endCoordinates.height,
+          keyboardScreenY: e.endCoordinates.screenY,
+        });
       }
     );
     const hideSub = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
-        setKeyboardHeight(0);
+        setFrame({ keyboardHeight: 0, keyboardScreenY: 0 });
       }
     );
 
@@ -29,5 +37,9 @@ export function useKeyboardHeight(): number {
     };
   }, []);
 
-  return keyboardHeight;
+  return frame;
+}
+
+export function useKeyboardHeight(): number {
+  return useKeyboardFrame().keyboardHeight;
 }

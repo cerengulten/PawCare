@@ -12,7 +12,6 @@ import {
   StyleSheet,
   Keyboard,
   StatusBar,
-  LayoutChangeEvent,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { BottomTabScreenProps, useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -35,7 +34,7 @@ import { useT } from '../lib/LanguageContext';
 import { useSubscription } from '../lib/SubscriptionContext';
 import { LANG_LABELS } from '../lib/i18n';
 import { ThemeTokens } from '../lib/themes';
-import { useKeyboardHeight } from '../lib/hooks/useKeyboardHeight';
+import { useKeyboardFrame } from '../lib/hooks/useKeyboardHeight';
 
 type Props = BottomTabScreenProps<RootTabParamList, 'Chat'> & {
   dogs: Dog[];
@@ -92,47 +91,51 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
   const scrollRef = useRef<ScrollView>(null);
   const prevMessagesCountRef = useRef(messages.length);
   const bottomTabBarHeight = useBottomTabBarHeight();
-  const keyboardHeight = useKeyboardHeight();
+  const { keyboardHeight, keyboardScreenY } = useKeyboardFrame();
   const isKeyboardVisible = keyboardHeight > 0;
 
-  const closedHeightRef = useRef<number>(0);
-  const currentHeightRef = useRef<number>(0);
-  const [needsAndroidPadding, setNeedsAndroidPadding] = useState(false);
+  const containerRef = useRef<View>(null);
+  const [androidBottomPadding, setAndroidBottomPadding] = useState(0);
 
-  const handleContainerLayout = useCallback(
-    (e: LayoutChangeEvent) => {
-      const layoutHeight = e.nativeEvent.layout.height;
-      currentHeightRef.current = layoutHeight;
-      if (keyboardHeight === 0) {
-        closedHeightRef.current = layoutHeight;
-        setNeedsAndroidPadding(false);
-      } else if (Platform.OS === 'android') {
-        const osResized =
-          closedHeightRef.current > 0 &&
-          closedHeightRef.current - layoutHeight > keyboardHeight * 0.4;
-        setNeedsAndroidPadding(!osResized);
-      }
-    },
-    [keyboardHeight]
-  );
+  const measureOverlap = useCallback(() => {
+    if (Platform.OS !== 'android') return;
+    if (keyboardHeight > 0 && keyboardScreenY > 0) {
+      containerRef.current?.measureInWindow((_x, y, _w, h) => {
+        const containerBottom = y + h;
+        const overlap = Math.max(0, containerBottom - keyboardScreenY);
+        setAndroidBottomPadding(overlap);
+      });
+    } else {
+      setAndroidBottomPadding(0);
+    }
+  }, [keyboardHeight, keyboardScreenY]);
 
   useEffect(() => {
     if (keyboardHeight === 0) {
-      setNeedsAndroidPadding(false);
+      setAndroidBottomPadding(0);
     } else if (Platform.OS === 'android') {
-      const osResized =
-        closedHeightRef.current > 0 &&
-        closedHeightRef.current - currentHeightRef.current > keyboardHeight * 0.4;
-      setNeedsAndroidPadding(!osResized);
+      measureOverlap();
+      const timer = setTimeout(measureOverlap, 100);
+      return () => clearTimeout(timer);
     }
+  }, [keyboardHeight, keyboardScreenY, measureOverlap]);
 
+  const handleOuterLayout = useCallback(() => {
+    if (Platform.OS === 'android' && keyboardHeight > 0) {
+      measureOverlap();
+      const timer = setTimeout(measureOverlap, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [keyboardHeight, measureOverlap]);
+
+  useEffect(() => {
     if (keyboardHeight > 0) {
       const timer = setTimeout(() => {
         scrollRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      }, 150);
       return () => clearTimeout(timer);
     }
-  }, [keyboardHeight]);
+  }, [keyboardHeight, androidBottomPadding]);
 
   const starterPrompts = useMemo(
     () => [
@@ -270,17 +273,17 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
     );
   } else {
     content = (
-      <KeyboardAvoidingView
-        style={[
-          styles.container,
-          Platform.OS === 'android' && needsAndroidPadding && keyboardHeight > 0 && {
-            paddingBottom: keyboardHeight,
-          },
-        ]}
-        onLayout={handleContainerLayout}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? bottomTabBarHeight : 0}
-      >
+      <View ref={containerRef} collapsable={false} style={{ flex: 1 }} onLayout={handleOuterLayout}>
+        <KeyboardAvoidingView
+          style={[
+            styles.container,
+            Platform.OS === 'android' && androidBottomPadding > 0 && {
+              paddingBottom: androidBottomPadding,
+            },
+          ]}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? bottomTabBarHeight : 0}
+        >
         <View style={styles.disclaimerBar}>
           <View style={styles.disclaimerIconBox}>
             <Ionicons name="medkit-outline" size={16} color={theme.primary} />
@@ -394,7 +397,8 @@ export default function ChatScreen({ dogs, selectedDogId, onSwipeBack, navigatio
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    );
+    </View>
+  );
   }
 
   return swipeEnabled ? <SwipeBackWrapper onBack={onSwipeBack}>{content}</SwipeBackWrapper> : content;
