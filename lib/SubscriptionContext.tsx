@@ -46,7 +46,7 @@ const LEGACY_SUBSCRIPTION_STORAGE_KEY = '@pawcare_subscription';
 const CHAT_USAGE_KEY_PREFIX = '@bisco_chat_count_';
 const LEGACY_CHAT_USAGE_KEY_PREFIX = '@pawcare_chat_count_';
 const MAX_FREE_DAILY_CHATS = 5;
-const ENTITLEMENT_ID = 'pro';
+const ENTITLEMENT_ID = 'bisco_pro';
 
 const REVENUECAT_IOS_KEY =
   process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ||
